@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kure-config
+  namespace: kure-system
+data:
+  KURE_BACKEND_URL: "http://kure-backend:8000"
+  KURE_CHECK_INTERVAL: "5"
+  KURE_LOG_LEVEL: "INFO"
+  POSTGRES_HOST: "postgresql"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "kure"
+  POSTGRES_USER: "kure_user"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kure-secrets
+  namespace: kure-system
+type: Opaque
+stringData:
+  KURE_LLM_PROVIDER: "groq"  # Change to your provider
+  KURE_LLM_API_KEY: "your_api_key_here"  # Replace with your actual API key
+  KURE_LLM_MODEL: "llama-3.1-8b-instant"  # Optional

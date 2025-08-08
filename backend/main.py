@@ -1,59 +1,168 @@
-import os
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import List
-import openai
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import logging
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+from models import PodFailureReport, PodFailureResponse
+from solution_engine import SolutionEngine
+from database import Database
+from websocket import WebSocketManager
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-class PodEvent(BaseModel):
-    type: str
-    name: str
-    namespace: str
-    status: str
-    reason: str
-    timestamp: str
+# Global instances
+db = Database()
+solution_engine = SolutionEngine()
+websocket_manager = WebSocketManager()
 
-# Jednostruka memorija za primljene evente i AI odgovore
-stored_events = []
 
-def ask_openai(prompt: str) -> str:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await db.init_database()
+    logger.info("Database initialized")
+    yield
+    # Shutdown
+    await db.close()
+
+
+app = FastAPI(title="Kure Backend", version="1.0.0", lifespan=lifespan)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.post("/api/pods/failed", response_model=PodFailureResponse)
+async def report_failed_pod(report: PodFailureReport):
+    """Receive failed pod report from agent"""
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a Kubernetes expert assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150,
-            temperature=0.3
+        # Generate solution
+        pod_context = {
+            "name": report.pod_name,
+            "namespace": report.namespace,
+            "image": getattr(report, 'image', 'Unknown')
+        }
+        
+        solution = await solution_engine.get_solution(
+            reason=report.failure_reason,
+            message=report.failure_message,
+            events=report.events,
+            container_statuses=report.container_statuses,
+            pod_context=pod_context
         )
-        return response.choices[0].message.content.strip()
+
+        # Create response
+        response = PodFailureResponse(
+            **report.dict(),
+            solution=solution,
+            timestamp=report.creation_timestamp
+        )
+
+        # Save to database
+        await db.save_pod_failure(response)
+
+        # Notify frontend via WebSocket
+        await websocket_manager.broadcast_pod_failure(response)
+
+        logger.info(f"Processed failed pod: {report.pod_name}")
+        return response
+
     except Exception as e:
-        return f"OpenAI error: {str(e)}"
+        logger.error(f"Error processing pod failure: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/events")
-async def receive_event(event: PodEvent):
-    prompt = (
-        f"A Kubernetes Pod named `{event.name}` in namespace `{event.namespace}` is in status `{event.status}`. "
-        f"Reason: {event.reason}. "
-        "What is the likely cause and how to fix it? Respond briefly."
-    )
-    fix_suggestion = ask_openai(prompt)
 
-    record = {
-        "name": event.name,
-        "namespace": event.namespace,
-        "status": event.status,
-        "reason": event.reason,
-        "timestamp": event.timestamp,
-        "suggested_fix": fix_suggestion
-    }
-    stored_events.append(record)
-    return {"message": "Event received", "suggested_fix": fix_suggestion}
+@app.get("/api/pods/failed", response_model=list[PodFailureResponse])
+async def get_failed_pods():
+    """Get all failed pods from database"""
+    try:
+        return await db.get_pod_failures()
+    except Exception as e:
+        logger.error(f"Error getting pod failures: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/issues")
-async def get_issues():
-    return stored_events
+
+@app.get("/api/pods/ignored", response_model=list[PodFailureResponse])
+async def get_ignored_pods():
+    """Get all ignored pods from database"""
+    try:
+        return await db.get_pod_failures(include_dismissed=True, dismissed_only=True)
+    except Exception as e:
+        logger.error(f"Error getting ignored pods: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/pods/failed/{pod_id}")
+async def dismiss_pod_failure(pod_id: int):
+    """Mark a pod failure as resolved/dismissed"""
+    try:
+        await db.dismiss_pod_failure(pod_id)
+        return {"message": "Pod failure dismissed"}
+    except Exception as e:
+        logger.error(f"Error dismissing pod failure: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/pods/ignored/{pod_id}/restore")
+async def restore_pod_failure(pod_id: int):
+    """Restore/un-ignore a dismissed pod failure"""
+    try:
+        await db.restore_pod_failure(pod_id)
+        return {"message": "Pod failure restored"}
+    except Exception as e:
+        logger.error(f"Error restoring pod failure: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/pods/dismiss-deleted")
+async def dismiss_deleted_pod(request: dict):
+    """Mark pods as dismissed when they're deleted from Kubernetes"""
+    try:
+        namespace = request.get("namespace")
+        pod_name = request.get("pod_name")
+        
+        if not namespace or not pod_name:
+            raise HTTPException(status_code=400, detail="namespace and pod_name required")
+        
+        await db.dismiss_deleted_pod(namespace, pod_name)
+        
+        # Notify frontend via WebSocket that pod was removed
+        await websocket_manager.broadcast_pod_deleted(namespace, pod_name)
+        
+        logger.info(f"Dismissed deleted pod: {namespace}/{pod_name}")
+        return {"message": "Deleted pod dismissed"}
+    except Exception as e:
+        logger.error(f"Error dismissing deleted pod: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/pods/{namespace}/{pod_name}/manifest")
+async def get_pod_manifest(namespace: str, pod_name: str):
+    """Get pod manifest YAML from Kubernetes API"""
+    try:
+        # This would require Kubernetes client access from backend
+        # For now, return placeholder - this should be implemented if needed
+        return {"error": "Pod manifest retrieval not implemented yet"}
+    except Exception as e:
+        logger.error(f"Error getting pod manifest: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+
+# WebSocket endpoint
+app.include_router(websocket_manager.router)
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
