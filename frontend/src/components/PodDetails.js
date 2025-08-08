@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 const PodDetails = ({ pod, onViewManifest }) => {
   const formatTimestamp = (timestamp) => {
@@ -118,11 +119,8 @@ const PodDetails = ({ pod, onViewManifest }) => {
             View Manifest
           </button>
         </div>
-        <div 
-          className="bg-blue-50 border border-blue-200 rounded p-4 text-sm"
-          style={{ whiteSpace: 'pre-wrap' }}
-        >
-          {pod.solution}
+        <div className="bg-blue-50 border border-blue-200 rounded p-4 text-sm prose prose-sm max-w-none">
+          <ReactMarkdown>{pod.solution}</ReactMarkdown>
         </div>
       </div>
     </div>

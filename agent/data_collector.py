@@ -122,10 +122,37 @@ class DataCollector:
             logger.warning(f"Could not get logs for pod {pod_name}: {e}")
             return ''
 
+    def _clean_dict(self, obj):
+        """Recursively remove None/null values and empty objects from a dictionary"""
+        if isinstance(obj, dict):
+            cleaned = {}
+            for key, value in obj.items():
+                # Skip None values and empty lists/dicts
+                if value is None or (isinstance(value, (list, dict)) and len(value) == 0):
+                    continue
+                # Convert snake_case to camelCase for Kubernetes convention
+                if key in ['api_version', 'dns_policy', 'restart_policy', 'service_account_name', 
+                          'termination_grace_period_seconds', 'image_pull_policy', 'container_port',
+                          'mount_path', 'read_only', 'host_port', 'host_ip']:
+                    camel_key = self._to_camel_case(key)
+                    cleaned[camel_key] = self._clean_dict(value)
+                else:
+                    cleaned[key] = self._clean_dict(value)
+            return cleaned
+        elif isinstance(obj, list):
+            return [self._clean_dict(item) for item in obj if item is not None]
+        else:
+            return obj
+    
+    def _to_camel_case(self, snake_str):
+        """Convert snake_case to camelCase"""
+        components = snake_str.split('_')
+        return components[0] + ''.join(word.capitalize() for word in components[1:])
+
     def _get_pod_manifest(self, pod) -> str:
-        """Get the pod manifest as YAML"""
+        """Get the pod manifest as clean YAML"""
         try:
-            # Convert pod object to dict and then to YAML
+            # Convert pod object to dict
             pod_dict = pod.to_dict()
             logger.info(f"Generating manifest for pod {pod.metadata.name}")
             
@@ -133,16 +160,44 @@ class DataCollector:
             if 'status' in pod_dict:
                 del pod_dict['status']
             
-            # Remove some metadata fields that aren't useful for manifest viewing
+            # Ensure apiVersion and kind are present
+            pod_dict['apiVersion'] = 'v1'
+            pod_dict['kind'] = 'Pod'
+            
+            # Remove runtime metadata fields that aren't useful for manifest viewing
             if 'metadata' in pod_dict:
                 metadata = pod_dict['metadata']
-                for field in ['resource_version', 'uid', 'creation_timestamp', 'managed_fields']:
+                runtime_fields = ['resource_version', 'uid', 'self_link', 'generation', 
+                                'managed_fields', 'owner_references', 'finalizers']
+                for field in runtime_fields:
                     if field in metadata:
                         del metadata[field]
             
-            # Convert to YAML
-            manifest = yaml.safe_dump(pod_dict, default_flow_style=False, sort_keys=False)
-            logger.info(f"Generated manifest length: {len(manifest)} characters")
+            # Remove spec fields that are runtime-generated
+            if 'spec' in pod_dict:
+                spec = pod_dict['spec']
+                runtime_spec_fields = ['node_name', 'service_account', 'volumes', 'tolerations',
+                                     'scheduler_name', 'priority', 'preemption_policy', 'enable_service_links']
+                for field in runtime_spec_fields:
+                    if field in spec:
+                        del spec[field]
+                
+                # Clean container specs
+                if 'containers' in spec:
+                    for container in spec['containers']:
+                        # Remove runtime container fields
+                        runtime_container_fields = ['termination_message_path', 'termination_message_policy',
+                                                  'volume_mounts', 'resources']
+                        for field in runtime_container_fields:
+                            if field in container:
+                                del container[field]
+            
+            # Clean up the dictionary by removing None values
+            clean_pod_dict = self._clean_dict(pod_dict)
+            
+            # Convert to clean YAML
+            manifest = yaml.safe_dump(clean_pod_dict, default_flow_style=False, sort_keys=False)
+            logger.info(f"Generated clean manifest length: {len(manifest)} characters")
             return manifest
         except Exception as e:
             logger.error(f"Could not generate pod manifest: {e}")

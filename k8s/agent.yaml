@@ -25,11 +25,13 @@ spec:
         effect: NoSchedule
       containers:
       - name: agent
-        image: kure/agent:latest
+        image: ghcr.io/igor-koricanac/kure/agent:0.0.12
         envFrom:
         - configMapRef:
             name: kure-config
         env:
+        - name: CLUSTER_NAME
+          value: "kind-kure"
         - name: NODE_NAME
           valueFrom:
             fieldRef:

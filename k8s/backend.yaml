@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: kure/backend:latest
+        image: ghcr.io/igor-koricanac/kure/backend:0.0.12
         ports:
         - containerPort: 8000
         envFrom:

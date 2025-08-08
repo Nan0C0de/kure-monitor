@@ -1,7 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import uvicorn
 import logging
+import traceback
 from contextlib import asynccontextmanager
 
 from models import PodFailureReport, PodFailureResponse
@@ -16,6 +18,9 @@ logger = logging.getLogger(__name__)
 db = Database()
 solution_engine = SolutionEngine()
 websocket_manager = WebSocketManager()
+
+# Global cluster info
+cluster_info = {"cluster_name": "k8s-cluster"}
 
 
 @asynccontextmanager
@@ -40,10 +45,54 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for better error logging and responses"""
+    error_id = id(exc)  # Simple error ID for tracking
+    error_traceback = traceback.format_exc()
+    
+    # Log detailed error information
+    logger.error(f"Unhandled exception [ID:{error_id}] in {request.method} {request.url}: {exc}")
+    logger.error(f"Traceback [ID:{error_id}]:\n{error_traceback}")
+    
+    # Return user-friendly error response
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "message": f"An unexpected error occurred while processing your request",
+            "error_type": type(exc).__name__,
+            "error_id": error_id,
+            "details": str(exc)
+        }
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Enhanced HTTP exception handler"""
+    logger.warning(f"HTTP {exc.status_code} error in {request.method} {request.url}: {exc.detail}")
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": f"HTTP {exc.status_code} Error",
+            "message": exc.detail,
+            "path": str(request.url)
+        }
+    )
+
+
 @app.post("/api/pods/failed", response_model=PodFailureResponse)
 async def report_failed_pod(report: PodFailureReport):
     """Receive failed pod report from agent"""
+    logger.info(f"Received failure report for pod: {report.namespace}/{report.pod_name}")
+    
     try:
+        # Validate required fields
+        if not report.pod_name or not report.namespace:
+            raise HTTPException(status_code=400, detail="Pod name and namespace are required")
+        
         # Generate solution
         pod_context = {
             "name": report.pod_name,
@@ -51,6 +100,7 @@ async def report_failed_pod(report: PodFailureReport):
             "image": getattr(report, 'image', 'Unknown')
         }
         
+        logger.info(f"Generating solution for pod {report.namespace}/{report.pod_name}, failure reason: {report.failure_reason}")
         solution = await solution_engine.get_solution(
             reason=report.failure_reason,
             message=report.failure_message,
@@ -67,17 +117,27 @@ async def report_failed_pod(report: PodFailureReport):
         )
 
         # Save to database
+        logger.info(f"Saving pod failure to database: {report.namespace}/{report.pod_name}")
         await db.save_pod_failure(response)
 
         # Notify frontend via WebSocket
+        logger.info(f"Broadcasting pod failure via WebSocket: {report.namespace}/{report.pod_name}")
         await websocket_manager.broadcast_pod_failure(response)
 
-        logger.info(f"Processed failed pod: {report.pod_name}")
+        logger.info(f"Successfully processed failed pod: {report.namespace}/{report.pod_name}")
         return response
 
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
-        logger.error(f"Error processing pod failure: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = f"Failed to process pod failure report for {report.namespace}/{report.pod_name}: {str(e)}"
+        logger.error(error_msg)
+        logger.error(f"Error details: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Internal server error while processing pod failure: {str(e)}"
+        )
 
 
 @app.get("/api/pods/failed", response_model=list[PodFailureResponse])
@@ -153,6 +213,33 @@ async def get_pod_manifest(namespace: str, pod_name: str):
         return {"error": "Pod manifest retrieval not implemented yet"}
     except Exception as e:
         logger.error(f"Error getting pod manifest: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/cluster/register")
+async def register_cluster_info(request: dict):
+    """Register cluster information from agent"""
+    try:
+        cluster_name = request.get("cluster_name")
+        if not cluster_name:
+            raise HTTPException(status_code=400, detail="cluster_name is required")
+        
+        global cluster_info
+        cluster_info["cluster_name"] = cluster_name
+        logger.info(f"Registered cluster: {cluster_name}")
+        return {"message": "Cluster info registered successfully"}
+    except Exception as e:
+        logger.error(f"Error registering cluster info: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/cluster/info")
+async def get_cluster_info():
+    """Get cluster information"""
+    try:
+        return cluster_info
+    except Exception as e:
+        logger.error(f"Error getting cluster info: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

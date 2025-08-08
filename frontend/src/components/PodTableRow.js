@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { EyeOff, Eye, ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import PodDetails from './PodDetails';
 import ManifestModal from './ManifestModal';
 
-const PodTableRow = ({ pod, onIgnore, isIgnoredView = false }) => {
+const PodTableRow = ({ pod }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
 
@@ -54,35 +54,10 @@ const PodTableRow = ({ pod, onIgnore, isIgnoredView = false }) => {
             {formatTimestamp(pod.timestamp)}
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium align-top">
-          <div className="mt-0.5">
-            <button
-              onClick={() => onIgnore(pod.id)}
-              className={`flex items-center ${
-                isIgnoredView
-                  ? 'text-blue-600 hover:text-blue-900'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-              title={isIgnoredView ? "Restore this pod failure" : "Ignore this pod failure"}
-            >
-              {isIgnoredView ? (
-                <>
-                  <Eye className="w-4 h-4 mr-1" />
-                  Restore
-                </>
-              ) : (
-                <>
-                  <EyeOff className="w-4 h-4 mr-1" />
-                  Ignore
-                </>
-              )}
-            </button>
-          </div>
-        </td>
       </tr>
       {isExpanded && (
         <tr className="bg-gray-50">
-          <td colSpan="5" className="px-6 py-4">
+          <td colSpan="4" className="px-6 py-4">
             <PodDetails 
               pod={pod} 
               onViewManifest={() => setShowManifest(true)}

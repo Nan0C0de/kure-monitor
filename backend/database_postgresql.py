@@ -1,8 +1,9 @@
 import asyncpg
 import logging
 import os
+import json
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from database_base import DatabaseInterface
 from models import PodFailureResponse
 
@@ -13,6 +14,36 @@ class PostgreSQLDatabase(DatabaseInterface):
     def __init__(self):
         self.pool = None
         self.connection_string = self._get_connection_string()
+    
+    def _normalize_timestamp(self, timestamp) -> datetime:
+        """Convert timestamp to timezone-aware datetime object"""
+        if isinstance(timestamp, datetime):
+            # If it's already a datetime, ensure it has timezone info
+            if timestamp.tzinfo is None:
+                # Assume UTC if no timezone info
+                return timestamp.replace(tzinfo=timezone.utc)
+            return timestamp
+        elif isinstance(timestamp, str):
+            # Handle string timestamps
+            try:
+                # Replace 'Z' with '+00:00' for ISO format
+                timestamp_str = timestamp.replace('Z', '+00:00')
+                # Parse with timezone info
+                dt = datetime.fromisoformat(timestamp_str)
+                return dt
+            except ValueError:
+                # Fallback: try parsing as naive datetime and assume UTC
+                try:
+                    dt = datetime.fromisoformat(timestamp)
+                    return dt.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    # Last resort: use current time
+                    logger.warning(f"Could not parse timestamp '{timestamp}', using current time")
+                    return datetime.now(timezone.utc)
+        else:
+            # Fallback to current time
+            logger.warning(f"Unknown timestamp type '{type(timestamp)}', using current time")
+            return datetime.now(timezone.utc)
 
     def _get_connection_string(self) -> str:
         """Build PostgreSQL connection string from environment variables"""
@@ -36,14 +67,17 @@ class PostgreSQLDatabase(DatabaseInterface):
             
             # Create tables
             async with self.pool.acquire() as conn:
+                # Drop existing table to ensure clean schema
+                await conn.execute("DROP TABLE IF EXISTS pod_failures")
+                
                 await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS pod_failures (
+                    CREATE TABLE pod_failures (
                         id SERIAL PRIMARY KEY,
                         pod_name VARCHAR(255) NOT NULL,
                         namespace VARCHAR(255) NOT NULL,
                         node_name VARCHAR(255),
                         phase VARCHAR(50) NOT NULL,
-                        creation_timestamp TIMESTAMP NOT NULL,
+                        creation_timestamp TIMESTAMPTZ NOT NULL,
                         failure_reason VARCHAR(255) NOT NULL,
                         failure_message TEXT,
                         container_statuses JSONB,
@@ -51,9 +85,9 @@ class PostgreSQLDatabase(DatabaseInterface):
                         logs TEXT,
                         manifest TEXT,
                         solution TEXT NOT NULL,
-                        timestamp TIMESTAMP NOT NULL,
+                        timestamp TIMESTAMPTZ NOT NULL,
                         dismissed BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
                 
@@ -87,12 +121,14 @@ class PostgreSQLDatabase(DatabaseInterface):
             """, failure.pod_name, failure.namespace)
             
             # Convert datetime strings to proper datetime objects
-            creation_timestamp = datetime.fromisoformat(failure.creation_timestamp.replace('Z', '+00:00'))
-            timestamp = datetime.fromisoformat(failure.timestamp.replace('Z', '+00:00'))
+            logger.info(f"Original timestamps - creation: {failure.creation_timestamp} (type: {type(failure.creation_timestamp)}), timestamp: {failure.timestamp} (type: {type(failure.timestamp)})")
+            creation_timestamp = self._normalize_timestamp(failure.creation_timestamp)
+            timestamp = self._normalize_timestamp(failure.timestamp)
+            logger.info(f"Normalized timestamps - creation: {creation_timestamp} (tzinfo: {creation_timestamp.tzinfo}), timestamp: {timestamp} (tzinfo: {timestamp.tzinfo})")
             
-            # Convert container statuses and events to JSON
-            container_statuses = [status.dict() for status in failure.container_statuses]
-            events = [event.dict() for event in failure.events]
+            # Convert container statuses and events to JSON strings for JSONB
+            container_statuses = json.dumps([status.dict() for status in failure.container_statuses])
+            events = json.dumps([event.dict() for event in failure.events])
             
             if existing:
                 # Update existing record
@@ -164,8 +200,8 @@ class PostgreSQLDatabase(DatabaseInterface):
                     creation_timestamp=creation_timestamp,
                     failure_reason=row['failure_reason'],
                     failure_message=row['failure_message'],
-                    container_statuses=row['container_statuses'] or [],
-                    events=row['events'] or [],
+                    container_statuses=json.loads(row['container_statuses']) if row['container_statuses'] else [],
+                    events=json.loads(row['events']) if row['events'] else [],
                     logs=row['logs'],
                     manifest=row['manifest'] or '',
                     solution=row['solution'],

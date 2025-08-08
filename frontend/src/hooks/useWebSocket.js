@@ -5,7 +5,10 @@ export const useWebSocket = (onMessage) => {
   const [ws, setWs] = useState(null);
 
   useEffect(() => {
-    const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000/ws';
+    const WS_URL = process.env.REACT_APP_WS_URL || 
+      (window.location.hostname === 'localhost' && window.location.port === '3000' ? 
+        'ws://localhost:8000/ws' : 
+        `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
     const websocket = new WebSocket(WS_URL);
 
     websocket.onopen = () => {

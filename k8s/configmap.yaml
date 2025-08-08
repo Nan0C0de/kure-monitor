@@ -19,6 +19,6 @@ metadata:
   namespace: kure-system
 type: Opaque
 stringData:
-  KURE_LLM_PROVIDER: "groq"  # Change to your provider
-  KURE_LLM_API_KEY: "your_api_key_here"  # Replace with your actual API key
-  KURE_LLM_MODEL: "llama-3.1-8b-instant"  # Optional
+  KURE_LLM_PROVIDER: "groq"
+  KURE_LLM_API_KEY: "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"
+  KURE_LLM_MODEL: "llama-3.1-8b-instant"

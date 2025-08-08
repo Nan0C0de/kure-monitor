@@ -1,7 +1,7 @@
 import React from 'react';
 import PodTableRow from './PodTableRow';
 
-const PodTable = ({ pods, onIgnore, isIgnoredView = false }) => {
+const PodTable = ({ pods }) => {
   return (
     <div className="overflow-hidden">
       <table className="min-w-full divide-y divide-gray-200">
@@ -19,9 +19,6 @@ const PodTable = ({ pods, onIgnore, isIgnoredView = false }) => {
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Detected
             </th>
-            <th className="relative px-6 py-3">
-              <span className="sr-only">Actions</span>
-            </th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
@@ -29,8 +26,6 @@ const PodTable = ({ pods, onIgnore, isIgnoredView = false }) => {
             <PodTableRow
               key={pod.id}
               pod={pod}
-              onIgnore={onIgnore}
-              isIgnoredView={isIgnoredView}
             />
           ))}
         </tbody>

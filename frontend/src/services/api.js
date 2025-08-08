@@ -1,4 +1,6 @@
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.REACT_APP_API_URL || 
+  (window.location.hostname === 'localhost' && window.location.port === '3000' ? 
+    'http://localhost:8000' : '');
 
 export const api = {
   getFailedPods: async () => {
@@ -7,25 +9,9 @@ export const api = {
     return response.json();
   },
 
-  getIgnoredPods: async () => {
-    const response = await fetch(`${API_BASE}/api/pods/ignored`);
-    if (!response.ok) throw new Error('Failed to fetch ignored pods');
-    return response.json();
-  },
-
-  dismissPod: async (id) => {
-    const response = await fetch(`${API_BASE}/api/pods/failed/${id}`, {
-      method: 'DELETE'
-    });
-    if (!response.ok) throw new Error('Failed to dismiss');
-    return response.json();
-  },
-
-  restorePod: async (id) => {
-    const response = await fetch(`${API_BASE}/api/pods/ignored/${id}/restore`, {
-      method: 'PUT'
-    });
-    if (!response.ok) throw new Error('Failed to restore pod');
+  getClusterInfo: async () => {
+    const response = await fetch(`${API_BASE}/api/cluster/info`);
+    if (!response.ok) throw new Error('Failed to fetch cluster info');
     return response.json();
   }
 };
