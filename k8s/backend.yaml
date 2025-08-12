@@ -15,11 +15,25 @@ spec:
       labels:
         app: kure-backend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
       - name: backend
-        image: ghcr.io/igor-koricanac/kure/backend:0.0.12
+        image: ghcr.io/igor-koricanac/kure/backend:0.0.16
         ports:
         - containerPort: 8000
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
         envFrom:
         - configMapRef:
             name: kure-config

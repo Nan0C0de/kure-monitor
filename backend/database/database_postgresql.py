@@ -4,8 +4,8 @@ import os
 import json
 from typing import List
 from datetime import datetime, timezone
-from database_base import DatabaseInterface
-from models import PodFailureResponse
+from .database_base import DatabaseInterface
+from models.models import PodFailureResponse
 
 logger = logging.getLogger(__name__)
 

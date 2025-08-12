@@ -18,7 +18,7 @@ class PodEvent(BaseModel):
     message: str
     timestamp: Optional[str] = None
 
-class PodFailureReport(BaseModel):
+class PodFailureCreate(BaseModel):
     pod_name: str
     namespace: str
     node_name: Optional[str] = None
@@ -30,6 +30,9 @@ class PodFailureReport(BaseModel):
     events: List[PodEvent] = []
     logs: str = ""
     manifest: str = ""
+
+class PodFailureReport(PodFailureCreate):
+    pass
 
 class PodFailureResponse(PodFailureReport):
     id: Optional[int] = None

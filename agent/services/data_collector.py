@@ -17,6 +17,9 @@ class DataCollector:
         pod_name = pod.metadata.name
         namespace = pod.metadata.namespace
 
+        # Get events first as they may be needed for failure message
+        events = await self._get_pod_events(v1_client, namespace, pod_name)
+
         # Basic pod info
         pod_data = {
             'pod_name': pod_name,
@@ -24,19 +27,27 @@ class DataCollector:
             'node_name': pod.spec.node_name,
             'phase': pod.status.phase,
             'creation_timestamp': pod.metadata.creation_timestamp.isoformat(),
-            'failure_reason': self._get_failure_reason(pod),
-            'failure_message': self._get_failure_message(pod),
+            'failure_reason': self._get_failure_reason(pod, events),
+            'failure_message': self._get_failure_message(pod, events),
             'container_statuses': self._get_container_statuses(pod),
-            'events': await self._get_pod_events(v1_client, namespace, pod_name),
+            'events': events,
             'logs': await self._get_pod_logs(v1_client, namespace, pod_name),
             'manifest': self._get_pod_manifest(pod)
         }
 
         return pod_data
 
-    def _get_failure_reason(self, pod) -> str:
+    def _get_failure_reason(self, pod, events=None) -> str:
         """Extract the primary failure reason"""
         if pod.status.phase == 'Pending':
+            # Check events for more specific pending reasons
+            if events:
+                for event in events:
+                    if event.get('type') == 'Warning' and event.get('reason'):
+                        reason = event.get('reason')
+                        if reason in ['FailedMount', 'FailedScheduling', 'Failed', 'InvalidImageName', 'ErrImagePull', 'ImagePullBackOff', 
+                                     'CreateContainerError', 'RunContainerError', 'ErrImageNeverPull']:
+                            return reason
             return 'Pending'
 
         if not pod.status.container_statuses:
@@ -48,14 +59,27 @@ class DataCollector:
 
         return 'Unknown'
 
-    def _get_failure_message(self, pod) -> str:
-        """Extract the failure message"""
-        if not pod.status.container_statuses:
-            return ''
+    def _get_failure_message(self, pod, events=None) -> str:
+        """Extract the failure message from containers or events"""
+        # First try to get message from container statuses
+        if pod.status.container_statuses:
+            for container_status in pod.status.container_statuses:
+                if container_status.state.waiting and container_status.state.waiting.message:
+                    return container_status.state.waiting.message
 
-        for container_status in pod.status.container_statuses:
-            if container_status.state.waiting and container_status.state.waiting.message:
-                return container_status.state.waiting.message
+        # If no container message, check pod events for failure details
+        if events:
+            for event in events:
+                if event.get('type') == 'Warning' and event.get('message'):
+                    # Prioritize mount and scheduling failures
+                    reason = event.get('reason', '')
+                    if reason in ['FailedMount', 'FailedScheduling', 'Failed']:
+                        return event.get('message', '')
+            
+            # If no specific failure events, get the most recent warning message
+            for event in reversed(events):  # Most recent first
+                if event.get('type') == 'Warning' and event.get('message'):
+                    return event.get('message', '')
 
         return ''
 

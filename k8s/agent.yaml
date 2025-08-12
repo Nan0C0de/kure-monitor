@@ -15,6 +15,11 @@ spec:
         app: kure-agent
     spec:
       serviceAccountName: kure-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       # Ensure the agent runs on all nodes, including control plane nodes if needed
       tolerations:
       - key: node-role.kubernetes.io/control-plane
@@ -25,7 +30,16 @@ spec:
         effect: NoSchedule
       containers:
       - name: agent
-        image: ghcr.io/igor-koricanac/kure/agent:0.0.12
+        image: kure-agent:20250812-095227
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
         envFrom:
         - configMapRef:
             name: kure-config

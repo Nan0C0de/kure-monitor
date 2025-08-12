@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from pod_monitor import PodMonitor
+from services.pod_monitor import PodMonitor
 
 
 def main():

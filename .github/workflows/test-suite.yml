@@ -1,0 +1,287 @@
+name: Test Suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_scope:
+        description: 'Test scope to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - backend
+        - frontend
+        - agent
+      coverage_threshold:
+        description: 'Minimum coverage percentage'
+        required: false
+        default: '80'
+        type: string
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_scope == 'all' || github.event.inputs.test_scope == 'backend' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-backend-${{ hashFiles('backend/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-backend-
+          
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        
+    - name: Run backend tests
+      working-directory: ./backend
+      run: |
+        python -m pytest \
+          --cov=. \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --cov-fail-under=${{ github.event.inputs.coverage_threshold || '80' }} \
+          --junitxml=test-results.xml \
+          -v
+          
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-test-results
+        path: |
+          backend/test-results.xml
+          backend/coverage.xml
+          
+  frontend-tests:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_scope == 'all' || github.event.inputs.test_scope == 'frontend' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+      
+    - name: Run frontend tests
+      working-directory: ./frontend
+      run: |
+        npm test -- \
+          --coverage \
+          --coverageThreshold='{"global":{"branches":${{ github.event.inputs.coverage_threshold || 80 }},"functions":${{ github.event.inputs.coverage_threshold || 80 }},"lines":${{ github.event.inputs.coverage_threshold || 80 }},"statements":${{ github.event.inputs.coverage_threshold || 80 }}}}' \
+          --watchAll=false \
+          --reporters=default \
+          --reporters=jest-junit
+      env:
+        JEST_JUNIT_OUTPUT_DIR: ./test-results
+        JEST_JUNIT_OUTPUT_NAME: frontend-test-results.xml
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/clover.xml
+        flags: frontend
+        name: frontend-coverage
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: frontend-test-results
+        path: |
+          frontend/test-results/
+          frontend/coverage/
+          
+  agent-tests:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_scope == 'all' || github.event.inputs.test_scope == 'agent' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-agent-${{ hashFiles('agent/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-agent-
+          
+    - name: Install dependencies
+      working-directory: ./agent
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        
+    - name: Run agent tests
+      working-directory: ./agent
+      run: |
+        python -m pytest \
+          --cov=. \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --cov-fail-under=${{ github.event.inputs.coverage_threshold || '80' }} \
+          --junitxml=test-results.xml \
+          -v
+          
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./agent/coverage.xml
+        flags: agent
+        name: agent-coverage
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: agent-test-results
+        path: |
+          agent/test-results.xml
+          agent/coverage.xml
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_scope == 'all' }}
+    needs: [backend-tests, frontend-tests, agent-tests]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        
+    - name: Start backend server
+      working-directory: ./backend
+      run: |
+        python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+        sleep 5
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: test
+        POSTGRES_USER: test
+        POSTGRES_PASSWORD: test
+        
+    - name: Run integration tests
+      run: |
+        # Test health endpoint
+        curl -f http://localhost:8000/health || exit 1
+        
+        # Test API endpoints
+        curl -f http://localhost:8000/api/cluster/info || exit 1
+        curl -f http://localhost:8000/api/pods/failed || exit 1
+        
+        echo "✅ Integration tests passed"
+
+  test-summary:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [backend-tests, frontend-tests, agent-tests]
+    
+    steps:
+    - name: Download all test artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Generate test summary
+      run: |
+        echo "# Test Suite Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Test Scope:** ${{ github.event.inputs.test_scope }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Coverage Threshold:** ${{ github.event.inputs.coverage_threshold || '80' }}%" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "## Component Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ "${{ needs.backend-tests.result }}" == "success" ]]; then
+          echo "- ✅ **Backend Tests:** Passed" >> $GITHUB_STEP_SUMMARY
+        elif [[ "${{ needs.backend-tests.result }}" == "skipped" ]]; then
+          echo "- ⏭️ **Backend Tests:** Skipped" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Backend Tests:** Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [[ "${{ needs.frontend-tests.result }}" == "success" ]]; then
+          echo "- ✅ **Frontend Tests:** Passed" >> $GITHUB_STEP_SUMMARY
+        elif [[ "${{ needs.frontend-tests.result }}" == "skipped" ]]; then
+          echo "- ⏭️ **Frontend Tests:** Skipped" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Frontend Tests:** Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [[ "${{ needs.agent-tests.result }}" == "success" ]]; then
+          echo "- ✅ **Agent Tests:** Passed" >> $GITHUB_STEP_SUMMARY
+        elif [[ "${{ needs.agent-tests.result }}" == "skipped" ]]; then
+          echo "- ⏭️ **Agent Tests:** Skipped" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Agent Tests:** Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- 📊 Test results and coverage reports available in job artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- 📈 Coverage reports uploaded to Codecov" >> $GITHUB_STEP_SUMMARY

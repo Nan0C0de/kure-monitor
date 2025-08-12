@@ -4,7 +4,7 @@ metadata:
   name: kure-config
   namespace: kure-system
 data:
-  KURE_BACKEND_URL: "http://kure-backend:8000"
+  # Note: BACKEND_URL is hardcoded for security and cannot be overridden
   KURE_CHECK_INTERVAL: "5"
   KURE_LOG_LEVEL: "INFO"
   POSTGRES_HOST: "postgresql"

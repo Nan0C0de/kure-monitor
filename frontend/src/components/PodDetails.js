@@ -4,7 +4,41 @@ import ReactMarkdown from 'react-markdown';
 
 const PodDetails = ({ pod, onViewManifest }) => {
   const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Get error message from various sources
+  const getErrorMessage = () => {
+    // Primary: pod failure message
+    if (pod.failure_message && pod.failure_message.trim()) {
+      return pod.failure_message;
+    }
+    
+    // Fallback: container status message
+    if (pod.container_statuses) {
+      for (const container of pod.container_statuses) {
+        if (container.message && container.message.trim()) {
+          return container.message;
+        }
+      }
+    }
+    
+    // Fallback: recent warning events
+    if (pod.events) {
+      const warningEvents = pod.events.filter(e => e.type === 'Warning' && e.message);
+      if (warningEvents.length > 0) {
+        return warningEvents[0].message;
+      }
+    }
+    
+    // Last resort: generic message
+    return `Pod is in ${pod.failure_reason} state. Check events and container statuses for more details.`;
   };
 
   return (
@@ -35,14 +69,12 @@ const PodDetails = ({ pod, onViewManifest }) => {
               <dt className="font-medium text-gray-600 w-24">Reason:</dt>
               <dd className="text-gray-900">{pod.failure_reason}</dd>
             </div>
-            {pod.failure_message && (
-              <div>
-                <dt className="font-medium text-gray-600">Message:</dt>
-                <dd className="text-gray-900 text-xs bg-gray-100 p-2 rounded mt-1">
-                  {pod.failure_message}
-                </dd>
-              </div>
-            )}
+            <div>
+              <dt className="font-medium text-gray-600">Message:</dt>
+              <dd className="text-gray-900 text-xs bg-gray-100 p-2 rounded mt-1 break-words">
+                {getErrorMessage()}
+              </dd>
+            </div>
           </dl>
         </div>
       </div>

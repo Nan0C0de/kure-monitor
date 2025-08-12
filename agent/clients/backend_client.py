@@ -1,4 +1,5 @@
 import aiohttp
+import asyncio
 import json
 import logging
 from typing import Dict, Any
@@ -40,17 +41,17 @@ class BackendClient:
                             logger.error(f"Error message: {error_msg}")
                             if error_id:
                                 logger.error(f"Backend error ID: {error_id}")
-                        except:
+                        except Exception:
                             # If we can't parse JSON, get text response
                             try:
                                 error_text = await response.text()
                                 logger.error(f"Backend returned HTTP {response.status} for pod {pod_identifier}: {error_text}")
-                            except:
+                            except Exception:
                                 logger.error(f"Backend returned HTTP {response.status} for pod {pod_identifier} (no response body)")
                         
                         return False
                         
-        except aiohttp.ClientTimeout:
+        except asyncio.TimeoutError:
             logger.error(f"Timeout while reporting pod {pod_identifier} to backend (30s)")
             return False
         except aiohttp.ClientError as e:
@@ -106,11 +107,11 @@ class BackendClient:
                             error_data = await response.json()
                             error_msg = error_data.get('message', error_data.get('detail', 'Unknown error'))
                             logger.warning(f"Backend returned HTTP {response.status} for dismiss of pod {pod_identifier}: {error_msg}")
-                        except:
+                        except Exception:
                             logger.warning(f"Backend returned HTTP {response.status} for dismiss of pod {pod_identifier}")
                         return False
                         
-        except aiohttp.ClientTimeout:
+        except asyncio.TimeoutError:
             logger.warning(f"Timeout while notifying backend of deleted pod {pod_identifier} (10s)")
             return False
         except aiohttp.ClientError as e:

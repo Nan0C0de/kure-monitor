@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 import logging
 from typing import List
-from models import PodFailureResponse
+from models.models import PodFailureResponse
 
 logger = logging.getLogger(__name__)
 

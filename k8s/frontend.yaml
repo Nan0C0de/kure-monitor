@@ -15,11 +15,25 @@ spec:
       labels:
         app: kure-frontend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
       containers:
       - name: frontend
-        image: ghcr.io/igor-koricanac/kure/frontend:0.0.12
+        image: kure-frontend:20250812-101052
         ports:
         - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          capabilities:
+            drop:
+            - ALL
         resources:
           requests:
             memory: "64Mi"

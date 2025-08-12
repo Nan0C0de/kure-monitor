@@ -1,27 +1,214 @@
 # Kure 🩺
 
-**Real-time Kubernetes health agent with AI-assisted diagnostics.**
+**Real-time Kubernetes monitoring with AI-powered diagnostics**
 
-`kure` is a lightweight daemon that continuously monitors your Kubernetes cluster, detects problems with pods, nodes, and other resources, and immediately reports them to a central frontend interface — along with an AI-generated suggestion for how to fix the issue.
+Kure is a comprehensive Kubernetes health monitoring system that detects pod failures in real-time and provides AI-generated solutions for quick troubleshooting. Built with a modern microservices architecture, it continuously watches your cluster and delivers actionable insights through an intuitive web dashboard.
 
----
+## Features
 
-## 🚀 Features
+- 🔍 **Real-time Pod Monitoring** - Detects failures across all namespaces instantly
+- 🧠 **AI-Powered Solutions** - Generates contextual troubleshooting steps using LLMs
+- 📊 **Modern Web Dashboard** - Clean interface with expandable failure details
+- 🔒 **Secure by Design** - RBAC-compliant Alwith network policies and security contexts
+- 🌐 **Multi-Provider LLM Support** - OpenAI, Anthropic, and Groq integration
+- ⚡ **Lightweight & Scalable** - Minimal resource footprint with horizontal scaling
 
-- ⚡ Real-time detection of common Kubernetes issues (CrashLoopBackOff, ImagePullBackOff, Pending, etc.)
-- 🧠 AI-powered suggestions for fixing each detected problem (via OpenAI)
-- 📊 Web dashboard to display the cluster’s current health
-- 🔁 Continuous monitoring via Kubernetes API (no polling)
-- 🔒 Runs securely inside the cluster with RBAC and namespace awareness
+## Architecture
 
----
+```
+┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
+│ Kure Agent  │───▶│ Kure Backend │───▶│ LLM Providers   │
+│ (DaemonSet) │    │ (FastAPI)    │    │ OpenAI/Anthropic│
+└─────────────┘    └──────────────┘    └─────────────────┘
+       │                    │
+       │                    ▼
+       │            ┌──────────────┐
+       │            │ PostgreSQL   │
+       │            │ Database     │
+       │            └──────────────┘
+       │
+       ▼                    ▲
+┌─────────────┐            │
+│ Kubernetes  │            │
+│ API Server  │            │
+└─────────────┘            │
+                           │
+                    ┌──────────────┐
+                    │ Kure Frontend│
+                    │ (React)      │
+                    └──────────────┘
+```
 
-## 📦 Architecture Overview
+## Quick Start
 
-```text
-+-------------+       +--------------+       +---------------+       +------------------+
-| kure-agent  | --->  | kure-api     | --->  | OpenAI (GPT)  |       | kure-web (UI)    |
-| (in-cluster)|       | (backend API)|       | Suggest Fixes |       | Table of Issues  |
-+-------------+       +--------------+       +---------------+       +------------------+
-       |                                                        ^
-       | <--- Watches Pods, Nodes, Events ----------------------|
+### Prerequisites
+- Kubernetes cluster (1.20+)
+- kubectl configured
+- Docker (for building images)
+
+### Deploy to Kubernetes
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/kure.git
+   cd kure
+   ```
+
+2. **Configure LLM provider** (optional but recommended)
+   ```bash
+   kubectl create namespace kure-system
+   kubectl create secret generic kure-secrets -n kure-system \
+     --from-literal=KURE_LLM_PROVIDER=openai \
+     --from-literal=KURE_LLM_API_KEY=your_api_key_here \
+     --from-literal=KURE_LLM_MODEL=gpt-4o-mini
+   ```
+
+3. **Deploy the system**
+   ```bash
+   kubectl apply -f k8s/
+   ```
+
+4. **Access the dashboard**
+   ```bash
+   kubectl port-forward svc/kure-frontend 8080:8080 -n kure-system
+   # Open http://localhost:8080
+   ```
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Component | Description | Default | Required |
+|----------|-----------|-------------|---------|----------|
+| `KURE_LLM_PROVIDER` | Backend | LLM provider (`openai`, `anthropic`, `groq`) | None | No |
+| `KURE_LLM_API_KEY` | Backend | API key for chosen LLM provider | None | No* |
+| `KURE_LLM_MODEL` | Backend | Specific model to use | Provider default | No |
+| `POSTGRES_HOST` | Backend | PostgreSQL hostname | `postgresql` | No |
+| `POSTGRES_DB` | Backend | Database name | `kure` | No |
+| `POSTGRES_USER` | Backend | Database username | `kure` | No |
+| `POSTGRES_PASSWORD` | Backend | Database password | None | Yes** |
+| `CLUSTER_NAME` | Agent | Kubernetes cluster identifier | `k8s-cluster` | No |
+| `CHECK_INTERVAL` | Agent | Pod check interval (seconds) | `30` | No |
+
+\* Required if `KURE_LLM_PROVIDER` is set  
+\** Auto-generated if using included PostgreSQL deployment
+
+### Supported LLM Providers
+
+| Provider | Models | Environment Setup |
+|----------|--------|-------------------|
+| **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `gpt-3.5-turbo` | Set `OPENAI_API_KEY` |
+| **Anthropic** | `claude-3-haiku-20240307`, `claude-3-sonnet-20240229` | Set `ANTHROPIC_API_KEY` |
+| **Groq** | `mixtral-8x7b-32768`, `llama-3.1-8b-instant` | Set `GROQ_API_KEY` |
+
+## Development
+
+### Local Development
+
+1. **Backend (FastAPI)**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+2. **Frontend (React)**
+   ```bash
+   cd frontend
+   npm install
+   npm start  # http://localhost:3000
+   ```
+
+3. **Agent**
+   ```bash
+   cd agent
+   pip install -r requirements.txt
+   python main.py
+   ```
+
+### Building Images
+
+```bash
+# Build all images
+docker build -t kure/backend:latest ./backend/
+docker build -t kure/agent:latest ./agent/
+docker build -t kure/frontend:latest ./frontend/
+
+# Or use the build script
+./k8s/build.sh
+```
+
+### Running Tests
+
+```bash
+# Backend tests
+cd backend && python -m pytest
+
+# Frontend tests  
+cd frontend && npm test
+
+# Agent tests
+cd agent && python -m pytest
+
+# All tests via GitHub Actions
+gh workflow run test-suite.yml
+```
+
+## Monitoring and Troubleshooting
+
+### Check System Status
+```bash
+# Pod status
+kubectl get pods -n kure-system
+
+# View logs
+kubectl logs -l app=kure-backend -n kure-system
+kubectl logs -l app=kure-agent -n kure-system
+kubectl logs -l app=kure-frontend -n kure-system
+```
+
+### Common Issues
+
+| Issue | Symptom | Solution |
+|-------|---------|----------|
+| Agent not detecting failures | No pods in dashboard | Check RBAC permissions: `kubectl describe clusterrolebinding kure-agent` |
+| Backend connection errors | 500 errors in frontend | Verify database connection and network policies |
+| Frontend loading issues | Blank dashboard | Check service connectivity: `kubectl get svc -n kure-system` |
+| LLM solutions not generating | Generic solutions only | Verify API key and provider configuration |
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Run tests: `./scripts/run-tests.sh`
+4. Commit changes: `git commit -m 'Add amazing feature'`
+5. Push to branch: `git push origin feature/amazing-feature`
+6. Open a Pull Request
+
+## Security
+
+- All components run as non-root users
+- Network policies restrict inter-pod communication
+- RBAC limits agent permissions to read-only pod access
+- Security contexts prevent privilege escalation
+- Container images are regularly scanned for vulnerabilities
+
+## License
+
+This project is licensed under a **Custom Non-Commercial License**. See the [LICENSE](LICENSE) file for full details.
+
+### Key License Terms:
+
+- ✅ **Free for non-commercial use** - Personal projects, education, open-source contributions
+- ❌ **Commercial use requires permission** - Contact igor.koricanac@gmail.com for licensing
+- ✅ **Modifications allowed** - For non-commercial purposes only
+- 📧 **Commercial inquiries**: igor.koricanac@gmail.com
+
+**Summary**: You can freely use, modify, and distribute this software for non-commercial purposes. Commercial use, including in products or services that generate revenue, requires a separate commercial license.
+
+## Support
+
+- 📖 [Documentation](./docs/)
+- 🐛 [Report Issues](https://github.com/your-username/kure/issues)
+- 💬 [Discussions](https://github.com/your-username/kure/discussions)
+- 🔧 [Example Pod Failures](./examples/)

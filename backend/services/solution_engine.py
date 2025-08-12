@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Optional
-from models import PodEvent, ContainerStatus
-from llm_factory import LLMFactory
+from models.models import PodEvent, ContainerStatus
+from .llm_factory import LLMFactory
 
 logger = logging.getLogger(__name__)
 

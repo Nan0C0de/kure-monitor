@@ -6,9 +6,9 @@ from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 import json
 
-from backend_client import BackendClient
-from data_collector import DataCollector
-from config import Config
+from clients.backend_client import BackendClient
+from services.data_collector import DataCollector
+from config.config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class PodMonitor:
         try:
             config.load_incluster_config()  # For running in cluster
             self.cluster_name = self._get_cluster_name_from_env()
-        except:
+        except Exception:
             config.load_kube_config()  # For local development
             self.cluster_name = self._get_cluster_name_from_config()
 
@@ -46,7 +46,7 @@ class PodMonitor:
             hostname = os.environ.get('HOSTNAME', '')
             if 'kind' in hostname:
                 return 'kind-kure'
-        except:
+        except Exception:
             pass
             
         return 'k8s-cluster'
@@ -100,35 +100,55 @@ class PodMonitor:
             logger.error(f"Kubernetes API error: {e}")
 
     def _is_pod_failed(self, pod) -> bool:
-        """Check if pod is in a failed state"""
-        if not pod.status.container_statuses:
+        """Check if pod is not in ready/healthy state"""
+        # Skip system pods and completed jobs
+        namespace = pod.metadata.namespace
+        if namespace in ["kube-system", "kube-public", "kube-node-lease", "local-path-storage"]:
             return False
-
-        failed_states = [
-            "ImagePullBackOff",
-            "ErrImagePull",
-            "CrashLoopBackOff",
-            "Error",
-            "CreateContainerConfigError",
-            "InvalidImageName",
-        ]
-
-        # Check if pod is pending for too long
+            
+        # Skip our own monitoring components
+        if namespace == "kure-system":
+            return False
+            
+        # Failed phase is obviously a failure
+        if pod.status.phase == "Failed":
+            return True
+            
+        # Succeeded phase is for completed jobs - not a failure
+        if pod.status.phase == "Succeeded":
+            return False
+            
+        # Pending phase indicates the pod is not ready
         if pod.status.phase == "Pending":
-            creation_time = pod.metadata.creation_timestamp
-            if datetime.now(creation_time.tzinfo) - creation_time > timedelta(
-                minutes=5
-            ):
-                return True
-
-        # Check container states
-        for container_status in pod.status.container_statuses:
-            if container_status.state.waiting:
-                reason = container_status.state.waiting.reason
-                if reason in failed_states:
+            return True
+            
+        # For Running phase, only report failures for containers that are actually failing
+        if pod.status.phase == "Running":
+            # If no container statuses yet, pod might still be starting - not necessarily failed
+            if not pod.status.container_statuses:
+                return False
+                
+            # Check for actual container failures (not just "not ready")
+            for container_status in pod.status.container_statuses:
+                # Container terminated with failure (not due to completion)
+                if (container_status.state.terminated and 
+                    container_status.state.terminated.reason not in ["Completed"] and
+                    container_status.state.terminated.exit_code != 0):
                     return True
-
-        return False
+                    
+                # Container in crash loop or image pull issues
+                if container_status.state.waiting:
+                    waiting_reason = container_status.state.waiting.reason
+                    # Only report actual failures, not transitional states
+                    if waiting_reason in ["CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull", 
+                                         "InvalidImageName", "ErrImageNeverPull", "CreateContainerError"]:
+                        return True
+            
+            # Pod is running and containers are healthy or in normal transitional states
+            return False
+            
+        # Any other phase (shouldn't normally happen) - consider as failure
+        return True
 
     def _should_report_pod(self, pod) -> bool:
         """Check if we should report this pod (avoid spam)"""

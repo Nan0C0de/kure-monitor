@@ -9,13 +9,18 @@ const PodTableRow = ({ pod }) => {
   const [showManifest, setShowManifest] = useState(false);
 
   const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
     <>
       <tr className="hover:bg-gray-50 border-b border-gray-200">
-        <td className="px-6 py-4 align-top">
+        <td className="px-6 py-3 align-top">
           <div className="flex items-start">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
@@ -27,19 +32,29 @@ const PodTableRow = ({ pod }) => {
                 <ChevronRight className="w-4 h-4" />
               )}
             </button>
-            <div>
-              <div className="text-sm font-medium text-gray-900">{pod.pod_name}</div>
-              <div className="text-sm text-gray-500">{pod.namespace}</div>
+            <div className="flex-1">
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-left hover:bg-gray-50 rounded transition-colors w-full"
+              >
+                <div className="text-sm font-bold text-gray-900">{pod.pod_name}</div>
+                <div className="text-sm text-gray-500">{pod.namespace}</div>
+              </button>
             </div>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap align-top">
-          <div className="mt-0.5">
-            <StatusBadge reason={pod.failure_reason} />
+        <td className="px-6 py-3 align-top">
+          <div className="flex justify-start">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="hover:bg-gray-50 rounded transition-colors"
+            >
+              <StatusBadge reason={pod.failure_reason} />
+            </button>
           </div>
         </td>
-        <td className="px-6 py-4 align-top">
-          <div className="mt-0.5">
+        <td className="px-6 py-3 align-top">
+          <div className="w-full">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-sm text-left hover:bg-gray-50 rounded transition-colors w-full"
@@ -49,8 +64,8 @@ const PodTableRow = ({ pod }) => {
             </button>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
-          <div className="mt-0.5">
+        <td className="px-6 py-3 text-sm text-gray-500 align-top">
+          <div>
             {formatTimestamp(pod.timestamp)}
           </div>
         </td>

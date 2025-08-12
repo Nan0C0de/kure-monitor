@@ -5,13 +5,24 @@ const StatusBadge = ({ reason }) => {
     switch (reason) {
       case 'ImagePullBackOff':
       case 'ErrImagePull':
-        return 'bg-red-100 text-red-800 border-red-200';
+      case 'InvalidImageName':
+      case 'ErrImageNeverPull':
+        return 'bg-red-50 text-red-700 border-red-300';
       case 'CrashLoopBackOff':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
+        return 'bg-red-50 text-red-700 border-red-300';
+      case 'CreateContainerError':
+      case 'RunContainerError':
+        return 'bg-red-50 text-red-700 border-red-300';
       case 'Pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'bg-yellow-50 text-yellow-700 border-yellow-300';
+      case 'FailedMount':
+        return 'bg-red-50 text-red-700 border-red-300';
+      case 'FailedScheduling':
+        return 'bg-orange-50 text-orange-700 border-orange-300';
+      case 'Failed':
+        return 'bg-red-50 text-red-700 border-red-300';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-red-50 text-red-700 border-red-300';
     }
   };
 

@@ -90,14 +90,14 @@ const Dashboard = () => {
             </div>
 
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">{clusterName}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-sm text-gray-600">
-                  {connected ? 'Connected' : 'Disconnected'}
-                </span>
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-gray-600 font-medium">{clusterName}</span>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                  <span className="text-sm text-gray-600 font-bold">
+                    {connected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

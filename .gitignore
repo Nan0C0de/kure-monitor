@@ -216,8 +216,9 @@ __marimo__/
 CLAUDE.md
 .claude
 
-# Example
-example
+# k8s
+examples
+k8s
 
 # Secrets
-k8s/registry-secret.yaml
+k8s/registry-secret.yaml+
