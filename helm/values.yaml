@@ -1,0 +1,173 @@
+# Default values for kure
+# This is a YAML-formatted file.
+
+global:
+  namespace: kure-system
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Agent configuration
+agent:
+  enabled: true
+  image:
+    repository: ghcr.io/igor-koricanac/kure/agent
+    tag: "0.0.18"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  # RBAC settings
+  rbac:
+    create: true
+  
+  serviceAccount:
+    create: true
+    name: kure-agent
+
+# Backend configuration
+backend:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/igor-koricanac/kure/backend
+    tag: "0.0.19"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  env:
+    # Environment configuration
+    ENVIRONMENT: "production"
+    # LLM Configuration - REQUIRED VALUES
+    # Set these when installing: --set backend.env.KURE_LLM_PROVIDER=openai --set backend.env.KURE_LLM_API_KEY=your_key --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
+    KURE_LLM_PROVIDER: ""  # REQUIRED: openai, anthropic, or groq
+    KURE_LLM_API_KEY: ""   # REQUIRED: Your LLM provider API key
+    KURE_LLM_MODEL: ""     # REQUIRED: Model name for the provider
+  
+  # Database configuration - PostgreSQL only
+  database:
+    type: postgresql
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/igor-koricanac/kure/frontend
+    tag: "0.0.23"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: NodePort
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Environment variables for React app
+  env:
+    REACT_APP_API_URL: ""  # Will be set automatically to backend service
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: kure.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+  tls: []
+    # - secretName: kure-tls
+    #   hosts:
+    #     - kure.local
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  external: false  # Set to true to use external PostgreSQL
+  
+  # PostgreSQL connection details (for external or internal)
+  host: ""  # Only required if external: true
+  port: 5432
+  database: kure
+  username: kure
+  password: "kure-password-change-me"  # Change this in production!
+  
+  # Internal PostgreSQL deployment settings (ignored if external: true)
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001

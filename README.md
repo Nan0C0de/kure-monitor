@@ -1,4 +1,4 @@
-# Kure 🩺
+# Kure Monitor 🩺
 
 **Real-time Kubernetes monitoring with AI-powered diagnostics**
 
@@ -11,6 +11,7 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 - 📊 **Modern Web Dashboard** - Clean interface with expandable failure details
 - 🔒 **Secure by Design** - RBAC-compliant Alwith network policies and security contexts
 - 🌐 **Multi-Provider LLM Support** - OpenAI, Anthropic, and Groq integration
+- 🗄️ **PostgreSQL Backend** - Robust data persistence with full-text search
 - ⚡ **Lightweight & Scalable** - Minimal resource footprint with horizontal scaling
 
 ## Architecture
@@ -54,22 +55,31 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
    cd kure
    ```
 
-2. **Configure LLM provider** (optional but recommended)
+2. **Deploy with Helm** (recommended)
    ```bash
-   kubectl create namespace kure-system
-   kubectl create secret generic kure-secrets -n kure-system \
-     --from-literal=KURE_LLM_PROVIDER=openai \
-     --from-literal=KURE_LLM_API_KEY=your_api_key_here \
-     --from-literal=KURE_LLM_MODEL=gpt-4o-mini
+   # Add the Helm repository
+   helm repo add kure https://igorkoricanac.github.io/kure
+   helm repo update
+   
+   # Install with custom LLM configuration
+   helm install kure kure/kure --namespace kure-system --create-namespace \
+     --set backend.env.KURE_LLM_PROVIDER=openai \
+     --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
+     --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
    ```
-
-3. **Deploy the system**
+   
+   **OR deploy with Kubernetes manifests**
    ```bash
    kubectl apply -f k8s/
    ```
 
-4. **Access the dashboard**
+3. **Access the dashboard**
    ```bash
+   # Via NodePort (if using Helm default)
+   kubectl get svc kure-frontend -n kure-system
+   # Access via http://localhost:<nodePort>
+   
+   # OR via port-forward
    kubectl port-forward svc/kure-frontend 8080:8080 -n kure-system
    # Open http://localhost:8080
    ```
@@ -80,26 +90,25 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 
 | Variable | Component | Description | Default | Required |
 |----------|-----------|-------------|---------|----------|
-| `KURE_LLM_PROVIDER` | Backend | LLM provider (`openai`, `anthropic`, `groq`) | None | No |
-| `KURE_LLM_API_KEY` | Backend | API key for chosen LLM provider | None | No* |
-| `KURE_LLM_MODEL` | Backend | Specific model to use | Provider default | No |
-| `POSTGRES_HOST` | Backend | PostgreSQL hostname | `postgresql` | No |
-| `POSTGRES_DB` | Backend | Database name | `kure` | No |
-| `POSTGRES_USER` | Backend | Database username | `kure` | No |
-| `POSTGRES_PASSWORD` | Backend | Database password | None | Yes** |
+| `KURE_LLM_PROVIDER` | Backend | LLM provider (`openai`, `anthropic`, `groq`) | None | Yes* |
+| `KURE_LLM_API_KEY` | Backend | API key for chosen LLM provider | None | Yes* |
+| `KURE_LLM_MODEL` | Backend | Specific model to use | None | Yes* |
+| `DATABASE_URL` | Backend | PostgreSQL connection string | Auto-generated | Yes** |
 | `CLUSTER_NAME` | Agent | Kubernetes cluster identifier | `k8s-cluster` | No |
 | `CHECK_INTERVAL` | Agent | Pod check interval (seconds) | `30` | No |
 
-\* Required if `KURE_LLM_PROVIDER` is set  
+\* All three LLM values (PROVIDER, API_KEY, MODEL) must be provided together for AI functionality, or all omitted to use rule-based solutions only  
 \** Auto-generated if using included PostgreSQL deployment
 
 ### Supported LLM Providers
 
-| Provider | Models | Environment Setup |
-|----------|--------|-------------------|
-| **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `gpt-3.5-turbo` | Set `OPENAI_API_KEY` |
-| **Anthropic** | `claude-3-haiku-20240307`, `claude-3-sonnet-20240229` | Set `ANTHROPIC_API_KEY` |
-| **Groq** | `mixtral-8x7b-32768`, `llama-3.1-8b-instant` | Set `GROQ_API_KEY` |
+| Provider | Default Model | Alternative Models | Setup |
+|----------|---------------|-----------------------|-------|
+| **OpenAI** | `gpt-4o-mini` | `gpt-4o`, `gpt-4`, `gpt-3.5-turbo` | Set `KURE_LLM_PROVIDER=openai` |
+| **Anthropic** | `claude-3-haiku-20240307` | `claude-3-sonnet-20240229`, `claude-3-opus-20240229` | Set `KURE_LLM_PROVIDER=anthropic` |
+| **Groq** | `llama-3.1-8b-instant` | `mixtral-8x7b-32768`, `llama-3.1-70b-versatile` | Set `KURE_LLM_PROVIDER=groq` |
+
+**Provider Aliases:** `claude` → `anthropic`, `groq_cloud` → `groq`
 
 ## Development
 
@@ -129,19 +138,21 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 ### Building Images
 
 ```bash
-# Build all images
-docker build -t kure/backend:latest ./backend/
-docker build -t kure/agent:latest ./agent/
-docker build -t kure/frontend:latest ./frontend/
+# Build all images with current tags
+docker build -t ghcr.io/igor-koricanac/kure/agent:0.0.18 ./agent/
+docker build -t ghcr.io/igor-koricanac/kure/backend:0.0.19 ./backend/
+docker build -t ghcr.io/igor-koricanac/kure/frontend:0.0.23 ./frontend/
 
-# Or use the build script
-./k8s/build.sh
+# Push to registry
+docker push ghcr.io/igor-koricanac/kure/agent:0.0.18
+docker push ghcr.io/igor-koricanac/kure/backend:0.0.19
+docker push ghcr.io/igor-koricanac/kure/frontend:0.0.23
 ```
 
 ### Running Tests
 
 ```bash
-# Backend tests
+# Backend tests (requires PostgreSQL)
 cd backend && python -m pytest
 
 # Frontend tests  
@@ -172,7 +183,7 @@ kubectl logs -l app=kure-frontend -n kure-system
 | Issue | Symptom | Solution |
 |-------|---------|----------|
 | Agent not detecting failures | No pods in dashboard | Check RBAC permissions: `kubectl describe clusterrolebinding kure-agent` |
-| Backend connection errors | 500 errors in frontend | Verify database connection and network policies |
+| Backend connection errors | 500 errors in frontend | Verify PostgreSQL connection and network policies |
 | Frontend loading issues | Blank dashboard | Check service connectivity: `kubectl get svc -n kure-system` |
 | LLM solutions not generating | Generic solutions only | Verify API key and provider configuration |
 

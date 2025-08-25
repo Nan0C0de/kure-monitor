@@ -1,0 +1,8 @@
+# Artifact Hub repository metadata file
+#
+# https://github.com/artifacthub/hub/blob/master/docs/metadata/artifacthub-repo.yml
+#
+repositoryID: 01234567-89ab-cdef-0123-456789abcdef
+owners: # (optional, used to claim repository ownership)
+  - name: Igor Koričanac
+    email: igor.koricanac@gmail.com

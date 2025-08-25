@@ -1,0 +1,15 @@
+# Chart Releaser configuration
+owner: igor-koricanac
+git-repo: kure
+charts-dir: .
+target-branch: gh-pages
+package-path: .cr-release-packages
+index-path: .cr-index
+commit-username: ""
+commit-email: ""
+push: true
+pr: false
+release-name-template: "{{ .Name }}-{{ .Version }}"
+skip-packaging: false
+skip-upload: false
+skip-dependencies: false

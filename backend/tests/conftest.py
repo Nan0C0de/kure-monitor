@@ -1,6 +1,5 @@
 import pytest
 import asyncio
-import aiosqlite
 from httpx import AsyncClient
 from core.app import create_app
 from database.database import Database
@@ -16,10 +15,11 @@ def event_loop():
 
 @pytest.fixture
 async def test_db():
-    """Create test database"""
+    """Create test database - PostgreSQL only"""
+    # Note: Tests now require a PostgreSQL test database
+    # Set DATABASE_URL environment variable for testing
     db = Database()
-    db.database_url = ":memory:"
-    await db.initialize()
+    await db.init_database()
     yield db
     await db.close()
 

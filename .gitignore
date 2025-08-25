@@ -68,8 +68,6 @@ cover/
 # Django stuff:
 *.log
 local_settings.py
-db.sqlite3
-db.sqlite3-journal
 
 # Flask stuff:
 instance/
@@ -221,4 +219,7 @@ examples
 k8s
 
 # Secrets
-k8s/registry-secret.yaml+
+k8s/registry-secret.yaml
+
+# Markdown
+HELM_RELEASE.md

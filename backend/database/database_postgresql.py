@@ -46,14 +46,12 @@ class PostgreSQLDatabase(DatabaseInterface):
             return datetime.now(timezone.utc)
 
     def _get_connection_string(self) -> str:
-        """Build PostgreSQL connection string from environment variables"""
-        host = os.getenv("POSTGRES_HOST", "postgresql")
-        port = os.getenv("POSTGRES_PORT", "5432")
-        database = os.getenv("POSTGRES_DB", "kure")
-        user = os.getenv("POSTGRES_USER", "kure_user")
-        password = os.getenv("POSTGRES_PASSWORD", "kure_password_change_in_production")
+        """Get PostgreSQL connection string from DATABASE_URL environment variable"""
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            raise ValueError("DATABASE_URL environment variable is required")
         
-        return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+        return database_url
 
     async def init_database(self):
         """Initialize the PostgreSQL connection pool and create tables"""

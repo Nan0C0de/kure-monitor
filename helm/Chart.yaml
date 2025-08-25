@@ -1,0 +1,17 @@
+apiVersion: v2
+name: kure
+description: A Kubernetes health monitoring system with agent, backend, and frontend components
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - kubernetes
+  - monitoring
+  - health
+  - observability
+home: https://github.com/igor-koricanac/kure
+sources:
+  - https://github.com/igor-koricanac/kure
+maintainers:
+  - name: Kure Team
+    email: igor.koricanac@gmail.com

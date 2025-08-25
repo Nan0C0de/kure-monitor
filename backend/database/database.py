@@ -7,29 +7,19 @@ logger = logging.getLogger(__name__)
 
 def get_database() -> DatabaseInterface:
     """
-    Factory function to get the appropriate database implementation
-    based on environment detection.
+    Factory function to get PostgreSQL database implementation.
     
     Returns:
-        - PostgreSQLDatabase if running in Kubernetes (POSTGRES_HOST env var exists)
-        - SQLiteDatabase for local development (fallback)
+        - PostgreSQLDatabase (only supported database)
     """
     
-    # Check if we're in a Kubernetes environment with PostgreSQL
-    if os.getenv("POSTGRES_HOST"):
-        logger.info("Detected Kubernetes environment - using PostgreSQL database")
-        try:
-            from .database_postgresql import PostgreSQLDatabase
-            return PostgreSQLDatabase()
-        except ImportError as e:
-            logger.error(f"PostgreSQL dependencies not available: {e}")
-            logger.info("Falling back to SQLite database")
-            from .database_sqlite import SQLiteDatabase
-            return SQLiteDatabase()
-    else:
-        logger.info("Detected local development environment - using SQLite database")
-        from .database_sqlite import SQLiteDatabase
-        return SQLiteDatabase()
+    logger.info("Using PostgreSQL database")
+    try:
+        from .database_postgresql import PostgreSQLDatabase
+        return PostgreSQLDatabase()
+    except ImportError as e:
+        logger.error(f"PostgreSQL dependencies not available: {e}")
+        raise ImportError("PostgreSQL is required but dependencies are not available")
 
 
 # For backward compatibility, create a Database class that wraps the factory function

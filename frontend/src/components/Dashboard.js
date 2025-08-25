@@ -9,6 +9,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [clusterName, setClusterName] = useState('k8s-cluster');
+  const [namespaceFilter, setNamespaceFilter] = useState('');
 
   // Handle WebSocket messages
   const handleWebSocketMessage = (message) => {
@@ -42,6 +43,11 @@ const Dashboard = () => {
   };
 
   const { connected } = useWebSocket(handleWebSocketMessage);
+
+  // Filter pods based on namespace input
+  const filteredPods = namespaceFilter.trim() === '' 
+    ? pods 
+    : pods.filter(pod => pod.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim()));
 
   // Load initial data
   useEffect(() => {
@@ -116,15 +122,41 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* Namespace Filter */}
+        <div className="flex justify-end mb-4">
+          <div className="flex items-center space-x-2">
+            <label htmlFor="namespace-filter" className="text-sm font-medium text-gray-700">
+              Filter by namespace:
+            </label>
+            <input
+              id="namespace-filter"
+              type="text"
+              value={namespaceFilter}
+              onChange={(e) => setNamespaceFilter(e.target.value)}
+              placeholder="Enter namespace"
+              className="block w-40 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
         <div className="bg-white shadow rounded-lg">
-          {pods.length === 0 ? (
+          {filteredPods.length === 0 ? (
             <div className="text-center py-12">
               <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">All Good!</h3>
-              <p className="text-gray-600">No pod failures detected in your cluster.</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {pods.length === 0 ? 'All Good!' : 'No Failures Found'}
+              </h3>
+              <p className="text-gray-600">
+                {pods.length === 0 
+                  ? 'No pod failures detected in your cluster.' 
+                  : namespaceFilter.trim() === '' 
+                    ? 'No pod failures found in your cluster.'
+                    : `No pod failures found matching namespace '${namespaceFilter}'.`
+                }
+              </p>
             </div>
           ) : (
-            <PodTable pods={pods} />
+            <PodTable pods={filteredPods} />
           )}
         </div>
       </div>
