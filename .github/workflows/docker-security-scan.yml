@@ -34,13 +34,13 @@ jobs:
       matrix:
         include:
           - name: backend
-            image: ghcr.io/igor-koricanac/kure/backend
+            image: ghcr.io/nan0c0de/kure/backend
             version: 0.0.16
           - name: frontend
-            image: ghcr.io/igor-koricanac/kure/frontend
+            image: ghcr.io/nan0c0de/kure/frontend
             version: 0.0.13
           - name: agent
-            image: ghcr.io/igor-koricanac/kure/agent
+            image: ghcr.io/nan0c0de/kure/agent
             version: 0.0.14
     
     steps:
@@ -134,7 +134,7 @@ jobs:
     
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       
     - name: Generate security scan summary
       run: |

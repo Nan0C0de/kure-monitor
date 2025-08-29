@@ -2,7 +2,11 @@
 #
 # https://github.com/artifacthub/hub/blob/master/docs/metadata/artifacthub-repo.yml
 #
-repositoryID: 01234567-89ab-cdef-0123-456789abcdef
-owners: # (optional, used to claim repository ownership)
-  - name: Igor Koričanac
-    email: igor.koricanac@gmail.com
+repositoryID: 4f7a8b2c-1d3e-4a5f-9c7b-2e6d8f9a1b3c
+owners:
+  - name: Nan0C0de
+    email: nano.code@outlook.com
+displayName: Kure Helm Charts
+description: Kubernetes health monitoring system with intelligent failure detection and solution recommendations
+url: https://nan0c0de.github.io/kure/
+branch: gh-pages

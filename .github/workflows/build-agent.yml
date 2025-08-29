@@ -11,7 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/agent
+  IMAGE_NAME: nan0c0de/kure/agent
 
 jobs:
   build-and-push:

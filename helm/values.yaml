@@ -10,8 +10,8 @@ global:
 agent:
   enabled: true
   image:
-    repository: ghcr.io/igor-koricanac/kure/agent
-    tag: "0.0.18"
+    repository: ghcr.io/nan0c0de/kure/agent
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   
   resources:
@@ -40,8 +40,8 @@ backend:
   replicaCount: 1
   
   image:
-    repository: ghcr.io/igor-koricanac/kure/backend
-    tag: "0.0.19"
+    repository: ghcr.io/nan0c0de/kure/backend
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   
   service:
@@ -80,8 +80,8 @@ frontend:
   replicaCount: 1
   
   image:
-    repository: ghcr.io/igor-koricanac/kure/frontend
-    tag: "0.0.23"
+    repository: ghcr.io/nan0c0de/kure/frontend
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   
   service:

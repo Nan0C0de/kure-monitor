@@ -110,61 +110,6 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 
 **Provider Aliases:** `claude` → `anthropic`, `groq_cloud` → `groq`
 
-## Development
-
-### Local Development
-
-1. **Backend (FastAPI)**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-2. **Frontend (React)**
-   ```bash
-   cd frontend
-   npm install
-   npm start  # http://localhost:3000
-   ```
-
-3. **Agent**
-   ```bash
-   cd agent
-   pip install -r requirements.txt
-   python main.py
-   ```
-
-### Building Images
-
-```bash
-# Build all images with current tags
-docker build -t ghcr.io/igor-koricanac/kure/agent:0.0.18 ./agent/
-docker build -t ghcr.io/igor-koricanac/kure/backend:0.0.19 ./backend/
-docker build -t ghcr.io/igor-koricanac/kure/frontend:0.0.23 ./frontend/
-
-# Push to registry
-docker push ghcr.io/igor-koricanac/kure/agent:0.0.18
-docker push ghcr.io/igor-koricanac/kure/backend:0.0.19
-docker push ghcr.io/igor-koricanac/kure/frontend:0.0.23
-```
-
-### Running Tests
-
-```bash
-# Backend tests (requires PostgreSQL)
-cd backend && python -m pytest
-
-# Frontend tests  
-cd frontend && npm test
-
-# Agent tests
-cd agent && python -m pytest
-
-# All tests via GitHub Actions
-gh workflow run test-suite.yml
-```
-
 ## Monitoring and Troubleshooting
 
 ### Check System Status
@@ -191,10 +136,9 @@ kubectl logs -l app=kure-frontend -n kure-system
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Run tests: `./scripts/run-tests.sh`
-4. Commit changes: `git commit -m 'Add amazing feature'`
-5. Push to branch: `git push origin feature/amazing-feature`
-6. Open a Pull Request
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
 ## Security
 
@@ -216,10 +160,3 @@ This project is licensed under a **Custom Non-Commercial License**. See the [LIC
 - 📧 **Commercial inquiries**: igor.koricanac@gmail.com
 
 **Summary**: You can freely use, modify, and distribute this software for non-commercial purposes. Commercial use, including in products or services that generate revenue, requires a separate commercial license.
-
-## Support
-
-- 📖 [Documentation](./docs/)
-- 🐛 [Report Issues](https://github.com/your-username/kure/issues)
-- 💬 [Discussions](https://github.com/your-username/kure/discussions)
-- 🔧 [Example Pod Failures](./examples/)
