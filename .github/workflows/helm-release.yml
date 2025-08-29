@@ -68,16 +68,22 @@ jobs:
     - name: Setup Pages
       uses: actions/configure-pages@v5
 
-    - name: Ensure index directory exists
+    - name: Package chart manually
       run: |
-        mkdir -p .cr-index
-        if [ -f .cr-release-packages/*.tgz ]; then
-          helm repo index .cr-release-packages --url https://nan0c0de.github.io/kure-monitor/ 
-          cp .cr-release-packages/index.yaml .cr-index/
-        else
-          echo "apiVersion: v1" > .cr-index/index.yaml
-          echo "entries: {}" >> .cr-index/index.yaml
-        fi
+        mkdir -p .cr-release-packages .cr-index
+        
+        # Package the chart
+        helm package helm/ --destination .cr-release-packages/
+        
+        # Create the index
+        helm repo index .cr-release-packages --url https://nan0c0de.github.io/kure-monitor/
+        
+        # Copy to index directory
+        cp .cr-release-packages/index.yaml .cr-index/
+        
+        echo "Chart packaged and indexed successfully"
+        ls -la .cr-release-packages/
+        cat .cr-index/index.yaml
 
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v4
