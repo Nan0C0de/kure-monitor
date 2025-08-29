@@ -1,6 +1,6 @@
 # Chart Releaser configuration
-owner: igor-koricanac
-git-repo: kure
+owner: Nan0C0de
+git-repo: kure-monitor
 charts-dir: .
 target-branch: gh-pages
 package-path: .cr-release-packages
