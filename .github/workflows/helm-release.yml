@@ -2,9 +2,15 @@ name: Release Helm Charts
 
 on:
   workflow_dispatch:
+    inputs:
+      chart_version:
+        description: 'Chart version to release'
+        required: true
+        default: '1.0.0'
+        type: string
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -15,6 +21,9 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - name: Checkout
       uses: actions/checkout@v5
@@ -35,22 +44,48 @@ jobs:
       run: |
         helm repo add stable https://charts.helm.sh/stable
 
+    - name: Update Chart version
+      run: |
+        sed -i "s/^version: .*/version: ${{ github.event.inputs.chart_version }}/" helm/Chart.yaml
+        git add helm/Chart.yaml
+        git commit -m "Update chart version to ${{ github.event.inputs.chart_version }}" || echo "No changes to commit"
+
     - name: Run chart-releaser
       uses: helm/chart-releaser-action@v1.6.0
       env:
         CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
       with:
-        charts_dir: .
+        charts_dir: helm
         config: cr.yaml
 
+    - name: Check directories
+      run: |
+        echo "Contents of current directory:"
+        ls -la
+        echo "Checking for chart releaser output:"
+        ls -la .cr-* 2>/dev/null || echo "No .cr-* directories found"
+      
     - name: Setup Pages
       uses: actions/configure-pages@v5
-      
+
+    - name: Ensure index directory exists
+      run: |
+        mkdir -p .cr-index
+        if [ -f .cr-release-packages/*.tgz ]; then
+          helm repo index .cr-release-packages --url https://nan0c0de.github.io/kure-monitor/ 
+          cp .cr-release-packages/index.yaml .cr-index/
+        else
+          echo "apiVersion: v1" > .cr-index/index.yaml
+          echo "entries: {}" >> .cr-index/index.yaml
+        fi
+
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v4
+      if: success()
       with:
-        path: .cr-release-packages
+        path: .cr-index
         
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4
+      if: success()

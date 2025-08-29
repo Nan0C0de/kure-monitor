@@ -1,12 +1,12 @@
 # Chart Releaser configuration
 owner: Nan0C0de
 git-repo: kure-monitor
-charts-dir: .
+charts-dir: helm
 target-branch: gh-pages
 package-path: .cr-release-packages
 index-path: .cr-index
-commit-username: ""
-commit-email: ""
+commit-username: "Nan0C0de"
+commit-email: "nano.code@outlook.com"
 push: true
 pr: false
 release-name-template: "{{ .Name }}-{{ .Version }}"
