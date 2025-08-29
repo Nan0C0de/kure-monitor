@@ -2,10 +2,23 @@
 <html>
 <head>
     <title>Kure Helm Chart Repository</title>
-    <meta http-equiv="refresh" content="0; url=index.yaml">
 </head>
 <body>
     <h1>Kure Helm Chart Repository</h1>
-    <p>This is a Helm chart repository. View the <a href="index.yaml">chart index</a>.</p>
+    <p>This is a Helm chart repository for <strong>Kure</strong> - Kubernetes health monitoring system.</p>
+    
+    <h2>Add Repository</h2>
+    <pre><code>helm repo add kure https://nan0c0de.github.io/kure-monitor/
+helm repo update</code></pre>
+    
+    <h2>Install Chart</h2>
+    <pre><code>helm install my-kure kure/kure</code></pre>
+    
+    <h2>Links</h2>
+    <ul>
+        <li><a href="index.yaml">Chart Index (index.yaml)</a></li>
+        <li><a href="https://github.com/Nan0C0de/kure">Source Code</a></li>
+        <li><a href="https://artifacthub.io/packages/helm/kure-monitor/kure">Artifact Hub</a></li>
+    </ul>
 </body>
 </html>
