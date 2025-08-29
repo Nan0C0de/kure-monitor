@@ -87,6 +87,19 @@ jobs:
         # Copy chart packages to index directory
         cp .cr-release-packages/*.tgz .cr-index/
         
+        # Create index.html for root access
+        echo '<!DOCTYPE html>
+<html>
+<head>
+    <title>Kure Helm Chart Repository</title>
+    <meta http-equiv="refresh" content="0; url=index.yaml">
+</head>
+<body>
+    <h1>Kure Helm Chart Repository</h1>
+    <p>This is a Helm chart repository. View the <a href="index.yaml">chart index</a>.</p>
+</body>
+</html>' > .cr-index/index.html
+        
         echo "Chart packaged and indexed successfully"
         ls -la .cr-release-packages/
         cat .cr-index/index.yaml
