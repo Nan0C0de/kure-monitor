@@ -75,11 +75,17 @@ jobs:
         # Package the chart
         helm package helm/ --destination .cr-release-packages/
         
-        # Create the index
+        # Create the index with cache busting
         helm repo index .cr-release-packages --url https://nan0c0de.github.io/kure-monitor/
+        
+        # Add cache headers
+        echo "# Generated at $(date)" >> .cr-index/index.yaml
         
         # Copy to index directory
         cp .cr-release-packages/index.yaml .cr-index/
+        
+        # Copy chart packages to index directory
+        cp .cr-release-packages/*.tgz .cr-index/
         
         echo "Chart packaged and indexed successfully"
         ls -la .cr-release-packages/
