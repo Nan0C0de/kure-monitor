@@ -8,7 +8,6 @@ global:
 
 # Agent configuration
 agent:
-  enabled: true
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/agent
     tag: "1.0.0"
@@ -36,7 +35,6 @@ agent:
 
 # Backend configuration
 backend:
-  enabled: true
   replicaCount: 1
   
   image:
@@ -76,7 +74,6 @@ backend:
 
 # Frontend configuration
 frontend:
-  enabled: true
   replicaCount: 1
   
   image:
@@ -136,7 +133,6 @@ securityContext:
 
 # PostgreSQL configuration
 postgresql:
-  enabled: true
   external: false  # Set to true to use external PostgreSQL
   
   # PostgreSQL connection details (for external or internal)

@@ -1,4 +1,4 @@
-{{- if and .Values.postgresql.enabled (not .Values.postgresql.external) }}
+{{- if not .Values.postgresql.external }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -76,4 +76,3 @@ spec:
         {{- else }}
         emptyDir: {}
         {{- end }}
-{{- end }}

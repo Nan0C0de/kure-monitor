@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "default": "kure-system"
+        },
+        "imageRegistry": {
+          "type": "string",
+          "default": ""
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "default": "ghcr.io/nan0c0de/kure-monitor/agent"
+            },
+            "tag": {
+              "type": "string",
+              "default": "1.0.0"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "default": "IfNotPresent"
+            }
+          },
+          "required": ["repository", "tag"]
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {"type": "string", "default": "100m"},
+                "memory": {"type": "string", "default": "128Mi"}
+              }
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {"type": "string", "default": "500m"},
+                "memory": {"type": "string", "default": "512Mi"}
+              }
+            }
+          }
+        },
+        "rbac": {
+          "type": "object",
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        "serviceAccount": {
+          "type": "object",
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "default": true
+            },
+            "name": {
+              "type": "string",
+              "default": "kure-agent"
+            }
+          }
+        }
+      },
+      "required": ["image"]
+    },
+    "backend": {
+      "type": "object",
+      "properties": {
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "default": "ghcr.io/nan0c0de/kure-monitor/backend"
+            },
+            "tag": {
+              "type": "string",
+              "default": "1.0.0"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "default": "IfNotPresent"
+            }
+          },
+          "required": ["repository", "tag"]
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "default": "ClusterIP"
+            },
+            "port": {
+              "type": "integer",
+              "default": 8000
+            },
+            "targetPort": {
+              "type": "integer",
+              "default": 8000
+            }
+          }
+        },
+        "env": {
+          "type": "object",
+          "properties": {
+            "ENVIRONMENT": {
+              "type": "string",
+              "default": "production"
+            },
+            "KURE_LLM_PROVIDER": {
+              "type": "string",
+              "enum": ["", "openai", "anthropic", "groq"],
+              "default": ""
+            },
+            "KURE_LLM_API_KEY": {
+              "type": "string",
+              "default": ""
+            },
+            "KURE_LLM_MODEL": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {"type": "string", "default": "200m"},
+                "memory": {"type": "string", "default": "256Mi"}
+              }
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {"type": "string", "default": "1000m"},
+                "memory": {"type": "string", "default": "1Gi"}
+              }
+            }
+          }
+        }
+      },
+      "required": ["image"]
+    },
+    "frontend": {
+      "type": "object",
+      "properties": {
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "default": "ghcr.io/nan0c0de/kure-monitor/frontend"
+            },
+            "tag": {
+              "type": "string",
+              "default": "1.0.0"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "default": "IfNotPresent"
+            }
+          },
+          "required": ["repository", "tag"]
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "default": "NodePort"
+            },
+            "port": {
+              "type": "integer",
+              "default": 8080
+            },
+            "targetPort": {
+              "type": "integer",
+              "default": 8080
+            },
+            "nodePort": {
+              "type": "integer",
+              "minimum": 30000,
+              "maximum": 32767,
+              "default": 30080
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {"type": "string", "default": "100m"},
+                "memory": {"type": "string", "default": "128Mi"}
+              }
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {"type": "string", "default": "500m"},
+                "memory": {"type": "string", "default": "512Mi"}
+              }
+            }
+          }
+        }
+      },
+      "required": ["image"]
+    },
+    "postgresql": {
+      "type": "object",
+      "properties": {
+        "external": {
+          "type": "boolean",
+          "default": false
+        },
+        "host": {
+          "type": "string",
+          "default": ""
+        },
+        "port": {
+          "type": "integer",
+          "default": 5432
+        },
+        "database": {
+          "type": "string",
+          "default": "kure"
+        },
+        "username": {
+          "type": "string",
+          "default": "kure"
+        },
+        "password": {
+          "type": "string",
+          "default": "kure-password-change-me"
+        },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "size": {
+              "type": "string",
+              "default": "10Gi"
+            },
+            "storageClass": {
+              "type": "string",
+              "default": ""
+            },
+            "accessMode": {
+              "type": "string",
+              "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"],
+              "default": "ReadWriteOnce"
+            }
+          }
+        }
+      },
+      "required": ["database", "username", "password"]
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "className": {
+          "type": "string",
+          "default": ""
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": {"type": "string"},
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {"type": "string"},
+                    "pathType": {"type": "string"},
+                    "service": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["agent", "backend", "frontend", "postgresql"]
+}
