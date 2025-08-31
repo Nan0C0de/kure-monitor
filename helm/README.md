@@ -6,7 +6,7 @@ A Kubernetes health monitoring system with intelligent failure detection and sol
 
 ```bash
 helm repo add kure https://nan0c0de.github.io/kure-monitor/
-helm install kure kure/kure
+helm install my-kure kure-monitor/kure --version 1.0.0
 ```
 
 ## Configuration
