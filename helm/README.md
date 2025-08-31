@@ -5,12 +5,11 @@ A Kubernetes health monitoring system with intelligent failure detection and sol
 ## Installation
 
 ```bash
-# Install in kure-system namespace (recommended)
-helm install kure-monitor ./helm --create-namespace --namespace kure-system
-
-# Or from repository (when available)
-helm repo add kure https://nan0c0de.github.io/kure-monitor/
-helm install kure-monitor kure-monitor/kure --version 1.0.0 --create-namespace --namespace kure-system
+# Install in kure-system namespace
+helm install kure-monitor kure-monitor/kure --version 1.0.0 --create-namespace --namespace kure-system \
+  --set backend.env.KURE_LLM_PROVIDER=openai \
+  --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
+  --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
 ```
 
 ## Configuration

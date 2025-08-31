@@ -152,8 +152,8 @@ This project is licensed under a **Custom Non-Commercial License**. See the [LIC
 ### Key License Terms:
 
 - ✅ **Free for non-commercial use** - Personal projects, education, open-source contributions
-- ❌ **Commercial use requires permission** - Contact igor.koricanac@gmail.com for licensing
+- ❌ **Commercial use requires permission** - Contact nano.code@outlook.com for licensing
 - ✅ **Modifications allowed** - For non-commercial purposes only
-- 📧 **Commercial inquiries**: igor.koricanac@gmail.com
+- 📧 **Commercial inquiries**: nano.code@outlook.com
 
 **Summary**: You can freely use, modify, and distribute this software for non-commercial purposes. Commercial use, including in products or services that generate revenue, requires a separate commercial license.
