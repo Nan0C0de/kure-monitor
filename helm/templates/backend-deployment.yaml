@@ -24,6 +24,23 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      {{- if not .Values.postgresql.external }}
+      - name: wait-for-postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        command:
+          - /bin/sh
+          - -c
+          - |
+            until pg_isready -h {{ include "kure.fullname" . }}-postgresql -p {{ .Values.postgresql.port }} -U {{ .Values.postgresql.username | quote }}; do
+              echo "Waiting for PostgreSQL to be ready..."
+              sleep 2
+            done
+            echo "PostgreSQL is ready!"
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+      {{- end }}
       containers:
       - name: backend
         image: "{{ .Values.global.imageRegistry }}{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"

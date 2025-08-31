@@ -25,6 +25,21 @@ spec:
       serviceAccountName: {{ .Values.agent.serviceAccount.name }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: wait-for-backend
+        image: curlimages/curl:8.5.0
+        imagePullPolicy: IfNotPresent
+        command:
+          - /bin/sh
+          - -c
+          - |
+            until curl -f http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}/health; do
+              echo "Waiting for backend to be ready..."
+              sleep 5
+            done
+            echo "Backend is ready!"
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
       containers:
       - name: agent
         image: "{{ .Values.global.imageRegistry }}{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
