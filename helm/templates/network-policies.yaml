@@ -3,7 +3,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "kure.fullname" . }}-backend
-  namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "kure.labels" . | nindent 4 }}
     app.kubernetes.io/component: backend
@@ -77,7 +76,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "kure.fullname" . }}-frontend
-  namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "kure.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
@@ -127,7 +125,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "kure.fullname" . }}-agent
-  namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "kure.labels" . | nindent 4 }}
     app.kubernetes.io/component: agent
@@ -169,7 +166,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "kure.fullname" . }}-postgresql
-  namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "kure.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql

@@ -64,7 +64,7 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
    helm repo update
    
    # Install with custom LLM configuration
-   helm install kure kure/kure --namespace kure-system --create-namespace \
+   helm install kure kure/kure \
      --set backend.env.KURE_LLM_PROVIDER=openai \
      --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
      --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
@@ -73,11 +73,11 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 3. **Access the dashboard**
    ```bash
    # Via NodePort (if using Helm default)
-   kubectl get svc kure-frontend -n kure-system
+   kubectl get svc
    # Access via http://localhost:<nodePort>
    
    # OR via port-forward
-   kubectl port-forward svc/kure-frontend 8080:8080 -n kure-system
+   kubectl port-forward svc/kure-monitor-frontend 8080:8080
    # Open http://localhost:8080
    ```
 
@@ -112,21 +112,21 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 ### Check System Status
 ```bash
 # Pod status
-kubectl get pods -n kure-system
+kubectl get pods
 
 # View logs
-kubectl logs -l app=kure-backend -n kure-system
-kubectl logs -l app=kure-agent -n kure-system
-kubectl logs -l app=kure-frontend -n kure-system
+kubectl logs -l app.kubernetes.io/component=backend
+kubectl logs -l app.kubernetes.io/component=agent
+kubectl logs -l app.kubernetes.io/component=frontend
 ```
 
 ### Common Issues
 
 | Issue | Symptom | Solution |
 |-------|---------|----------|
-| Agent not detecting failures | No pods in dashboard | Check RBAC permissions: `kubectl describe clusterrolebinding kure-agent` |
+| Agent not detecting failures | No pods in dashboard | Check RBAC permissions: `kubectl describe clusterrolebinding` |
 | Backend connection errors | 500 errors in frontend | Verify PostgreSQL connection and network policies |
-| Frontend loading issues | Blank dashboard | Check service connectivity: `kubectl get svc -n kure-system` |
+| Frontend loading issues | Blank dashboard | Check service connectivity: `kubectl get svc` |
 | LLM solutions not generating | Generic solutions only | Verify API key and provider configuration |
 
 ## Contributing

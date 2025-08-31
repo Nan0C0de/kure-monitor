@@ -8,7 +8,7 @@ A Kubernetes health monitoring system with intelligent failure detection and sol
 helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
 helm install kure-monitor kure-monitor/kure --version 1.0.0 \
-  --namespace kure-system \
+  --create-namespace --namespace kure-system \
   --set backend.env.KURE_LLM_PROVIDER=openai \
   --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
   --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
@@ -20,7 +20,6 @@ Key configuration options in `values.yaml`:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `global.namespace` | Kubernetes namespace | `kure-system` |
 | `global.imageRegistry` | Image registry override | `""` |
 | `agent.image.repository` | Agent image repository | `ghcr.io/nan0c0de/kure-monitor/agent` |
 | `agent.image.tag` | Agent image tag | `1.0.0` |
@@ -68,5 +67,5 @@ Key configuration options in `values.yaml`:
 ## Uninstall
 
 ```bash
-helm uninstall kure-monitor --namespace kure-system
+helm uninstall kure-monitor
 ```

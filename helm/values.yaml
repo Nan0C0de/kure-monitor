@@ -2,7 +2,6 @@
 # This is a YAML-formatted file.
 
 global:
-  namespace: kure-system
   imageRegistry: ""
   imagePullSecrets: []
 

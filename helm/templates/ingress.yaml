@@ -3,7 +3,6 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "kure.fullname" . }}
-  namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "kure.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
