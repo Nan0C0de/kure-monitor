@@ -10,7 +10,8 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: kure-backend
+      {{- include "kure.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
   policyTypes:
   - Ingress
   - Egress
@@ -19,7 +20,8 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: kure-frontend
+          {{- include "kure.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: frontend
     ports:
     - protocol: TCP
       port: 8000
@@ -27,7 +29,8 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: kure-agent
+          {{- include "kure.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: agent
     ports:
     - protocol: TCP
       port: 8000
@@ -51,7 +54,8 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: kure-postgresql
+          {{- include "kure.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: postgresql
     ports:
     - protocol: TCP
       port: 5432
@@ -80,7 +84,8 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: kure-frontend
+      {{- include "kure.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
   policyTypes:
   - Ingress
   - Egress
@@ -111,7 +116,8 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: kure-backend
+          {{- include "kure.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: backend
     ports:
     - protocol: TCP
       port: 8000
@@ -128,7 +134,8 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: kure-agent
+      {{- include "kure.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: agent
   policyTypes:
   - Egress
   egress:
@@ -143,7 +150,8 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: kure-backend
+          {{- include "kure.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: backend
     ports:
     - protocol: TCP
       port: 8000
@@ -168,7 +176,8 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: kure-postgresql
+      {{- include "kure.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
   policyTypes:
   - Ingress
   ingress:
@@ -176,7 +185,8 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: kure-backend
+          {{- include "kure.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: backend
     ports:
     - protocol: TCP
       port: 5432

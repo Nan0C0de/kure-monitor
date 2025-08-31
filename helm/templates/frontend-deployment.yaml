@@ -43,6 +43,9 @@ spec:
           mountPath: /var/cache/nginx
         - name: nginx-run
           mountPath: /var/run
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         resources:
@@ -68,6 +71,9 @@ spec:
         emptyDir: {}
       - name: nginx-run
         emptyDir: {}
+      - name: nginx-config
+        configMap:
+          name: {{ include "kure.fullname" . }}-frontend-nginx
       {{- with .Values.frontend.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

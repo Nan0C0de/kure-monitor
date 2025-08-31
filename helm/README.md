@@ -5,8 +5,12 @@ A Kubernetes health monitoring system with intelligent failure detection and sol
 ## Installation
 
 ```bash
+# Install in kure-system namespace (recommended)
+helm install kure-monitor ./helm --create-namespace --namespace kure-system
+
+# Or from repository (when available)
 helm repo add kure https://nan0c0de.github.io/kure-monitor/
-helm install kure-monitor kure-monitor/kure --version 1.0.0
+helm install kure-monitor kure-monitor/kure --version 1.0.0 --create-namespace --namespace kure-system
 ```
 
 ## Configuration
@@ -44,6 +48,9 @@ Key configuration options in `values.yaml`:
 | `postgresql.password` | PostgreSQL password | `kure-password-change-me` |
 | `postgresql.persistence.enabled` | Enable PostgreSQL persistence | `true` |
 | `postgresql.persistence.size` | PostgreSQL storage size | `10Gi` |
+| `podSecurityStandards.enforce` | Pod Security Standard enforcement level | `restricted` |
+| `securityContext.runAsNonRoot` | Run containers as non-root user | `true` |
+| `securityContext.runAsUser` | User ID to run containers | `1001` |
 
 ## Components
 
@@ -60,5 +67,5 @@ Key configuration options in `values.yaml`:
 ## Uninstall
 
 ```bash
-helm uninstall kure
+helm uninstall kure-monitor --namespace kure-system
 ```

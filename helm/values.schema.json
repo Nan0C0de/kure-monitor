@@ -334,6 +334,65 @@
           }
         }
       }
+    },
+    "podSecurityStandards": {
+      "type": "object",
+      "properties": {
+        "enforce": {
+          "type": "string",
+          "enum": ["privileged", "baseline", "restricted"],
+          "default": "restricted"
+        },
+        "audit": {
+          "type": "string",
+          "enum": ["privileged", "baseline", "restricted"],
+          "default": "restricted"
+        },
+        "warn": {
+          "type": "string",
+          "enum": ["privileged", "baseline", "restricted"],
+          "default": "restricted"
+        }
+      }
+    },
+    "securityContext": {
+      "type": "object",
+      "properties": {
+        "runAsNonRoot": {"type": "boolean", "default": true},
+        "runAsUser": {"type": "integer", "default": 1001},
+        "runAsGroup": {"type": "integer", "default": 1001},
+        "allowPrivilegeEscalation": {"type": "boolean", "default": false},
+        "readOnlyRootFilesystem": {"type": "boolean", "default": true},
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "drop": {
+              "type": "array",
+              "items": {"type": "string"},
+              "default": ["ALL"]
+            }
+          }
+        },
+        "seccompProfile": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
+              "default": "RuntimeDefault"
+            }
+          }
+        }
+      }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "properties": {
+        "runAsNonRoot": {"type": "boolean", "default": true},
+        "runAsUser": {"type": "integer", "default": 1001},
+        "runAsGroup": {"type": "integer", "default": 1001},
+        "fsGroup": {"type": "integer", "default": 1001}
+      }
     }
   },
   "required": ["agent", "backend", "frontend", "postgresql"]
