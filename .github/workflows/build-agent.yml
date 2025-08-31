@@ -11,7 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: nan0c0de/kure/agent
+  IMAGE_NAME: nan0c0de/kure-monitor/agent
 
 jobs:
   build-and-push:
