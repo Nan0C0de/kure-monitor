@@ -124,12 +124,24 @@ ingress:
     #   hosts:
     #     - kure.local
 
-# Security context
+# Security context - Container level
 securityContext:
   runAsNonRoot: true
   runAsUser: 1001
   runAsGroup: 1001
-  fsGroup: 1001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# Pod Security Standards configuration
+podSecurityStandards:
+  enforce: restricted
+  audit: restricted
+  warn: restricted
 
 # PostgreSQL configuration
 postgresql:

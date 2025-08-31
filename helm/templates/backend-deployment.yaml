@@ -51,7 +51,11 @@ spec:
         {{- else if or .Values.backend.env.KURE_LLM_PROVIDER .Values.backend.env.KURE_LLM_API_KEY .Values.backend.env.KURE_LLM_MODEL }}
         {{- fail "LLM configuration incomplete: KURE_LLM_PROVIDER, KURE_LLM_API_KEY, and KURE_LLM_MODEL must all be provided together or all be empty (to disable LLM)" }}
         {{- end }}
-        volumeMounts: []
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         resources:
@@ -68,7 +72,11 @@ spec:
             port: {{ .Values.backend.service.targetPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
-      volumes: []
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
       {{- with .Values.backend.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

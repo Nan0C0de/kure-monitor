@@ -44,3 +44,4 @@ subjects:
 - kind: ServiceAccount
   name: {{ .Values.agent.serviceAccount.name }}
   namespace: {{ .Values.global.namespace }}
+{{- end }}

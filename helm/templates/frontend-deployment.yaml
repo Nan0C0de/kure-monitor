@@ -34,6 +34,15 @@ spec:
         env:
         - name: REACT_APP_API_URL
           value: {{ .Values.frontend.env.REACT_APP_API_URL | default (printf "http://%s-backend:%d" (include "kure.fullname" .) (.Values.backend.service.port | int)) | quote }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         resources:
@@ -50,6 +59,15 @@ spec:
             port: {{ .Values.frontend.service.targetPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
       {{- with .Values.frontend.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

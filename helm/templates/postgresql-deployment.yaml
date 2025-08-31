@@ -46,6 +46,12 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /var/lib/postgresql/data
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
+        - name: postgres-run
+          mountPath: /var/run/postgresql
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         resources:
@@ -76,3 +82,10 @@ spec:
         {{- else }}
         emptyDir: {}
         {{- end }}
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
+      - name: postgres-run
+        emptyDir: {}
+{{- end }}

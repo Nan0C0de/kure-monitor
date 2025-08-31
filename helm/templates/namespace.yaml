@@ -5,3 +5,7 @@ metadata:
   labels:
     {{- include "kure.labels" . | nindent 4 }}
     name: {{ .Values.global.namespace }}
+    # Pod Security Standards
+    pod-security.kubernetes.io/enforce: {{ .Values.podSecurityStandards.enforce }}
+    pod-security.kubernetes.io/audit: {{ .Values.podSecurityStandards.audit }}
+    pod-security.kubernetes.io/warn: {{ .Values.podSecurityStandards.warn }}

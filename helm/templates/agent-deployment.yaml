@@ -34,10 +34,20 @@ spec:
           value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
         - name: PYTHONUNBUFFERED
           value: "1"
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         resources:
           {{- toYaml .Values.agent.resources | nindent 10 }}
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
       {{- with .Values.agent.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

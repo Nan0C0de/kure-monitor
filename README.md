@@ -69,11 +69,6 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
      --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
      --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
    ```
-   
-   **OR deploy with Kubernetes manifests**
-   ```bash
-   kubectl apply -f k8s/
-   ```
 
 3. **Access the dashboard**
    ```bash
