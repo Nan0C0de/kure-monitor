@@ -23,6 +23,25 @@ on:
         - MEDIUM
         - HIGH
         - CRITICAL
+      backend_image_tag:
+        description: "Tag of backend image."
+        required: false
+        type: string
+        default: 1.0.0
+      agent_image_tag:
+        description: "Tag of agent image."
+        required: false
+        type: string
+        default: 1.0.0
+      frontend_image_tag:
+        description: "Tag of frontend image."
+        required: false
+        type: string
+        default: 1.0.0
+
+permissions:
+  contents: read
+  security-events: write
 
 jobs:
   security-scan:
@@ -34,18 +53,18 @@ jobs:
       matrix:
         include:
           - name: backend
-            image: ghcr.io/nan0c0de/kure/backend
-            version: 0.0.16
+            image: ghcr.io/nan0c0de/kure-monitor/backend
+            version: ${{ github.event.inputs.backend_image_tag }}
           - name: frontend
-            image: ghcr.io/nan0c0de/kure/frontend
-            version: 0.0.13
+            image: ghcr.io/nan0c0de/kure-monitor/frontend
+            version: ${{ github.event.inputs.frontend_image_tag }}
           - name: agent
-            image: ghcr.io/nan0c0de/kure/agent
-            version: 0.0.14
+            image: ghcr.io/nan0c0de/kure-monitor/agent
+            version: ${{ github.event.inputs.agent_image_tag }}
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       
     - name: Check if image should be scanned
       id: should_scan
@@ -126,37 +145,3 @@ jobs:
         name: hadolint-scan-results-${{ matrix.name }}
         path: hadolint-results-${{ matrix.name }}.sarif
         retention-days: 30
-
-  summary:
-    needs: security-scan
-    runs-on: ubuntu-latest
-    if: always()
-    
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v5
-      
-    - name: Generate security scan summary
-      run: |
-        echo "# Docker Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Scan Configuration:**" >> $GITHUB_STEP_SUMMARY
-        echo "- Target: ${{ github.event.inputs.scan_target }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Severity Threshold: ${{ github.event.inputs.severity_threshold }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        echo "**Scanned Images:**" >> $GITHUB_STEP_SUMMARY
-        
-        for component in backend frontend agent; do
-          if [ "${{ github.event.inputs.scan_target }}" = "all" ] || [ "${{ github.event.inputs.scan_target }}" = "$component" ]; then
-            echo "- ✅ $component" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⏭️ $component (skipped)" >> $GITHUB_STEP_SUMMARY
-          fi
-        done
-        
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Results:**" >> $GITHUB_STEP_SUMMARY
-        echo "- 📋 Scan results uploaded to Security tab" >> $GITHUB_STEP_SUMMARY
-        echo "- 📁 Detailed reports available in job artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- 🔍 Review the Security tab for vulnerability details" >> $GITHUB_STEP_SUMMARY
