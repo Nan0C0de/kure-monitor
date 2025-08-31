@@ -17,3 +17,4 @@ spec:
   selector:
     {{- include "kure.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
+{{- end }}

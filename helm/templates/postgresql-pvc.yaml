@@ -16,3 +16,4 @@ spec:
   {{- if .Values.postgresql.persistence.storageClass }}
   storageClassName: {{ .Values.postgresql.persistence.storageClass }}
   {{- end }}
+{{- end }}
