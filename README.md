@@ -53,18 +53,18 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/kure.git
-   cd kure
+   git clone https://github.com/Nan0C0de/kure-monitor.git
+   cd kure-monitor
    ```
 
 2. **Deploy with Helm** (recommended)
    ```bash
    # Add the Helm repository
-   helm repo add kure https://igorkoricanac.github.io/kure
+   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
    helm repo update
    
    # Install with custom LLM configuration
-   helm install kure kure/kure \
+   helm install kure-monitor kure-monitor/kure \
      --set backend.env.KURE_LLM_PROVIDER=openai \
      --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
      --set backend.env.KURE_LLM_MODEL=gpt-4o-mini

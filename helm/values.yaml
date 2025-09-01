@@ -136,12 +136,6 @@ securityContext:
   seccompProfile:
     type: RuntimeDefault
 
-# Pod Security Standards configuration
-podSecurityStandards:
-  enforce: restricted
-  audit: restricted
-  warn: restricted
-
 # PostgreSQL configuration
 postgresql:
   external: false  # Set to true to use external PostgreSQL

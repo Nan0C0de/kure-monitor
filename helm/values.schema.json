@@ -331,26 +331,6 @@
         }
       }
     },
-    "podSecurityStandards": {
-      "type": "object",
-      "properties": {
-        "enforce": {
-          "type": "string",
-          "enum": ["privileged", "baseline", "restricted"],
-          "default": "restricted"
-        },
-        "audit": {
-          "type": "string",
-          "enum": ["privileged", "baseline", "restricted"],
-          "default": "restricted"
-        },
-        "warn": {
-          "type": "string",
-          "enum": ["privileged", "baseline", "restricted"],
-          "default": "restricted"
-        }
-      }
-    },
     "securityContext": {
       "type": "object",
       "properties": {

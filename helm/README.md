@@ -48,7 +48,6 @@ Key configuration options in `values.yaml`:
 | `postgresql.password` | PostgreSQL password | `kure-password-change-me` |
 | `postgresql.persistence.enabled` | Enable PostgreSQL persistence | `true` |
 | `postgresql.persistence.size` | PostgreSQL storage size | `10Gi` |
-| `podSecurityStandards.enforce` | Pod Security Standard enforcement level | `restricted` |
 | `securityContext.runAsNonRoot` | Run containers as non-root user | `true` |
 | `securityContext.runAsUser` | User ID to run containers | `1001` |
 
