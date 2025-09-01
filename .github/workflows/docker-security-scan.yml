@@ -108,6 +108,15 @@ jobs:
         severity: ${{ github.event.inputs.severity_threshold }},HIGH,CRITICAL
         exit-code: '0'
     
+    - name: Run Trivy vulnerability scanner (detailed table format)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ matrix.image }}:${{ matrix.version }}
+        format: 'table'
+        output: 'trivy-results-${{ matrix.name }}.txt'
+        severity: ${{ github.event.inputs.severity_threshold }},HIGH,CRITICAL
+        exit-code: '0'
+    
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       with:
@@ -118,7 +127,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: trivy-scan-results-${{ matrix.name }}
-        path: trivy-results-${{ matrix.name }}.sarif
+        path: |
+          trivy-results-${{ matrix.name }}.sarif
+          trivy-results-${{ matrix.name }}.txt
         retention-days: 30
     
     - name: Run Hadolint Dockerfile linter
