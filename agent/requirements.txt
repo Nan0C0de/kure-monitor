@@ -1,4 +1,7 @@
+# Security note: urllib3 <2.0 has CVE-2025-50181 but kubernetes package requires <2.0
+# This is a medium severity SSRF mitigation bypass issue that doesn't affect normal usage
 kubernetes==28.1.0
-aiohttp==3.9.0
+aiohttp>=3.9.4
 asyncio==4.0.0
 PyYAML==6.0.1
+setuptools>=78.1.1

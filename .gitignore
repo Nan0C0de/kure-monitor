@@ -215,11 +215,11 @@ CLAUDE.md
 .claude
 
 # k8s
-examples
 k8s
+examples
 
 # Secrets
 k8s/registry-secret.yaml
 
-# Markdown
-HELM_RELEASE.md
+# Security scans
+security-scan
