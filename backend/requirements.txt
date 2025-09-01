@@ -1,6 +1,11 @@
-fastapi==0.104.1
+# Security updates to fix HIGH and MEDIUM severity vulnerabilities
+# CVE-2024-47874, CVE-2025-54121 - starlette vulnerabilities fixed in 0.47.2+
+fastapi>=0.115.0
 uvicorn[standard]==0.24.0
 asyncpg==0.29.0
 websockets==12.0
 pydantic==2.11.7
-aiohttp==3.9.0
+# CVE-2024-23334, CVE-2024-30251, CVE-2024-27306, CVE-2024-52304, CVE-2025-53643 - aiohttp vulnerabilities
+aiohttp>=3.12.14
+# CVE-2024-6345, CVE-2025-47273 - setuptools vulnerabilities fixed in 78.1.1+
+setuptools>=78.1.1

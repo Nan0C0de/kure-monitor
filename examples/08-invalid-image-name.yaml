@@ -1,0 +1,14 @@
+# Test Case 8: Invalid Image Name - Malformed image reference
+apiVersion: v1
+kind: Pod
+metadata:
+  name: failed-pod-invalid-image
+  namespace: default
+  labels:
+    test-case: "invalid-image-name"
+spec:
+  containers:
+  - name: app-container
+    image: "Invalid/Image/Name:With:Colons"
+    ports:
+    - containerPort: 80

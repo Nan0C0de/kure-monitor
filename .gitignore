@@ -216,7 +216,6 @@ CLAUDE.md
 
 # k8s
 k8s
-examples
 
 # Secrets
 k8s/registry-secret.yaml
