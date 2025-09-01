@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Update system packages to latest versions for security
+RUN apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user
 RUN groupadd -r kure && useradd -r -g kure kure
 

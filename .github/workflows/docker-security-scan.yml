@@ -44,39 +44,43 @@ permissions:
   security-events: write
 
 jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set matrix based on scan target
+        id: set-matrix
+        run: |
+          case "${{ github.event.inputs.scan_target }}" in
+            "all")
+              echo 'matrix={"include":[{"name":"backend","image":"ghcr.io/nan0c0de/kure-monitor/backend","version":"${{ github.event.inputs.backend_image_tag }}"},{"name":"frontend","image":"ghcr.io/nan0c0de/kure-monitor/frontend","version":"${{ github.event.inputs.frontend_image_tag }}"},{"name":"agent","image":"ghcr.io/nan0c0de/kure-monitor/agent","version":"${{ github.event.inputs.agent_image_tag }}"}]}' >> $GITHUB_OUTPUT
+              ;;
+            "backend")
+              echo 'matrix={"include":[{"name":"backend","image":"ghcr.io/nan0c0de/kure-monitor/backend","version":"${{ github.event.inputs.backend_image_tag }}"}]}' >> $GITHUB_OUTPUT
+              ;;
+            "frontend")
+              echo 'matrix={"include":[{"name":"frontend","image":"ghcr.io/nan0c0de/kure-monitor/frontend","version":"${{ github.event.inputs.frontend_image_tag }}"}]}' >> $GITHUB_OUTPUT
+              ;;
+            "agent")
+              echo 'matrix={"include":[{"name":"agent","image":"ghcr.io/nan0c0de/kure-monitor/agent","version":"${{ github.event.inputs.agent_image_tag }}"}]}' >> $GITHUB_OUTPUT
+              ;;
+          esac
+
   security-scan:
+    needs: prepare-matrix
     runs-on: ubuntu-latest
     name: Docker Image Security Scan
     
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: backend
-            image: ghcr.io/nan0c0de/kure-monitor/backend
-            version: ${{ github.event.inputs.backend_image_tag }}
-          - name: frontend
-            image: ghcr.io/nan0c0de/kure-monitor/frontend
-            version: ${{ github.event.inputs.frontend_image_tag }}
-          - name: agent
-            image: ghcr.io/nan0c0de/kure-monitor/agent
-            version: ${{ github.event.inputs.agent_image_tag }}
+      matrix: ${{ fromJson(needs.prepare-matrix.outputs.matrix) }}
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
-      
-    - name: Check if image should be scanned
-      id: should_scan
-      run: |
-        if [ "${{ github.event.inputs.scan_target }}" = "all" ] || [ "${{ github.event.inputs.scan_target }}" = "${{ matrix.name }}" ]; then
-          echo "scan=true" >> $GITHUB_OUTPUT
-        else
-          echo "scan=false" >> $GITHUB_OUTPUT
-        fi
     
     - name: Log in to GitHub Container Registry
-      if: steps.should_scan.outputs.scan == 'true'
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
@@ -84,12 +88,10 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Pull Docker image
-      if: steps.should_scan.outputs.scan == 'true'
       run: |
         docker pull ${{ matrix.image }}:${{ matrix.version }}
     
     - name: Run Trivy vulnerability scanner
-      if: steps.should_scan.outputs.scan == 'true'
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ matrix.image }}:${{ matrix.version }}
@@ -99,7 +101,6 @@ jobs:
         exit-code: '0'  # Don't fail the build on vulnerabilities
     
     - name: Run Trivy vulnerability scanner (table format)
-      if: steps.should_scan.outputs.scan == 'true'
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ matrix.image }}:${{ matrix.version }}
@@ -108,14 +109,12 @@ jobs:
         exit-code: '0'
     
     - name: Upload Trivy scan results to GitHub Security tab
-      if: steps.should_scan.outputs.scan == 'true'
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-results-${{ matrix.name }}.sarif'
         category: 'docker-${{ matrix.name }}'
     
     - name: Upload scan results as artifact
-      if: steps.should_scan.outputs.scan == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: trivy-scan-results-${{ matrix.name }}
@@ -123,7 +122,6 @@ jobs:
         retention-days: 30
     
     - name: Run Hadolint Dockerfile linter
-      if: steps.should_scan.outputs.scan == 'true'
       uses: hadolint/hadolint-action@v3.1.0
       with:
         dockerfile: ${{ matrix.name }}/Dockerfile
@@ -132,14 +130,12 @@ jobs:
         no-fail: true
     
     - name: Upload Hadolint scan results to GitHub Security tab  
-      if: steps.should_scan.outputs.scan == 'true'
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: hadolint-results-${{ matrix.name }}.sarif
         category: 'hadolint-${{ matrix.name }}'
     
     - name: Upload Hadolint results as artifact
-      if: steps.should_scan.outputs.scan == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: hadolint-scan-results-${{ matrix.name }}
