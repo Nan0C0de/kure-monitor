@@ -150,7 +150,7 @@ postgresql:
   # Internal PostgreSQL deployment settings (ignored if external: true)
   image:
     repository: postgres
-    tag: "15-alpine"
+    tag: "17.6-alpine3.21"
     pullPolicy: IfNotPresent
   
   resources:
