@@ -1,0 +1,46 @@
+# Artifact Hub package metadata file
+version: 1.0.0
+name: kure
+category: monitoring-logging
+displayName: Kure - Kubernetes Health Monitor
+createdAt: 2025-08-30T00:00:00Z
+description: A Kubernetes health monitoring system with agent, backend, and frontend components
+license: MIT
+homeURL: https://github.com/Nan0C0de/kure-monitor
+appVersion: "1.0.0"
+containersImages:
+  - name: kure-monitor-agent
+    image: ghcr.io/nan0c0de/kure-monitor/agent:1.0.0
+  - name: kure-monitor-backend
+    image: ghcr.io/nan0c0de/kure-monitor/backend:1.0.0
+  - name: kure-monitor-frontend
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:1.0.0
+operator: false
+deprecated: false
+prerelease: false
+keywords:
+  - kubernetes
+  - monitoring
+  - health
+  - observability
+  - monitoring-logging
+links:
+  - name: Chart Source
+    url: https://github.com/Nan0C0de/kure-monitor/tree/main/helm
+  - name: Documentation
+    url: https://github.com/Nan0C0de/kure-monitor#readme
+maintainers:
+  - name: Nan0C0de
+    email: nano.code@outlook.com
+provider:
+  name: Nan0C0de
+install: |
+  ```bash
+  helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+  
+  helm install kure-monitor kure-monitor/kure --version 1.0.0 \
+    --create-namespace --namespace kure-system \
+    --set backend.env.KURE_LLM_PROVIDER=openai \
+    --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
+    --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
+  ```
