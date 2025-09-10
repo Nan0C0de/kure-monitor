@@ -9,9 +9,9 @@ keywords:
   - monitoring
   - health
   - observability
-home: https://github.com/Nan0C0de/kure
+home: https://nan0c0de.github.io/kure-monitor
 sources:
-  - https://github.com/Nan0C0de/kure
+  - https://github.com/Nan0C0de/kure-monitor
 maintainers:
   - name: Nan0C0de
     email: nano.code@outlook.com
