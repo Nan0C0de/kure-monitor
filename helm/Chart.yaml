@@ -20,18 +20,19 @@ annotations:
   artifacthub.io/displayName: Kure - Kubernetes Health Monitor
   artifacthub.io/license: MIT
   artifacthub.io/links: |
+    - name: Homepage
+      url: https://nan0c0de.github.io/kure-monitor
+    - name: Source
+      url: https://github.com/Nan0C0de/kure-monitor
     - name: Chart Source
-      url: https://github.com/Nan0C0de/kure/tree/main/helm
+      url: https://github.com/Nan0C0de/kure-monitor/tree/main/helm
     - name: Documentation
-      url: https://github.com/Nan0C0de/kure#readme
+      url: https://github.com/Nan0C0de/kure-monitor#readme
   artifacthub.io/maintainers: |
     - name: Nan0C0de
       email: nano.code@outlook.com
   artifacthub.io/operator: false
   artifacthub.io/prerelease: false
-  artifacthub.io/screenshots: |
-    - title: Kure Dashboard
-      url: https://raw.githubusercontent.com/Nan0C0de/kure/main/docs/dashboard.png
   artifacthub.io/install: |
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
     
