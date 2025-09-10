@@ -20,8 +20,6 @@ annotations:
   artifacthub.io/displayName: Kure - Kubernetes Health Monitor
   artifacthub.io/license: MIT
   artifacthub.io/links: |
-    - name: Homepage
-      url: https://nan0c0de.github.io/kure-monitor
     - name: Source
       url: https://github.com/Nan0C0de/kure-monitor
     - name: Chart Source

@@ -90,6 +90,9 @@ jobs:
         # Copy index.html for better UX at root URL
         cp index.html .cr-index/
         
+        # Copy artifacthub-repo.yml for verified publisher (must be at same level as index.yaml)
+        cp helm/artifacthub-repo.yml .cr-index/
+        
         echo "Chart packaged and indexed successfully"
         ls -la .cr-release-packages/
         cat .cr-index/index.yaml
