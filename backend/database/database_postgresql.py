@@ -5,7 +5,7 @@ import json
 from typing import List
 from datetime import datetime, timezone
 from .database_base import DatabaseInterface
-from models.models import PodFailureResponse
+from models.models import PodFailureResponse, SecurityFindingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -99,10 +99,42 @@ class PostgreSQLDatabase(DatabaseInterface):
                     ON pod_failures(dismissed)
                 """)
                 await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_pod_failures_created_at 
+                    CREATE INDEX IF NOT EXISTS idx_pod_failures_created_at
                     ON pod_failures(created_at)
                 """)
-                
+
+                # Create security_findings table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS security_findings (
+                        id SERIAL PRIMARY KEY,
+                        resource_type VARCHAR(255) NOT NULL,
+                        resource_name VARCHAR(255) NOT NULL,
+                        namespace VARCHAR(255) NOT NULL,
+                        severity VARCHAR(50) NOT NULL,
+                        category VARCHAR(255) NOT NULL,
+                        title VARCHAR(500) NOT NULL,
+                        description TEXT NOT NULL,
+                        remediation TEXT NOT NULL,
+                        timestamp TIMESTAMPTZ NOT NULL,
+                        dismissed BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                # Create indexes for security findings
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_security_findings_resource
+                    ON security_findings(resource_name, namespace)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_security_findings_severity
+                    ON security_findings(severity)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_security_findings_dismissed
+                    ON security_findings(dismissed)
+                """)
+
             logger.info("PostgreSQL database initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize PostgreSQL database: {e}")
@@ -233,6 +265,103 @@ class PostgreSQLDatabase(DatabaseInterface):
                 "UPDATE pod_failures SET dismissed = TRUE WHERE pod_name = $1 AND namespace = $2",
                 pod_name, namespace
             )
+
+    async def save_security_finding(self, finding: SecurityFindingResponse) -> int:
+        """Save a security finding to database"""
+        async with self.pool.acquire() as conn:
+            timestamp = self._normalize_timestamp(finding.timestamp)
+
+            # Check if finding already exists (same resource, title, and not dismissed)
+            existing = await conn.fetchrow("""
+                SELECT id FROM security_findings
+                WHERE resource_name = $1 AND namespace = $2 AND title = $3 AND dismissed = FALSE
+                ORDER BY created_at DESC LIMIT 1
+            """, finding.resource_name, finding.namespace, finding.title)
+
+            if existing:
+                # Update existing record
+                await conn.execute("""
+                    UPDATE security_findings SET
+                        resource_type = $1, severity = $2, category = $3,
+                        description = $4, remediation = $5, timestamp = $6,
+                        created_at = CURRENT_TIMESTAMP
+                    WHERE id = $7
+                """,
+                    finding.resource_type, finding.severity, finding.category,
+                    finding.description, finding.remediation, timestamp,
+                    existing['id']
+                )
+                return existing['id']
+            else:
+                # Insert new record
+                result = await conn.fetchrow("""
+                    INSERT INTO security_findings (
+                        resource_type, resource_name, namespace, severity, category,
+                        title, description, remediation, timestamp, dismissed
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    RETURNING id
+                """,
+                    finding.resource_type, finding.resource_name, finding.namespace,
+                    finding.severity, finding.category, finding.title,
+                    finding.description, finding.remediation, timestamp, finding.dismissed
+                )
+                return result['id']
+
+    async def get_security_findings(self, include_dismissed: bool = False, dismissed_only: bool = False) -> List[SecurityFindingResponse]:
+        """Get all security findings from database"""
+        async with self.pool.acquire() as conn:
+            query = "SELECT * FROM security_findings WHERE 1=1"
+
+            if dismissed_only:
+                query += " AND dismissed = TRUE"
+            elif not include_dismissed:
+                query += " AND dismissed = FALSE"
+
+            query += " ORDER BY created_at DESC"
+
+            rows = await conn.fetch(query)
+
+            findings = []
+            for row in rows:
+                timestamp = row['timestamp'].isoformat()
+
+                finding = SecurityFindingResponse(
+                    id=row['id'],
+                    resource_type=row['resource_type'],
+                    resource_name=row['resource_name'],
+                    namespace=row['namespace'],
+                    severity=row['severity'],
+                    category=row['category'],
+                    title=row['title'],
+                    description=row['description'],
+                    remediation=row['remediation'],
+                    timestamp=timestamp,
+                    dismissed=bool(row['dismissed'])
+                )
+                findings.append(finding)
+
+            return findings
+
+    async def dismiss_security_finding(self, finding_id: int):
+        """Mark a security finding as dismissed"""
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE security_findings SET dismissed = TRUE WHERE id = $1",
+                finding_id
+            )
+
+    async def restore_security_finding(self, finding_id: int):
+        """Restore a dismissed security finding"""
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE security_findings SET dismissed = FALSE WHERE id = $1",
+                finding_id
+            )
+
+    async def clear_security_findings(self):
+        """Clear all security findings (for new scans)"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("DELETE FROM security_findings WHERE dismissed = FALSE")
 
     async def close(self):
         """Close database connection pool"""

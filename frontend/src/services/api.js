@@ -22,5 +22,20 @@ export const api = {
     const response = await fetch(`${API_BASE}/api/cluster/info`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
+  },
+
+  // Security findings API
+  getSecurityFindings: async () => {
+    const response = await fetch(`${API_BASE}/api/security/findings`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  dismissSecurityFinding: async (findingId) => {
+    const response = await fetch(`${API_BASE}/api/security/findings/${findingId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
   }
 };

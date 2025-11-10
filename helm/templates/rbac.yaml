@@ -1,20 +1,20 @@
-{{- if .Values.agent.rbac.create }}
+{{- if .Values.podMonitor.rbac.create }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ .Values.agent.serviceAccount.name }}
+  name: {{ .Values.podMonitor.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kure.labels" . | nindent 4 }}
-    app.kubernetes.io/component: agent
+    app.kubernetes.io/component: pod-monitor
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "kure.fullname" . }}-agent
+  name: {{ include "kure.fullname" . }}-pod-monitor
   labels:
     {{- include "kure.labels" . | nindent 4 }}
-    app.kubernetes.io/component: agent
+    app.kubernetes.io/component: pod-monitor
 rules:
 - apiGroups: [""]
   resources: ["pods", "events", "namespaces"]
@@ -32,16 +32,64 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "kure.fullname" . }}-agent
+  name: {{ include "kure.fullname" . }}-pod-monitor
   labels:
     {{- include "kure.labels" . | nindent 4 }}
-    app.kubernetes.io/component: agent
+    app.kubernetes.io/component: pod-monitor
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "kure.fullname" . }}-agent
+  name: {{ include "kure.fullname" . }}-pod-monitor
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.agent.serviceAccount.name }}
+  name: {{ .Values.podMonitor.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+---
+{{- if .Values.securityScanner.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.securityScanner.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-scanner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kure.fullname" . }}-security-scanner
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-scanner
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies", "ingresses"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kure.fullname" . }}-security-scanner
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-scanner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kure.fullname" . }}-security-scanner
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.securityScanner.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
 {{- end }}

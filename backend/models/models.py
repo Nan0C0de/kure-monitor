@@ -39,3 +39,21 @@ class PodFailureResponse(PodFailureReport):
     solution: str
     timestamp: str
     dismissed: bool = False
+
+class SecurityFinding(BaseModel):
+    resource_type: str  # e.g., "Pod", "Deployment", "Service"
+    resource_name: str
+    namespace: str
+    severity: str  # "critical", "high", "medium", "low"
+    category: str  # e.g., "Security", "Compliance", "Best Practice"
+    title: str
+    description: str
+    remediation: str
+    timestamp: str
+
+class SecurityFindingReport(SecurityFinding):
+    pass
+
+class SecurityFindingResponse(SecurityFinding):
+    id: Optional[int] = None
+    dismissed: bool = False

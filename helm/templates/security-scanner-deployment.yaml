@@ -1,0 +1,80 @@
+{{- if .Values.securityScanner.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kure.fullname" . }}-security-scanner
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-scanner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kure.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: security-scanner
+  template:
+    metadata:
+      labels:
+        {{- include "kure.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: security-scanner
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.securityScanner.serviceAccount.name }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: wait-for-backend
+        image: curlimages/curl:8.15.0
+        imagePullPolicy: IfNotPresent
+        command:
+          - /bin/sh
+          - -c
+          - |
+            until curl -f http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}/health; do
+              echo "Waiting for backend to be ready..."
+              sleep 5
+            done
+            echo "Backend is ready!"
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+      containers:
+      - name: security-scanner
+        image: "{{ .Values.global.imageRegistry }}{{ .Values.securityScanner.image.repository }}:{{ .Values.securityScanner.image.tag }}"
+        imagePullPolicy: {{ .Values.securityScanner.image.pullPolicy }}
+        env:
+        - name: BACKEND_URL
+          value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
+        - name: SCAN_INTERVAL
+          value: "{{ .Values.securityScanner.scanInterval }}"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        resources:
+          {{- toYaml .Values.securityScanner.resources | nindent 10 }}
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
+      {{- with .Values.securityScanner.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.securityScanner.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.securityScanner.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

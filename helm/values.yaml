@@ -5,13 +5,15 @@ global:
   imageRegistry: ""
   imagePullSecrets: []
 
-# Agent configuration
-agent:
+# Pod monitoring agent configuration
+podMonitor:
+  enabled: true  # Set to false to disable pod monitoring
+
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/agent
     tag: "1.0.0"
     pullPolicy: IfNotPresent
-  
+
   resources:
     requests:
       cpu: 100m
@@ -19,18 +21,49 @@ agent:
     limits:
       cpu: 500m
       memory: 512Mi
-  
+
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  
+
   # RBAC settings
   rbac:
     create: true
-  
+
   serviceAccount:
     create: true
-    name: kure-agent
+    name: kure-pod-monitor
+
+# Security scanner agent configuration
+securityScanner:
+  enabled: true  # Set to false to disable security scanning
+
+  image:
+    repository: ghcr.io/nan0c0de/kure-monitor/security-scanner
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+  scanInterval: "3600"  # Scan interval in seconds (default: 1 hour)
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # RBAC settings
+  rbac:
+    create: true
+
+  serviceAccount:
+    create: true
+    name: kure-security-scanner
 
 # Backend configuration
 backend:

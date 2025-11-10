@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 import logging
 from typing import List
-from models.models import PodFailureResponse
+from models.models import PodFailureResponse, SecurityFindingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,27 @@ class WebSocketManager:
                     await connection.send_text(json.dumps(message, default=str))
                 except Exception as e:
                     logger.warning(f"Failed to send deletion message to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            # Remove disconnected connections
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
+    async def broadcast_security_finding(self, finding: SecurityFindingResponse):
+        """Broadcast new security finding to all connected clients"""
+        if self.active_connections:
+            message = {
+                "type": "security_finding",
+                "data": finding.dict()
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send security finding to WebSocket: {e}")
                     disconnected.append(connection)
 
             # Remove disconnected connections

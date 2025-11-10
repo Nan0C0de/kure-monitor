@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 import logging
 import traceback
 
-from models.models import PodFailureReport, PodFailureResponse
+from models.models import PodFailureReport, PodFailureResponse, SecurityFindingReport, SecurityFindingResponse
 from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
@@ -161,6 +161,83 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             return cluster_info
         except Exception as e:
             logger.error(f"Error getting cluster info: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Security findings endpoints
+    @router.post("/security/findings", response_model=SecurityFindingResponse)
+    async def report_security_finding(report: SecurityFindingReport):
+        """Receive security finding report from scanner agent"""
+        logger.info(f"Received security finding for {report.resource_type}/{report.namespace}/{report.resource_name}")
+
+        try:
+            # Validate required fields
+            if not report.resource_name or not report.namespace:
+                raise HTTPException(status_code=400, detail="Resource name and namespace are required")
+
+            # Create response
+            response = SecurityFindingResponse(
+                **report.dict()
+            )
+
+            # Save to database
+            logger.info(f"Saving security finding to database: {report.resource_type}/{report.namespace}/{report.resource_name}")
+            await db.save_security_finding(response)
+
+            # Notify frontend via WebSocket
+            logger.info(f"Broadcasting security finding via WebSocket: {report.resource_type}/{report.namespace}/{report.resource_name}")
+            await websocket_manager.broadcast_security_finding(response)
+
+            logger.info(f"Successfully processed security finding: {report.resource_type}/{report.namespace}/{report.resource_name}")
+            return response
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            error_msg = f"Failed to process security finding for {report.namespace}/{report.resource_name}: {str(e)}"
+            logger.error(error_msg)
+            logger.error(f"Error details: {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Internal server error while processing security finding: {str(e)}"
+            )
+
+    @router.get("/security/findings", response_model=list[SecurityFindingResponse])
+    async def get_security_findings():
+        """Get all security findings from database"""
+        try:
+            return await db.get_security_findings()
+        except Exception as e:
+            logger.error(f"Error getting security findings: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/security/findings/{finding_id}")
+    async def dismiss_security_finding(finding_id: int):
+        """Mark a security finding as dismissed"""
+        try:
+            await db.dismiss_security_finding(finding_id)
+            return {"message": "Security finding dismissed"}
+        except Exception as e:
+            logger.error(f"Error dismissing security finding: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.put("/security/findings/{finding_id}/restore")
+    async def restore_security_finding(finding_id: int):
+        """Restore a dismissed security finding"""
+        try:
+            await db.restore_security_finding(finding_id)
+            return {"message": "Security finding restored"}
+        except Exception as e:
+            logger.error(f"Error restoring security finding: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/security/scan/clear")
+    async def clear_security_findings():
+        """Clear all security findings (for new scans)"""
+        try:
+            await db.clear_security_findings()
+            return {"message": "Security findings cleared"}
+        except Exception as e:
+            logger.error(f"Error clearing security findings: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     return router
