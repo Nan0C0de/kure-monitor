@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-security
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insecure-nginx
+  namespace: test-security
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: insecure-nginx
+  template:
+    metadata:
+      labels:
+        app: insecure-nginx
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        # No resource limits defined
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: insecure-service
+  namespace: test-security
+spec:
+  type: LoadBalancer
+  selector:
+    app: insecure-nginx
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wildcard-permissions
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]

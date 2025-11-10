@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class SecurityScanner:
     def __init__(self):
-        self.backend_url = os.getenv("BACKEND_URL", "http://kure-backend:8000")
-        self.scan_interval = int(os.getenv("SCAN_INTERVAL", "3600"))  # Default: 1 hour
+        self.backend_url = os.getenv("BACKEND_URL", "http://kure-monitor-backend:8000")
+        self.scan_interval = int(os.getenv("SCAN_INTERVAL", "3600"))
         self.backend_client = BackendClient(self.backend_url)
         self.v1 = None
         self.apps_v1 = None

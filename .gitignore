@@ -219,6 +219,7 @@ k8s
 
 # Secrets
 k8s/registry-secret.yaml
+k8s/secrets.yaml
 
 # Security scans
 security-scan
