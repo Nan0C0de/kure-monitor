@@ -266,8 +266,12 @@ class PostgreSQLDatabase(DatabaseInterface):
                 pod_name, namespace
             )
 
-    async def save_security_finding(self, finding: SecurityFindingResponse) -> int:
-        """Save a security finding to database"""
+    async def save_security_finding(self, finding: SecurityFindingResponse) -> tuple[int, bool]:
+        """Save a security finding to database
+
+        Returns:
+            tuple[int, bool]: (finding_id, is_new) where is_new indicates if this is a new finding
+        """
         async with self.pool.acquire() as conn:
             timestamp = self._normalize_timestamp(finding.timestamp)
 
@@ -279,19 +283,18 @@ class PostgreSQLDatabase(DatabaseInterface):
             """, finding.resource_name, finding.namespace, finding.title)
 
             if existing:
-                # Update existing record
+                # Update existing record - don't update created_at to preserve original creation time
                 await conn.execute("""
                     UPDATE security_findings SET
                         resource_type = $1, severity = $2, category = $3,
-                        description = $4, remediation = $5, timestamp = $6,
-                        created_at = CURRENT_TIMESTAMP
+                        description = $4, remediation = $5, timestamp = $6
                     WHERE id = $7
                 """,
                     finding.resource_type, finding.severity, finding.category,
                     finding.description, finding.remediation, timestamp,
                     existing['id']
                 )
-                return existing['id']
+                return existing['id'], False
             else:
                 # Insert new record
                 result = await conn.fetchrow("""
@@ -305,7 +308,7 @@ class PostgreSQLDatabase(DatabaseInterface):
                     finding.severity, finding.category, finding.title,
                     finding.description, finding.remediation, timestamp, finding.dismissed
                 )
-                return result['id']
+                return result['id'], True
 
     async def get_security_findings(self, include_dismissed: bool = False, dismissed_only: bool = False) -> List[SecurityFindingResponse]:
         """Get all security findings from database"""

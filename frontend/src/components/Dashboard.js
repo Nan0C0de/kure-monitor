@@ -43,8 +43,24 @@ const Dashboard = () => {
         )
       );
     } else if (message.type === 'security_finding') {
-      // Add new security finding
-      setSecurityFindings(prevFindings => [message.data, ...prevFindings]);
+      // Update or add security finding (deduplicate by resource_name, namespace, and title)
+      setSecurityFindings(prevFindings => {
+        const existingIndex = prevFindings.findIndex(
+          finding => finding.resource_name === message.data.resource_name &&
+                     finding.namespace === message.data.namespace &&
+                     finding.title === message.data.title
+        );
+
+        if (existingIndex >= 0) {
+          // Update existing finding
+          const newFindings = [...prevFindings];
+          newFindings[existingIndex] = message.data;
+          return newFindings;
+        } else {
+          // Add new finding
+          return [message.data, ...prevFindings];
+        }
+      });
     }
   };
 
@@ -59,6 +75,14 @@ const Dashboard = () => {
   const filteredSecurityFindings = namespaceFilter.trim() === ''
     ? securityFindings
     : securityFindings.filter(finding => finding.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim()));
+
+  // Sort security findings by severity (HIGH > MEDIUM > LOW)
+  const severityOrder = { 'high': 1, 'medium': 2, 'low': 3 };
+  const sortedSecurityFindings = [...filteredSecurityFindings].sort((a, b) => {
+    const severityA = severityOrder[a.severity.toLowerCase()] || 999;
+    const severityB = severityOrder[b.severity.toLowerCase()] || 999;
+    return severityA - severityB;
+  });
 
   // Load initial data
   useEffect(() => {
@@ -219,7 +243,7 @@ const Dashboard = () => {
 
           {activeTab === 'security' && (
             <>
-              {filteredSecurityFindings.length === 0 ? (
+              {sortedSecurityFindings.length === 0 ? (
                 <div className="text-center py-12">
                   <Shield className="w-12 h-12 text-green-500 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -235,7 +259,7 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <SecurityTable findings={filteredSecurityFindings} />
+                <SecurityTable findings={sortedSecurityFindings} />
               )}
             </>
           )}

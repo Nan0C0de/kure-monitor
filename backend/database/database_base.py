@@ -37,8 +37,12 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
-    async def save_security_finding(self, finding: SecurityFindingResponse) -> int:
-        """Save a security finding to database"""
+    async def save_security_finding(self, finding: SecurityFindingResponse) -> tuple[int, bool]:
+        """Save a security finding to database
+
+        Returns:
+            tuple[int, bool]: (finding_id, is_new) where is_new indicates if this is a new finding
+        """
         pass
 
     @abstractmethod

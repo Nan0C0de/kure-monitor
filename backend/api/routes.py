@@ -181,11 +181,15 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
 
             # Save to database
             logger.info(f"Saving security finding to database: {report.resource_type}/{report.namespace}/{report.resource_name}")
-            await db.save_security_finding(response)
+            finding_id, is_new = await db.save_security_finding(response)
+            response.id = finding_id
 
-            # Notify frontend via WebSocket
-            logger.info(f"Broadcasting security finding via WebSocket: {report.resource_type}/{report.namespace}/{report.resource_name}")
-            await websocket_manager.broadcast_security_finding(response)
+            # Only notify frontend via WebSocket if this is a NEW finding (not an update)
+            if is_new:
+                logger.info(f"Broadcasting NEW security finding via WebSocket: {report.resource_type}/{report.namespace}/{report.resource_name}")
+                await websocket_manager.broadcast_security_finding(response)
+            else:
+                logger.info(f"Updated existing security finding (not broadcasting): {report.resource_type}/{report.namespace}/{report.resource_name}")
 
             logger.info(f"Successfully processed security finding: {report.resource_type}/{report.namespace}/{report.resource_name}")
             return response
