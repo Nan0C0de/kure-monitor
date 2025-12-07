@@ -43,7 +43,12 @@ securityScanner:
     tag: "1.0.0"
     pullPolicy: IfNotPresent
 
-  scanInterval: "3600"  # Scan interval in seconds (default: 1 hour)
+  scanInterval: "3600"  # Misconfiguration scan interval in seconds (default: 1 hour)
+
+  # CVE Scanner configuration
+  cve:
+    enabled: true  # Set to false to disable CVE scanning
+    scanInterval: "86400"  # CVE scan interval in seconds (default: 24 hours)
 
   resources:
     requests:

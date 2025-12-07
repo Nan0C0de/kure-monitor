@@ -49,6 +49,10 @@ spec:
           value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
         - name: SCAN_INTERVAL
           value: "{{ .Values.securityScanner.scanInterval }}"
+        - name: CVE_SCAN_ENABLED
+          value: "{{ .Values.securityScanner.cve.enabled }}"
+        - name: CVE_SCAN_INTERVAL
+          value: "{{ .Values.securityScanner.cve.scanInterval }}"
         - name: PYTHONUNBUFFERED
           value: "1"
         volumeMounts:

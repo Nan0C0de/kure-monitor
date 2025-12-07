@@ -214,17 +214,40 @@ __marimo__/
 CLAUDE.md
 .claude
 
-# k8s
-k8s
-
-# Secrets
+# Secrets (k8s sensitive files)
 k8s/registry-secret.yaml
 k8s/secrets.yaml
+**/secrets*.yaml
+!k8s/secrets.yaml.example
 
 # Security scans
-security-scan
+security-scan/
 
 # Helm chart packages
 *.tgz
 .cr-release-packages/
 .cr-index/
+
+# SQLite databases (local development)
+*.db
+*.sqlite
+*.sqlite3
+
+# Backend data directory
+backend/data/
+
+# Node modules (already in frontend but just in case)
+node_modules/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# Local testing
+*.local
+.local/
+
+# Ignore k8s
+k8s

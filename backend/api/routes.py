@@ -2,7 +2,11 @@ from fastapi import APIRouter, HTTPException
 import logging
 import traceback
 
-from models.models import PodFailureReport, PodFailureResponse, SecurityFindingReport, SecurityFindingResponse
+from models.models import (
+    PodFailureReport, PodFailureResponse,
+    SecurityFindingReport, SecurityFindingResponse,
+    CVEFindingReport, CVEFindingResponse
+)
 from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
@@ -242,6 +246,106 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             return {"message": "Security findings cleared"}
         except Exception as e:
             logger.error(f"Error clearing security findings: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ==================== CVE Endpoints ====================
+
+    @router.post("/security/cves", response_model=CVEFindingResponse)
+    async def report_cve_finding(report: CVEFindingReport):
+        """Receive CVE finding report from CVE scanner"""
+        logger.info(f"Received CVE finding: {report.cve_id}")
+
+        try:
+            if not report.cve_id:
+                raise HTTPException(status_code=400, detail="CVE ID is required")
+
+            # Create response
+            response = CVEFindingResponse(
+                **report.dict()
+            )
+
+            # Save to database
+            logger.info(f"Saving CVE finding to database: {report.cve_id}")
+            finding_id, is_new = await db.save_cve_finding(response)
+            response.id = finding_id
+
+            # Broadcast via WebSocket if new
+            if is_new:
+                logger.info(f"Broadcasting NEW CVE finding via WebSocket: {report.cve_id}")
+                await websocket_manager.broadcast_cve_finding(response)
+            else:
+                logger.info(f"Updated existing CVE finding (not broadcasting): {report.cve_id}")
+
+            logger.info(f"Successfully processed CVE finding: {report.cve_id}")
+            return response
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            error_msg = f"Failed to process CVE finding for {report.cve_id}: {str(e)}"
+            logger.error(error_msg)
+            logger.error(f"Error details: {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Internal server error while processing CVE finding: {str(e)}"
+            )
+
+    @router.get("/security/cves", response_model=list[CVEFindingResponse])
+    async def get_cve_findings():
+        """Get all CVE findings from database"""
+        try:
+            return await db.get_cve_findings()
+        except Exception as e:
+            logger.error(f"Error getting CVE findings: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/security/cves/dismissed", response_model=list[CVEFindingResponse])
+    async def get_dismissed_cve_findings():
+        """Get all dismissed CVE findings"""
+        try:
+            return await db.get_cve_findings(include_dismissed=True, dismissed_only=True)
+        except Exception as e:
+            logger.error(f"Error getting dismissed CVE findings: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/security/cves/{finding_id}")
+    async def dismiss_cve_finding(finding_id: int):
+        """Mark a CVE finding as dismissed"""
+        try:
+            await db.dismiss_cve_finding(finding_id)
+            return {"message": "CVE finding dismissed"}
+        except Exception as e:
+            logger.error(f"Error dismissing CVE finding: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.put("/security/cves/{finding_id}/restore")
+    async def restore_cve_finding(finding_id: int):
+        """Restore a dismissed CVE finding"""
+        try:
+            await db.restore_cve_finding(finding_id)
+            return {"message": "CVE finding restored"}
+        except Exception as e:
+            logger.error(f"Error restoring CVE finding: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.put("/security/cves/{finding_id}/acknowledge")
+    async def acknowledge_cve_finding(finding_id: int):
+        """Mark a CVE finding as acknowledged (user has reviewed it)"""
+        try:
+            await db.acknowledge_cve_finding(finding_id)
+            return {"message": "CVE finding acknowledged"}
+        except Exception as e:
+            logger.error(f"Error acknowledging CVE finding: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/security/cves/clear")
+    async def clear_cve_findings():
+        """Clear all non-dismissed CVE findings (for new scans)"""
+        try:
+            await db.clear_cve_findings()
+            return {"message": "CVE findings cleared"}
+        except Exception as e:
+            logger.error(f"Error clearing CVE findings: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     return router
