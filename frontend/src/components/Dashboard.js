@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, Bug } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, Bug, ChevronDown, Filter, Loader2 } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import CVETable from './CVETable';
@@ -15,6 +15,9 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [clusterName, setClusterName] = useState('k8s-cluster');
   const [namespaceFilter, setNamespaceFilter] = useState('');
+  const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
+  const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
+  const [scanProgress, setScanProgress] = useState(null);
 
   // Handle WebSocket messages
   const handleWebSocketMessage = (message) => {
@@ -80,6 +83,16 @@ const Dashboard = () => {
           return [message.data, ...prevFindings];
         }
       });
+    } else if (message.type === 'scan_progress') {
+      // Update scan progress
+      const progress = message.data;
+      if (progress.phase === 'complete') {
+        // Clear progress after 3 seconds when complete
+        setScanProgress(progress);
+        setTimeout(() => setScanProgress(null), 3000);
+      } else {
+        setScanProgress(progress);
+      }
     }
   };
 
@@ -90,18 +103,48 @@ const Dashboard = () => {
     ? pods 
     : pods.filter(pod => pod.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim()));
 
-  // Filter security findings based on namespace
-  const filteredSecurityFindings = namespaceFilter.trim() === ''
-    ? securityFindings
-    : securityFindings.filter(finding => finding.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim()));
+  // Severity order for sorting (Critical > High > Medium > Low)
+  const severityOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
+  const allSeverities = ['critical', 'high', 'medium', 'low'];
+
+  // Filter security findings based on namespace and severity
+  const filteredSecurityFindings = securityFindings.filter(finding => {
+    const matchesNamespace = namespaceFilter.trim() === '' ||
+      finding.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim());
+    const matchesSeverity = selectedSeverities.includes(finding.severity.toLowerCase());
+    return matchesNamespace && matchesSeverity;
+  });
 
   // Sort security findings by severity (CRITICAL > HIGH > MEDIUM > LOW)
-  const severityOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
   const sortedSecurityFindings = [...filteredSecurityFindings].sort((a, b) => {
     const severityA = severityOrder[a.severity.toLowerCase()] || 999;
     const severityB = severityOrder[b.severity.toLowerCase()] || 999;
     return severityA - severityB;
   });
+
+  // Toggle severity selection
+  const toggleSeverity = (severity) => {
+    setSelectedSeverities(prev => {
+      if (prev.includes(severity)) {
+        // Don't allow deselecting all severities
+        if (prev.length === 1) return prev;
+        return prev.filter(s => s !== severity);
+      } else {
+        return [...prev, severity];
+      }
+    });
+  };
+
+  // Get severity badge color
+  const getSeverityBadgeColor = (severity) => {
+    switch (severity) {
+      case 'critical': return 'bg-red-100 text-red-800 border-red-300';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'low': return 'bg-blue-100 text-blue-800 border-blue-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
 
   // Sort CVE findings by severity (CRITICAL > HIGH > MEDIUM > LOW)
   const sortedCVEFindings = [...cveFindings].sort((a, b) => {
@@ -204,6 +247,48 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* CVE Scan Progress Bar */}
+        {scanProgress && scanProgress.scanner === 'cve' && (
+          <div className="mb-6 bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                {scanProgress.phase !== 'complete' ? (
+                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                )}
+                <span className="text-sm font-medium text-gray-700">
+                  {scanProgress.phase === 'complete' ? 'CVE Scan Complete' : 'CVE Scan in Progress'}
+                </span>
+              </div>
+              <div className="flex items-center space-x-4 text-sm text-gray-500">
+                {scanProgress.found_issues > 0 && (
+                  <span className="text-red-600 font-medium">
+                    {scanProgress.found_issues} CVE{scanProgress.found_issues !== 1 ? 's' : ''} found
+                  </span>
+                )}
+                <span className="font-medium">{scanProgress.percent}%</span>
+              </div>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div
+                className={`h-2.5 rounded-full transition-all duration-300 ${
+                  scanProgress.phase === 'complete' ? 'bg-green-500' : 'bg-blue-500'
+                }`}
+                style={{ width: `${scanProgress.percent}%` }}
+              ></div>
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              {scanProgress.current_item}
+              {scanProgress.total_items > 0 && (
+                <span className="ml-2">
+                  ({scanProgress.completed_items}/{scanProgress.total_items} items)
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="mb-6">
           <div className="border-b border-gray-200">
@@ -260,8 +345,55 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Namespace Filter */}
-        <div className="flex justify-end mb-4">
+        {/* Filters */}
+        <div className="flex justify-end mb-4 gap-4">
+          {/* Severity Filter - only show on security tab */}
+          {activeTab === 'security' && (
+            <div className="relative">
+              <button
+                onClick={() => setShowSeverityDropdown(!showSeverityDropdown)}
+                className="flex items-center space-x-2 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <Filter className="w-4 h-4 text-gray-500" />
+                <span className="text-gray-700">Severity</span>
+                <span className="text-xs text-gray-500">({selectedSeverities.length}/{allSeverities.length})</span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showSeverityDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showSeverityDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                  <div className="py-1">
+                    {allSeverities.map(severity => (
+                      <label
+                        key={severity}
+                        className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSeverities.includes(severity)}
+                          onChange={() => toggleSeverity(severity)}
+                          className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className={`ml-3 px-2 py-0.5 rounded-full text-xs font-medium border ${getSeverityBadgeColor(severity)}`}>
+                          {severity.charAt(0).toUpperCase() + severity.slice(1)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="border-t border-gray-100 px-4 py-2">
+                    <button
+                      onClick={() => setSelectedSeverities([...allSeverities])}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Select All
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Namespace Filter */}
           <div className="flex items-center space-x-2">
             <label htmlFor="namespace-filter" className="text-sm font-medium text-gray-700">
               Filter by namespace:

@@ -106,6 +106,27 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
+    async def broadcast_scan_progress(self, progress_data: dict):
+        """Broadcast scan progress to all connected clients"""
+        if self.active_connections:
+            message = {
+                "type": "scan_progress",
+                "data": progress_data
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send scan progress to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            # Remove disconnected connections
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
     async def websocket_endpoint(self, websocket: WebSocket):
         await self.connect(websocket)
         try:

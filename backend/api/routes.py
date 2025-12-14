@@ -348,4 +348,29 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.error(f"Error clearing CVE findings: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    # ==================== Scan Progress Endpoints ====================
+
+    @router.post("/security/scan/progress")
+    async def report_scan_progress(progress: dict):
+        """
+        Receive scan progress from scanner and broadcast to clients.
+
+        Expected payload:
+        {
+            "scanner": "cve" | "security",
+            "phase": "kubernetes" | "images" | "os" | "complete",
+            "percent": 0-100,
+            "current_item": "nginx:1.21",
+            "total_items": 15,
+            "completed_items": 5,
+            "found_issues": 3
+        }
+        """
+        try:
+            await websocket_manager.broadcast_scan_progress(progress)
+            return {"message": "Progress broadcast"}
+        except Exception as e:
+            logger.error(f"Error broadcasting scan progress: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     return router
