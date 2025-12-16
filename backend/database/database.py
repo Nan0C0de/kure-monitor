@@ -60,5 +60,24 @@ class Database:
     async def clear_security_findings(self):
         return await self._db.clear_security_findings()
 
+    # CVE Finding methods
+    async def save_cve_finding(self, finding):
+        return await self._db.save_cve_finding(finding)
+
+    async def get_cve_findings(self, include_dismissed=False, dismissed_only=False):
+        return await self._db.get_cve_findings(include_dismissed, dismissed_only)
+
+    async def dismiss_cve_finding(self, finding_id):
+        return await self._db.dismiss_cve_finding(finding_id)
+
+    async def restore_cve_finding(self, finding_id):
+        return await self._db.restore_cve_finding(finding_id)
+
+    async def acknowledge_cve_finding(self, finding_id):
+        return await self._db.acknowledge_cve_finding(finding_id)
+
+    async def clear_cve_findings(self):
+        return await self._db.clear_cve_findings()
+
     async def close(self):
         return await self._db.close()
