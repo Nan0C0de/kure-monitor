@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Set, Tuple
 from kubernetes import client, config, watch
@@ -109,105 +110,244 @@ class SecurityScanner:
                 logger.info(f"Resource deleted: {resource_type}/{namespace}/{resource_name} - removing findings")
                 await self.backend_client.delete_findings_by_resource(resource_type, namespace, resource_name)
 
-    async def _watch_pods(self):
-        """Watch for pod changes in real-time"""
+    def _pod_watch_sync(self, callback):
+        """Synchronous pod watch that calls callback for each event"""
+        import time
+        import traceback
         while True:
             try:
-                logger.info("Starting pod watch for real-time detection")
+                logger.info("Pod watch thread starting stream...")
                 w = watch.Watch()
-                for event in w.stream(self.v1.list_pod_for_all_namespaces, timeout_seconds=0):
-                    pod = event['object']
-                    namespace = pod.metadata.namespace
-                    if namespace in self.SYSTEM_NAMESPACES:
-                        continue
-
-                    if event['type'] == 'DELETED':
-                        await self._handle_resource_deletion("Pod", namespace, pod.metadata.name)
-                    elif event['type'] in ['ADDED', 'MODIFIED']:
-                        # Scan this pod for security issues
-                        await self._scan_single_pod(pod)
+                for event in w.stream(self.v1.list_pod_for_all_namespaces, timeout_seconds=300):
+                    try:
+                        callback(event)
+                    except Exception as cb_err:
+                        logger.error(f"Pod watch callback error: {cb_err}")
             except Exception as e:
-                logger.error(f"Pod watch error: {e}, restarting watch...")
-                await asyncio.sleep(5)
+                logger.error(f"Pod watch stream error: {e}")
+                logger.error(traceback.format_exc())
+                time.sleep(5)
 
-    async def _watch_deployments(self):
-        """Watch for deployment deletions in real-time"""
+    async def _watch_pods(self):
+        """Watch for pod changes in real-time using thread executor"""
+        import threading
+
+        logger.info("_watch_pods async method starting...")
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            logger.debug(f"on_event callback received: {event['type']}")
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        # Start the sync watch in a background thread
+        watch_thread = threading.Thread(target=self._pod_watch_sync, args=(on_event,), daemon=True, name="pod-watch-thread")
+        watch_thread.start()
+        logger.info(f"Pod watch thread started: {watch_thread.name}, alive={watch_thread.is_alive()}")
+
+        logger.info("Pod watch consumer loop starting...")
         while True:
             try:
-                logger.info("Starting deployment watch for real-time deletion detection")
+                event = await event_queue.get()
+                pod = event['object']
+                namespace = pod.metadata.namespace
+                if namespace in self.SYSTEM_NAMESPACES:
+                    continue
+
+                if event['type'] == 'DELETED':
+                    await self._handle_resource_deletion("Pod", namespace, pod.metadata.name)
+                elif event['type'] in ['ADDED', 'MODIFIED']:
+                    logger.info(f"Real-time pod event: {event['type']} {namespace}/{pod.metadata.name}")
+                    await self._scan_single_pod(pod)
+            except Exception as e:
+                logger.error(f"Pod watch consumer error: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(1)
+
+    def _deployment_watch_sync(self, callback):
+        """Synchronous deployment watch"""
+        while True:
+            try:
+                logger.info("Starting deployment watch (sync thread)")
                 w = watch.Watch()
                 for event in w.stream(self.apps_v1.list_deployment_for_all_namespaces, timeout_seconds=0):
-                    if event['type'] == 'DELETED':
-                        deployment = event['object']
-                        namespace = deployment.metadata.namespace
-                        if namespace not in self.SYSTEM_NAMESPACES:
-                            await self._handle_resource_deletion("Deployment", namespace, deployment.metadata.name)
+                    callback(event)
             except Exception as e:
-                logger.error(f"Deployment watch error: {e}, restarting watch...")
-                await asyncio.sleep(5)
+                logger.error(f"Deployment watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
 
-    async def _watch_services(self):
-        """Watch for service deletions in real-time"""
+    async def _watch_deployments(self):
+        """Watch for deployment changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="deploy-watch")
+        executor.submit(self._deployment_watch_sync, on_event)
+
+        logger.info("Deployment watch consumer started")
         while True:
             try:
-                logger.info("Starting service watch for real-time deletion detection")
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    deployment = event['object']
+                    namespace = deployment.metadata.namespace
+                    if namespace not in self.SYSTEM_NAMESPACES:
+                        await self._handle_resource_deletion("Deployment", namespace, deployment.metadata.name)
+            except Exception as e:
+                logger.error(f"Deployment watch consumer error: {e}")
+                await asyncio.sleep(1)
+
+    def _service_watch_sync(self, callback):
+        """Synchronous service watch"""
+        while True:
+            try:
+                logger.info("Starting service watch (sync thread)")
                 w = watch.Watch()
                 for event in w.stream(self.v1.list_service_for_all_namespaces, timeout_seconds=0):
-                    if event['type'] == 'DELETED':
-                        service = event['object']
-                        namespace = service.metadata.namespace
-                        if namespace not in self.SYSTEM_NAMESPACES:
-                            await self._handle_resource_deletion("Service", namespace, service.metadata.name)
+                    callback(event)
             except Exception as e:
-                logger.error(f"Service watch error: {e}, restarting watch...")
-                await asyncio.sleep(5)
+                logger.error(f"Service watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
 
-    async def _watch_cluster_roles(self):
-        """Watch for ClusterRole deletions in real-time"""
+    async def _watch_services(self):
+        """Watch for service changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="svc-watch")
+        executor.submit(self._service_watch_sync, on_event)
+
+        logger.info("Service watch consumer started")
         while True:
             try:
-                logger.info("Starting ClusterRole watch for real-time deletion detection")
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    service = event['object']
+                    namespace = service.metadata.namespace
+                    if namespace not in self.SYSTEM_NAMESPACES:
+                        await self._handle_resource_deletion("Service", namespace, service.metadata.name)
+            except Exception as e:
+                logger.error(f"Service watch consumer error: {e}")
+                await asyncio.sleep(1)
+
+    def _cluster_role_watch_sync(self, callback):
+        """Synchronous cluster role watch"""
+        while True:
+            try:
+                logger.info("Starting ClusterRole watch (sync thread)")
                 w = watch.Watch()
                 for event in w.stream(self.rbac_v1.list_cluster_role, timeout_seconds=0):
-                    if event['type'] == 'DELETED':
-                        role = event['object']
-                        if not role.metadata.name.startswith('system:'):
-                            await self._handle_resource_deletion("ClusterRole", "cluster-wide", role.metadata.name)
+                    callback(event)
             except Exception as e:
-                logger.error(f"ClusterRole watch error: {e}, restarting watch...")
-                await asyncio.sleep(5)
+                logger.error(f"ClusterRole watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
 
-    async def _watch_roles(self):
-        """Watch for Role deletions in real-time"""
+    async def _watch_cluster_roles(self):
+        """Watch for ClusterRole changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cr-watch")
+        executor.submit(self._cluster_role_watch_sync, on_event)
+
+        logger.info("ClusterRole watch consumer started")
         while True:
             try:
-                logger.info("Starting Role watch for real-time deletion detection")
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    role = event['object']
+                    if not role.metadata.name.startswith('system:'):
+                        await self._handle_resource_deletion("ClusterRole", "cluster-wide", role.metadata.name)
+            except Exception as e:
+                logger.error(f"ClusterRole watch consumer error: {e}")
+                await asyncio.sleep(1)
+
+    def _role_watch_sync(self, callback):
+        """Synchronous role watch"""
+        while True:
+            try:
+                logger.info("Starting Role watch (sync thread)")
                 w = watch.Watch()
                 for event in w.stream(self.rbac_v1.list_role_for_all_namespaces, timeout_seconds=0):
-                    if event['type'] == 'DELETED':
-                        role = event['object']
-                        namespace = role.metadata.namespace
-                        if namespace not in self.SYSTEM_NAMESPACES:
-                            await self._handle_resource_deletion("Role", namespace, role.metadata.name)
+                    callback(event)
             except Exception as e:
-                logger.error(f"Role watch error: {e}, restarting watch...")
-                await asyncio.sleep(5)
+                logger.error(f"Role watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
 
-    async def _watch_namespaces(self):
-        """Watch for namespace deletions in real-time"""
+    async def _watch_roles(self):
+        """Watch for Role changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="role-watch")
+        executor.submit(self._role_watch_sync, on_event)
+
+        logger.info("Role watch consumer started")
         while True:
             try:
-                logger.info("Starting Namespace watch for real-time deletion detection")
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    role = event['object']
+                    namespace = role.metadata.namespace
+                    if namespace not in self.SYSTEM_NAMESPACES:
+                        await self._handle_resource_deletion("Role", namespace, role.metadata.name)
+            except Exception as e:
+                logger.error(f"Role watch consumer error: {e}")
+                await asyncio.sleep(1)
+
+    def _namespace_watch_sync(self, callback):
+        """Synchronous namespace watch"""
+        while True:
+            try:
+                logger.info("Starting Namespace watch (sync thread)")
                 w = watch.Watch()
                 for event in w.stream(self.v1.list_namespace, timeout_seconds=0):
-                    if event['type'] == 'DELETED':
-                        ns = event['object']
-                        ns_name = ns.metadata.name
-                        if ns_name not in self.SYSTEM_NAMESPACES:
-                            await self._handle_resource_deletion("Namespace", ns_name, ns_name)
+                    callback(event)
             except Exception as e:
-                logger.error(f"Namespace watch error: {e}, restarting watch...")
-                await asyncio.sleep(5)
+                logger.error(f"Namespace watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
+
+    async def _watch_namespaces(self):
+        """Watch for namespace changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ns-watch")
+        executor.submit(self._namespace_watch_sync, on_event)
+
+        logger.info("Namespace watch consumer started")
+        while True:
+            try:
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    ns = event['object']
+                    ns_name = ns.metadata.name
+                    if ns_name not in self.SYSTEM_NAMESPACES:
+                        await self._handle_resource_deletion("Namespace", ns_name, ns_name)
+            except Exception as e:
+                logger.error(f"Namespace watch consumer error: {e}")
+                await asyncio.sleep(1)
 
     async def _scan_single_pod(self, pod):
         """Scan a single pod for security issues (used by real-time watch)"""

@@ -83,7 +83,7 @@ const Dashboard = () => {
     : pods.filter(pod => pod.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim()));
 
   // Severity order for sorting (Critical > High > Medium > Low)
-  const severityOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
+  const severityOrder = { 'critical': 1, 'high': 2, 'medium': 3, 'low': 4 };
   const allSeverities = ['critical', 'high', 'medium', 'low'];
 
   // Filter security findings based on namespace and severity
@@ -94,11 +94,15 @@ const Dashboard = () => {
     return matchesNamespace && matchesSeverity;
   });
 
-  // Sort security findings by severity (CRITICAL > HIGH > MEDIUM > LOW)
+  // Sort security findings by severity (CRITICAL > HIGH > MEDIUM > LOW), then by timestamp (newest first)
   const sortedSecurityFindings = [...filteredSecurityFindings].sort((a, b) => {
     const severityA = severityOrder[a.severity.toLowerCase()] || 999;
     const severityB = severityOrder[b.severity.toLowerCase()] || 999;
-    return severityA - severityB;
+    if (severityA !== severityB) {
+      return severityA - severityB;
+    }
+    // Within same severity, sort by timestamp (newest first)
+    return new Date(b.timestamp) - new Date(a.timestamp);
   });
 
   // Toggle severity selection
