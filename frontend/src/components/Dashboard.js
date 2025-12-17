@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, Bug, ChevronDown, Filter, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
-import CVETable from './CVETable';
 import { api } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -10,14 +9,12 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('monitoring');
   const [pods, setPods] = useState([]);
   const [securityFindings, setSecurityFindings] = useState([]);
-  const [cveFindings, setCVEFindings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [clusterName, setClusterName] = useState('k8s-cluster');
   const [namespaceFilter, setNamespaceFilter] = useState('');
   const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
-  const [scanProgress, setScanProgress] = useState(null);
 
   // Handle WebSocket messages
   const handleWebSocketMessage = (message) => {
@@ -66,33 +63,15 @@ const Dashboard = () => {
           return [message.data, ...prevFindings];
         }
       });
-    } else if (message.type === 'cve_finding') {
-      // Update or add CVE finding (deduplicate by cve_id)
-      setCVEFindings(prevFindings => {
-        const existingIndex = prevFindings.findIndex(
-          finding => finding.cve_id === message.data.cve_id
-        );
-
-        if (existingIndex >= 0) {
-          // Update existing CVE
-          const newFindings = [...prevFindings];
-          newFindings[existingIndex] = message.data;
-          return newFindings;
-        } else {
-          // Add new CVE
-          return [message.data, ...prevFindings];
-        }
-      });
-    } else if (message.type === 'scan_progress') {
-      // Update scan progress
-      const progress = message.data;
-      if (progress.phase === 'complete') {
-        // Clear progress after 3 seconds when complete
-        setScanProgress(progress);
-        setTimeout(() => setScanProgress(null), 3000);
-      } else {
-        setScanProgress(progress);
-      }
+    } else if (message.type === 'security_finding_deleted') {
+      // Remove deleted security finding from list
+      setSecurityFindings(prevFindings =>
+        prevFindings.filter(finding =>
+          !(finding.resource_name === message.data.resource_name &&
+            finding.namespace === message.data.namespace &&
+            finding.title === message.data.title)
+        )
+      );
     }
   };
 
@@ -146,30 +125,6 @@ const Dashboard = () => {
     }
   };
 
-  // Sort CVE findings by severity (CRITICAL > HIGH > MEDIUM > LOW)
-  const sortedCVEFindings = [...cveFindings].sort((a, b) => {
-    const severityA = severityOrder[a.severity?.toLowerCase()] || 999;
-    const severityB = severityOrder[b.severity?.toLowerCase()] || 999;
-    return severityA - severityB;
-  });
-
-  // Handle CVE dismiss
-  const handleCVEDismiss = (cveId) => {
-    setCVEFindings(prevFindings => prevFindings.filter(cve => cve.id !== cveId));
-  };
-
-  // Handle CVE acknowledge
-  const handleCVEAcknowledge = (cveId) => {
-    setCVEFindings(prevFindings =>
-      prevFindings.map(cve =>
-        cve.id === cveId ? { ...cve, acknowledged: true } : cve
-      )
-    );
-  };
-
-  // Count unacknowledged CVEs for badge
-  const unacknowledgedCVECount = cveFindings.filter(cve => !cve.acknowledged).length;
-
   // Load initial data
   useEffect(() => {
     loadData();
@@ -178,15 +133,13 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [activePods, findings, cves, clusterInfo] = await Promise.all([
+      const [activePods, findings, clusterInfo] = await Promise.all([
         api.getFailedPods(),
         api.getSecurityFindings(),
-        api.getCVEFindings().catch(() => []),
         api.getClusterInfo().catch(() => ({ cluster_name: 'k8s-cluster' }))
       ]);
       setPods(activePods);
       setSecurityFindings(findings);
-      setCVEFindings(cves);
       setClusterName(clusterInfo.cluster_name || 'k8s-cluster');
       setError(null);
     } catch (err) {
@@ -247,48 +200,6 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* CVE Scan Progress Bar */}
-        {scanProgress && scanProgress.scanner === 'cve' && (
-          <div className="mb-6 bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                {scanProgress.phase !== 'complete' ? (
-                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                )}
-                <span className="text-sm font-medium text-gray-700">
-                  {scanProgress.phase === 'complete' ? 'CVE Scan Complete' : 'CVE Scan in Progress'}
-                </span>
-              </div>
-              <div className="flex items-center space-x-4 text-sm text-gray-500">
-                {scanProgress.found_issues > 0 && (
-                  <span className="text-red-600 font-medium">
-                    {scanProgress.found_issues} CVE{scanProgress.found_issues !== 1 ? 's' : ''} found
-                  </span>
-                )}
-                <span className="font-medium">{scanProgress.percent}%</span>
-              </div>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div
-                className={`h-2.5 rounded-full transition-all duration-300 ${
-                  scanProgress.phase === 'complete' ? 'bg-green-500' : 'bg-blue-500'
-                }`}
-                style={{ width: `${scanProgress.percent}%` }}
-              ></div>
-            </div>
-            <div className="mt-2 text-xs text-gray-500">
-              {scanProgress.current_item}
-              {scanProgress.total_items > 0 && (
-                <span className="ml-2">
-                  ({scanProgress.completed_items}/{scanProgress.total_items} items)
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Tabs */}
         <div className="mb-6">
           <div className="border-b border-gray-200">
@@ -322,22 +233,6 @@ const Dashboard = () => {
                 {securityFindings.length > 0 && (
                   <span className="ml-2 bg-orange-100 text-orange-800 py-0.5 px-2.5 rounded-full text-xs font-medium">
                     {securityFindings.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('cve')}
-                className={`${
-                  activeTab === 'cve'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
-              >
-                <Bug className="w-5 h-5" />
-                <span>CVE Tracker</span>
-                {unacknowledgedCVECount > 0 && (
-                  <span className="ml-2 bg-red-100 text-red-800 py-0.5 px-2.5 rounded-full text-xs font-medium">
-                    {unacknowledgedCVECount}
                   </span>
                 )}
               </button>
@@ -457,42 +352,6 @@ const Dashboard = () => {
             </>
           )}
 
-          {activeTab === 'cve' && (
-            <>
-              {sortedCVEFindings.length === 0 ? (
-                <div className="text-center py-12">
-                  <Bug className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No CVEs Found
-                  </h3>
-                  <p className="text-gray-600">
-                    No known Kubernetes CVEs affect your cluster version, or CVE scanning is still in progress.
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    CVE data is fetched from the official Kubernetes security feed.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                    <p className="text-sm text-gray-600">
-                      Showing {sortedCVEFindings.length} CVE{sortedCVEFindings.length !== 1 ? 's' : ''} that may affect your cluster.
-                      {sortedCVEFindings[0]?.cluster_version && (
-                        <span className="ml-2">
-                          Cluster version: <span className="font-medium text-indigo-600">{sortedCVEFindings[0].cluster_version}</span>
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <CVETable
-                    cves={sortedCVEFindings}
-                    onDismiss={handleCVEDismiss}
-                    onAcknowledge={handleCVEAcknowledge}
-                  />
-                </div>
-              )}
-            </>
-          )}
         </div>
       </div>
     </div>

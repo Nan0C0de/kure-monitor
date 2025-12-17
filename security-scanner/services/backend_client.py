@@ -72,3 +72,28 @@ class BackendClient:
         except Exception as e:
             logger.warning(f"Could not clear previous security findings: {e}")
             return False
+
+    async def delete_findings_by_resource(self, resource_type: str, namespace: str, resource_name: str) -> bool:
+        """Delete all findings for a specific resource (when resource is deleted from cluster)"""
+        resource_identifier = f"{resource_type}/{namespace}/{resource_name}"
+
+        try:
+            logger.info(f"Deleting findings for deleted resource: {resource_identifier}")
+
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(
+                        f"{self.backend_url}/api/security/findings/resource/{resource_type}/{namespace}/{resource_name}",
+                        timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        count = data.get('count', 0)
+                        logger.info(f"Successfully deleted {count} findings for {resource_identifier}")
+                        return True
+                    else:
+                        logger.warning(f"Backend returned HTTP {response.status} when deleting findings for {resource_identifier}")
+                        return False
+
+        except Exception as e:
+            logger.warning(f"Could not delete findings for {resource_identifier}: {e}")
+            return False

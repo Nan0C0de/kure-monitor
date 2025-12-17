@@ -5,7 +5,7 @@ import json
 from typing import List
 from datetime import datetime, timezone
 from .database_base import DatabaseInterface
-from models.models import PodFailureResponse, SecurityFindingResponse, CVEFindingResponse
+from models.models import PodFailureResponse, SecurityFindingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -133,43 +133,6 @@ class PostgreSQLDatabase(DatabaseInterface):
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_security_findings_dismissed
                     ON security_findings(dismissed)
-                """)
-
-                # Create cve_findings table for Kubernetes CVE tracking
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS cve_findings (
-                        id SERIAL PRIMARY KEY,
-                        cve_id VARCHAR(50) NOT NULL UNIQUE,
-                        title VARCHAR(500) NOT NULL,
-                        description TEXT NOT NULL,
-                        severity VARCHAR(50) NOT NULL,
-                        cvss_score DECIMAL(3,1),
-                        affected_versions JSONB,
-                        fixed_versions JSONB,
-                        components JSONB,
-                        published_date TIMESTAMPTZ,
-                        url TEXT,
-                        external_url TEXT,
-                        cluster_version VARCHAR(50),
-                        timestamp TIMESTAMPTZ NOT NULL,
-                        dismissed BOOLEAN DEFAULT FALSE,
-                        acknowledged BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-
-                # Create indexes for CVE findings
-                await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_cve_findings_cve_id
-                    ON cve_findings(cve_id)
-                """)
-                await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_cve_findings_severity
-                    ON cve_findings(severity)
-                """)
-                await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_cve_findings_dismissed
-                    ON cve_findings(dismissed)
                 """)
 
             logger.info("PostgreSQL database initialized successfully")
@@ -403,137 +366,33 @@ class PostgreSQLDatabase(DatabaseInterface):
         async with self.pool.acquire() as conn:
             await conn.execute("DELETE FROM security_findings WHERE dismissed = FALSE")
 
-    # ==================== CVE Finding Methods ====================
-
-    async def save_cve_finding(self, finding: CVEFindingResponse) -> tuple[int, bool]:
-        """Save a CVE finding to database
+    async def delete_findings_by_resource(self, resource_type: str, namespace: str, resource_name: str) -> tuple[int, list]:
+        """Delete all findings for a specific resource (when resource is deleted from cluster)
 
         Returns:
-            tuple[int, bool]: (finding_id, is_new) where is_new indicates if this is a new finding
+            tuple[int, list]: (count, deleted_findings) - count of deleted findings and their details
         """
         async with self.pool.acquire() as conn:
-            timestamp = self._normalize_timestamp(finding.timestamp)
-            published_date = None
-            if finding.published_date:
-                try:
-                    published_date = self._normalize_timestamp(finding.published_date)
-                except Exception:
-                    pass
-
-            # Check if CVE already exists
-            existing = await conn.fetchrow("""
-                SELECT id FROM cve_findings WHERE cve_id = $1
-            """, finding.cve_id)
-
-            # Convert lists to JSON for JSONB columns
-            affected_versions = json.dumps(finding.affected_versions)
-            fixed_versions = json.dumps(finding.fixed_versions)
-            components = json.dumps(finding.components)
-
-            if existing:
-                # Update existing record but preserve dismissed/acknowledged status
-                await conn.execute("""
-                    UPDATE cve_findings SET
-                        title = $1, description = $2, severity = $3, cvss_score = $4,
-                        affected_versions = $5, fixed_versions = $6, components = $7,
-                        published_date = $8, url = $9, external_url = $10,
-                        cluster_version = $11, timestamp = $12
-                    WHERE id = $13
-                """,
-                    finding.title, finding.description, finding.severity, finding.cvss_score,
-                    affected_versions, fixed_versions, components,
-                    published_date, finding.url, finding.external_url,
-                    finding.cluster_version, timestamp,
-                    existing['id']
-                )
-                return existing['id'], False
-            else:
-                # Insert new record
-                result = await conn.fetchrow("""
-                    INSERT INTO cve_findings (
-                        cve_id, title, description, severity, cvss_score,
-                        affected_versions, fixed_versions, components,
-                        published_date, url, external_url, cluster_version,
-                        timestamp, dismissed, acknowledged
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-                    RETURNING id
-                """,
-                    finding.cve_id, finding.title, finding.description, finding.severity,
-                    finding.cvss_score, affected_versions, fixed_versions, components,
-                    published_date, finding.url, finding.external_url, finding.cluster_version,
-                    timestamp, finding.dismissed, finding.acknowledged
-                )
-                return result['id'], True
-
-    async def get_cve_findings(self, include_dismissed: bool = False, dismissed_only: bool = False) -> List[CVEFindingResponse]:
-        """Get all CVE findings from database"""
-        async with self.pool.acquire() as conn:
-            query = "SELECT * FROM cve_findings WHERE 1=1"
-
-            if dismissed_only:
-                query += " AND dismissed = TRUE"
-            elif not include_dismissed:
-                query += " AND dismissed = FALSE"
-
-            query += " ORDER BY severity DESC, created_at DESC"
-
-            rows = await conn.fetch(query)
-
-            findings = []
-            for row in rows:
-                timestamp = row['timestamp'].isoformat() if row['timestamp'] else None
-                published_date = row['published_date'].isoformat() if row['published_date'] else None
-
-                finding = CVEFindingResponse(
-                    id=row['id'],
-                    cve_id=row['cve_id'],
-                    title=row['title'],
-                    description=row['description'],
-                    severity=row['severity'],
-                    cvss_score=float(row['cvss_score']) if row['cvss_score'] else None,
-                    affected_versions=json.loads(row['affected_versions']) if row['affected_versions'] else [],
-                    fixed_versions=json.loads(row['fixed_versions']) if row['fixed_versions'] else [],
-                    components=json.loads(row['components']) if row['components'] else [],
-                    published_date=published_date,
-                    url=row['url'],
-                    external_url=row['external_url'],
-                    cluster_version=row['cluster_version'] or "unknown",
-                    timestamp=timestamp,
-                    dismissed=bool(row['dismissed']),
-                    acknowledged=bool(row['acknowledged'])
-                )
-                findings.append(finding)
-
-            return findings
-
-    async def dismiss_cve_finding(self, finding_id: int):
-        """Mark a CVE finding as dismissed"""
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                "UPDATE cve_findings SET dismissed = TRUE WHERE id = $1",
-                finding_id
+            # First get the findings that will be deleted (for broadcasting)
+            rows = await conn.fetch(
+                """SELECT resource_name, namespace, title FROM security_findings
+                   WHERE resource_type = $1 AND namespace = $2 AND resource_name = $3""",
+                resource_type, namespace, resource_name
             )
+            deleted_findings = [
+                {"resource_name": row['resource_name'], "namespace": row['namespace'], "title": row['title']}
+                for row in rows
+            ]
 
-    async def restore_cve_finding(self, finding_id: int):
-        """Restore a dismissed CVE finding"""
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                "UPDATE cve_findings SET dismissed = FALSE WHERE id = $1",
-                finding_id
+            # Now delete
+            result = await conn.execute(
+                """DELETE FROM security_findings
+                   WHERE resource_type = $1 AND namespace = $2 AND resource_name = $3""",
+                resource_type, namespace, resource_name
             )
-
-    async def acknowledge_cve_finding(self, finding_id: int):
-        """Mark a CVE finding as acknowledged"""
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                "UPDATE cve_findings SET acknowledged = TRUE WHERE id = $1",
-                finding_id
-            )
-
-    async def clear_cve_findings(self):
-        """Clear all non-dismissed CVE findings (for new scans)"""
-        async with self.pool.acquire() as conn:
-            await conn.execute("DELETE FROM cve_findings WHERE dismissed = FALSE")
+            # Extract count from result string like "DELETE 5"
+            count = int(result.split()[-1]) if result else 0
+            return count, deleted_findings
 
     async def close(self):
         """Close database connection pool"""

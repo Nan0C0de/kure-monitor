@@ -1,31 +1,12 @@
 import asyncio
 import logging
-import os
 from services.security_scanner import SecurityScanner
-from services.cve_scanner import CVEScanner
 
 
-async def run_scanners():
-    """Run both security and CVE scanners concurrently"""
-    logger = logging.getLogger(__name__)
-
-    # Initialize scanners
+async def run_scanner():
+    """Run the security scanner"""
     security_scanner = SecurityScanner()
-    cve_scanner = CVEScanner()
-
-    # Check if CVE scanning is enabled (default: enabled)
-    cve_enabled = os.getenv("CVE_SCAN_ENABLED", "true").lower() == "true"
-
-    tasks = [security_scanner.start_scanning()]
-
-    if cve_enabled:
-        logger.info("CVE scanning is enabled")
-        tasks.append(cve_scanner.start_scanning())
-    else:
-        logger.info("CVE scanning is disabled")
-
-    # Run scanners concurrently
-    await asyncio.gather(*tasks)
+    await security_scanner.start_scanning()
 
 
 def main():
@@ -38,7 +19,7 @@ def main():
     logger.info("Starting Kure Security Scanner...")
 
     try:
-        asyncio.run(run_scanners())
+        asyncio.run(run_scanner())
     except KeyboardInterrupt:
         logger.info("Shutting down security scanner...")
 

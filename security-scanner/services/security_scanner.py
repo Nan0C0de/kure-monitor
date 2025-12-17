@@ -2,7 +2,8 @@ import asyncio
 import logging
 import os
 from datetime import datetime
-from kubernetes import client, config
+from typing import Set, Tuple
+from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 from services.backend_client import BackendClient
 
@@ -29,14 +30,21 @@ class SecurityScanner:
     # Capabilities allowed by Pod Security Standards Restricted policy
     ALLOWED_CAPABILITIES = ['NET_BIND_SERVICE']
 
+    # System namespaces to skip
+    SYSTEM_NAMESPACES = ['kube-system', 'kube-public', 'kube-node-lease', 'kube-flannel']
+
     def __init__(self):
         self.backend_url = os.getenv("BACKEND_URL", "http://kure-monitor-backend:8000")
-        self.scan_interval = int(os.getenv("SCAN_INTERVAL", "3600"))
+        self.scan_interval = int(os.getenv("SCAN_INTERVAL", "120"))  # Scan for new issues every 2 minutes
         self.backend_client = BackendClient(self.backend_url)
         self.v1 = None
         self.apps_v1 = None
         self.rbac_v1 = None
         self.networking_v1 = None
+        # Track resources that have findings: Set of (resource_type, namespace, resource_name)
+        self.tracked_resources: Set[Tuple[str, str, str]] = set()
+        # Lock for thread-safe access to tracked_resources
+        self._lock = asyncio.Lock()
 
     def _init_kubernetes_client(self):
         """Initialize Kubernetes client"""
@@ -59,22 +67,347 @@ class SecurityScanner:
         self.networking_v1 = client.NetworkingV1Api()
 
     async def start_scanning(self):
-        """Start the security scanning loop"""
-        logger.info(f"Starting security scanner (scan interval: {self.scan_interval}s)")
+        """Start real-time security scanning with Kubernetes watches"""
+        logger.info("Starting real-time security scanner")
         logger.info(f"Backend URL: {self.backend_url}")
 
         self._init_kubernetes_client()
 
+        # Clear all findings on startup
+        await self.backend_client.clear_security_findings()
+
+        # Run initial scan to populate findings
+        logger.info("Running initial security scan...")
+        await self.scan_cluster()
+        logger.info("Initial security scan completed - switching to real-time mode")
+
+        # Start watches for real-time detection (both additions and deletions)
+        watch_tasks = [
+            asyncio.create_task(self._watch_pods()),
+            asyncio.create_task(self._watch_deployments()),
+            asyncio.create_task(self._watch_services()),
+            asyncio.create_task(self._watch_cluster_roles()),
+            asyncio.create_task(self._watch_roles()),
+            asyncio.create_task(self._watch_namespaces()),
+        ]
+
+        # Wait for watches to run (they run forever until cancelled)
+        try:
+            await asyncio.gather(*watch_tasks)
+        finally:
+            # Cancel watch tasks on shutdown
+            for task in watch_tasks:
+                task.cancel()
+
+    async def _handle_resource_deletion(self, resource_type: str, namespace: str, resource_name: str):
+        """Handle deletion of a resource - remove its findings from backend"""
+        resource_key = (resource_type, namespace, resource_name)
+
+        async with self._lock:
+            if resource_key in self.tracked_resources:
+                self.tracked_resources.discard(resource_key)
+                logger.info(f"Resource deleted: {resource_type}/{namespace}/{resource_name} - removing findings")
+                await self.backend_client.delete_findings_by_resource(resource_type, namespace, resource_name)
+
+    async def _watch_pods(self):
+        """Watch for pod changes in real-time"""
         while True:
             try:
-                logger.info("Starting new security scan...")
-                await self.backend_client.clear_security_findings()
-                await self.scan_cluster()
-                logger.info(f"Security scan completed. Next scan in {self.scan_interval}s")
-            except Exception as e:
-                logger.error(f"Error during security scan: {e}")
+                logger.info("Starting pod watch for real-time detection")
+                w = watch.Watch()
+                for event in w.stream(self.v1.list_pod_for_all_namespaces, timeout_seconds=0):
+                    pod = event['object']
+                    namespace = pod.metadata.namespace
+                    if namespace in self.SYSTEM_NAMESPACES:
+                        continue
 
-            await asyncio.sleep(self.scan_interval)
+                    if event['type'] == 'DELETED':
+                        await self._handle_resource_deletion("Pod", namespace, pod.metadata.name)
+                    elif event['type'] in ['ADDED', 'MODIFIED']:
+                        # Scan this pod for security issues
+                        await self._scan_single_pod(pod)
+            except Exception as e:
+                logger.error(f"Pod watch error: {e}, restarting watch...")
+                await asyncio.sleep(5)
+
+    async def _watch_deployments(self):
+        """Watch for deployment deletions in real-time"""
+        while True:
+            try:
+                logger.info("Starting deployment watch for real-time deletion detection")
+                w = watch.Watch()
+                for event in w.stream(self.apps_v1.list_deployment_for_all_namespaces, timeout_seconds=0):
+                    if event['type'] == 'DELETED':
+                        deployment = event['object']
+                        namespace = deployment.metadata.namespace
+                        if namespace not in self.SYSTEM_NAMESPACES:
+                            await self._handle_resource_deletion("Deployment", namespace, deployment.metadata.name)
+            except Exception as e:
+                logger.error(f"Deployment watch error: {e}, restarting watch...")
+                await asyncio.sleep(5)
+
+    async def _watch_services(self):
+        """Watch for service deletions in real-time"""
+        while True:
+            try:
+                logger.info("Starting service watch for real-time deletion detection")
+                w = watch.Watch()
+                for event in w.stream(self.v1.list_service_for_all_namespaces, timeout_seconds=0):
+                    if event['type'] == 'DELETED':
+                        service = event['object']
+                        namespace = service.metadata.namespace
+                        if namespace not in self.SYSTEM_NAMESPACES:
+                            await self._handle_resource_deletion("Service", namespace, service.metadata.name)
+            except Exception as e:
+                logger.error(f"Service watch error: {e}, restarting watch...")
+                await asyncio.sleep(5)
+
+    async def _watch_cluster_roles(self):
+        """Watch for ClusterRole deletions in real-time"""
+        while True:
+            try:
+                logger.info("Starting ClusterRole watch for real-time deletion detection")
+                w = watch.Watch()
+                for event in w.stream(self.rbac_v1.list_cluster_role, timeout_seconds=0):
+                    if event['type'] == 'DELETED':
+                        role = event['object']
+                        if not role.metadata.name.startswith('system:'):
+                            await self._handle_resource_deletion("ClusterRole", "cluster-wide", role.metadata.name)
+            except Exception as e:
+                logger.error(f"ClusterRole watch error: {e}, restarting watch...")
+                await asyncio.sleep(5)
+
+    async def _watch_roles(self):
+        """Watch for Role deletions in real-time"""
+        while True:
+            try:
+                logger.info("Starting Role watch for real-time deletion detection")
+                w = watch.Watch()
+                for event in w.stream(self.rbac_v1.list_role_for_all_namespaces, timeout_seconds=0):
+                    if event['type'] == 'DELETED':
+                        role = event['object']
+                        namespace = role.metadata.namespace
+                        if namespace not in self.SYSTEM_NAMESPACES:
+                            await self._handle_resource_deletion("Role", namespace, role.metadata.name)
+            except Exception as e:
+                logger.error(f"Role watch error: {e}, restarting watch...")
+                await asyncio.sleep(5)
+
+    async def _watch_namespaces(self):
+        """Watch for namespace deletions in real-time"""
+        while True:
+            try:
+                logger.info("Starting Namespace watch for real-time deletion detection")
+                w = watch.Watch()
+                for event in w.stream(self.v1.list_namespace, timeout_seconds=0):
+                    if event['type'] == 'DELETED':
+                        ns = event['object']
+                        ns_name = ns.metadata.name
+                        if ns_name not in self.SYSTEM_NAMESPACES:
+                            await self._handle_resource_deletion("Namespace", ns_name, ns_name)
+            except Exception as e:
+                logger.error(f"Namespace watch error: {e}, restarting watch...")
+                await asyncio.sleep(5)
+
+    async def _scan_single_pod(self, pod):
+        """Scan a single pod for security issues (used by real-time watch)"""
+        namespace = pod.metadata.namespace
+        pod_name = pod.metadata.name
+        timestamp = datetime.utcnow().isoformat() + "Z"
+
+        logger.debug(f"Real-time scanning pod: {namespace}/{pod_name}")
+
+        # === Pod-level security checks ===
+
+        if pod.spec.host_network:
+            await self.report_finding({
+                "resource_type": "Pod",
+                "resource_name": pod_name,
+                "namespace": namespace,
+                "severity": "high",
+                "category": "Security",
+                "title": "Pod uses host network namespace",
+                "description": "Pod is using the host network namespace, which exposes the host's network stack to the container and bypasses network policies.",
+                "remediation": "Remove 'hostNetwork: true' unless required for specific use cases like CNI plugins or monitoring agents.",
+                "timestamp": timestamp
+            })
+
+        if pod.spec.host_pid:
+            await self.report_finding({
+                "resource_type": "Pod",
+                "resource_name": pod_name,
+                "namespace": namespace,
+                "severity": "high",
+                "category": "Security",
+                "title": "Pod uses host PID namespace",
+                "description": "Pod is using the host PID namespace, which allows viewing and signaling all processes on the host.",
+                "remediation": "Remove 'hostPID: true' unless absolutely necessary for debugging or monitoring.",
+                "timestamp": timestamp
+            })
+
+        if pod.spec.host_ipc:
+            await self.report_finding({
+                "resource_type": "Pod",
+                "resource_name": pod_name,
+                "namespace": namespace,
+                "severity": "high",
+                "category": "Security",
+                "title": "Pod uses host IPC namespace",
+                "description": "Pod is using the host IPC namespace, which allows reading shared memory with host processes.",
+                "remediation": "Remove 'hostIPC: true' from the pod specification.",
+                "timestamp": timestamp
+            })
+
+        # Check for hostPath volumes
+        if pod.spec.volumes:
+            for volume in pod.spec.volumes:
+                if volume.host_path:
+                    severity = "critical" if volume.host_path.path in ['/', '/etc', '/var', '/root', '/home'] else "high"
+                    await self.report_finding({
+                        "resource_type": "Pod",
+                        "resource_name": pod_name,
+                        "namespace": namespace,
+                        "severity": severity,
+                        "category": "Security",
+                        "title": f"HostPath volume mounted: {volume.host_path.path}",
+                        "description": f"Volume '{volume.name}' mounts host path '{volume.host_path.path}'. This provides direct access to the host filesystem and can lead to container escape.",
+                        "remediation": "Use persistent volumes, configMaps, secrets, or emptyDir instead of hostPath volumes.",
+                        "timestamp": timestamp
+                    })
+
+        # === Container-level security checks ===
+        all_containers = (pod.spec.containers or []) + (pod.spec.init_containers or [])
+
+        for container in all_containers:
+            container_name = container.name
+            sec_ctx = container.security_context
+
+            if sec_ctx and sec_ctx.privileged:
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "critical",
+                    "category": "Security",
+                    "title": f"Privileged container: {container_name}",
+                    "description": f"Container '{container_name}' is running in privileged mode, which grants full access to all host devices and capabilities.",
+                    "remediation": "Remove 'privileged: true' from the container's securityContext.",
+                    "timestamp": timestamp
+                })
+
+            if not sec_ctx or sec_ctx.allow_privilege_escalation is None or sec_ctx.allow_privilege_escalation:
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "high",
+                    "category": "Security",
+                    "title": f"Privilege escalation allowed: {container_name}",
+                    "description": f"Container '{container_name}' allows privilege escalation via setuid binaries or filesystem capabilities.",
+                    "remediation": "Set 'allowPrivilegeEscalation: false' in the container's securityContext.",
+                    "timestamp": timestamp
+                })
+
+            # Check for dangerous capabilities
+            if sec_ctx and sec_ctx.capabilities and sec_ctx.capabilities.add:
+                dangerous_caps = [cap for cap in sec_ctx.capabilities.add if cap in self.DANGEROUS_CAPABILITIES]
+                if dangerous_caps:
+                    await self.report_finding({
+                        "resource_type": "Pod",
+                        "resource_name": pod_name,
+                        "namespace": namespace,
+                        "severity": "high",
+                        "category": "Security",
+                        "title": f"Dangerous capabilities added: {container_name}",
+                        "description": f"Container '{container_name}' adds dangerous capabilities: {', '.join(dangerous_caps)}.",
+                        "remediation": "Remove dangerous capabilities from the container.",
+                        "timestamp": timestamp
+                    })
+
+            # Check for missing capability drop ALL
+            caps_dropped_all = (
+                sec_ctx and sec_ctx.capabilities and sec_ctx.capabilities.drop and
+                ('ALL' in sec_ctx.capabilities.drop or 'all' in sec_ctx.capabilities.drop)
+            )
+            if not caps_dropped_all:
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "medium",
+                    "category": "Security",
+                    "title": f"Capabilities not dropped: {container_name}",
+                    "description": f"Container '{container_name}' does not drop all capabilities.",
+                    "remediation": "Add 'drop: [\"ALL\"]' to capabilities.",
+                    "timestamp": timestamp
+                })
+
+            # Check for running as root
+            run_as_non_root = sec_ctx and sec_ctx.run_as_non_root
+            explicit_root = sec_ctx and sec_ctx.run_as_user == 0
+            pod_run_as_non_root = pod.spec.security_context and pod.spec.security_context.run_as_non_root
+
+            if explicit_root:
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "high",
+                    "category": "Security",
+                    "title": f"Container runs as root (UID 0): {container_name}",
+                    "description": f"Container '{container_name}' explicitly sets runAsUser: 0 (root).",
+                    "remediation": "Set 'runAsUser' to a non-zero UID and 'runAsNonRoot: true'.",
+                    "timestamp": timestamp
+                })
+            elif not run_as_non_root and not pod_run_as_non_root:
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "medium",
+                    "category": "Security",
+                    "title": f"Container may run as root: {container_name}",
+                    "description": f"Container '{container_name}' does not explicitly prevent running as root user.",
+                    "remediation": "Set 'runAsNonRoot: true' in the container's securityContext.",
+                    "timestamp": timestamp
+                })
+
+            # Check for writable root filesystem
+            if not sec_ctx or not sec_ctx.read_only_root_filesystem:
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "medium",
+                    "category": "Security",
+                    "title": f"Writable root filesystem: {container_name}",
+                    "description": f"Container '{container_name}' has a writable root filesystem.",
+                    "remediation": "Set 'readOnlyRootFilesystem: true'.",
+                    "timestamp": timestamp
+                })
+
+            # Check for missing resource limits
+            if not container.resources or not container.resources.limits:
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "medium",
+                    "category": "Best Practice",
+                    "title": f"Missing resource limits: {container_name}",
+                    "description": f"Container '{container_name}' does not have resource limits defined.",
+                    "remediation": "Add resource limits (cpu and memory) to the container specification.",
+                    "timestamp": timestamp
+                })
+
+    async def _track_resource_async(self, resource_type: str, namespace: str, resource_name: str):
+        """Track a resource as having findings (async thread-safe)"""
+        async with self._lock:
+            self.tracked_resources.add((resource_type, namespace, resource_name))
+
+    def _track_resource(self, resource_type: str, namespace: str, resource_name: str):
+        """Track a resource as having findings (sync version for report_finding)"""
+        self.tracked_resources.add((resource_type, namespace, resource_name))
 
     async def scan_cluster(self):
         """Run all security checks"""
@@ -661,5 +994,12 @@ class SecurityScanner:
             logger.error(f"Error scanning service accounts: {e}")
 
     async def report_finding(self, finding_data: dict):
-        """Report a security finding to the backend"""
+        """Report a security finding to the backend and track the resource"""
+        # Track this resource for deletion detection
+        resource_type = finding_data.get("resource_type", "")
+        namespace = finding_data.get("namespace", "")
+        resource_name = finding_data.get("resource_name", "")
+        if resource_type and namespace and resource_name:
+            self._track_resource(resource_type, namespace, resource_name)
+
         await self.backend_client.report_security_finding(finding_data)

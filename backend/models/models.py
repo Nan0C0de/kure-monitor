@@ -57,30 +57,3 @@ class SecurityFindingReport(SecurityFinding):
 class SecurityFindingResponse(SecurityFinding):
     id: Optional[int] = None
     dismissed: bool = False
-
-
-class CVEFinding(BaseModel):
-    """Model for Kubernetes CVE findings from the official feed"""
-    cve_id: str  # e.g., "CVE-2024-12345"
-    title: str
-    description: str
-    severity: str  # "critical", "high", "medium", "low"
-    cvss_score: Optional[float] = None
-    affected_versions: List[str] = []
-    fixed_versions: List[str] = []
-    components: List[str] = []  # e.g., ["kubelet", "kube-apiserver"]
-    published_date: Optional[str] = None
-    url: Optional[str] = None  # GitHub issue URL
-    external_url: Optional[str] = None  # CVE.org URL
-    cluster_version: str  # The cluster version this was checked against
-    timestamp: str
-
-
-class CVEFindingReport(CVEFinding):
-    pass
-
-
-class CVEFindingResponse(CVEFinding):
-    id: Optional[int] = None
-    dismissed: bool = False
-    acknowledged: bool = False  # User has seen/acknowledged this CVE

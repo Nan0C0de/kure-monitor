@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 import logging
 from typing import List
-from models.models import PodFailureResponse, SecurityFindingResponse, CVEFindingResponse
+from models.models import PodFailureResponse, SecurityFindingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +85,12 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
-    async def broadcast_cve_finding(self, finding: CVEFindingResponse):
-        """Broadcast new CVE finding to all connected clients"""
+    async def broadcast_security_finding_deleted(self, finding_data: dict):
+        """Broadcast security finding deletion to all connected clients"""
         if self.active_connections:
             message = {
-                "type": "cve_finding",
-                "data": finding.dict()
+                "type": "security_finding_deleted",
+                "data": finding_data
             }
 
             disconnected = []
@@ -98,28 +98,7 @@ class WebSocketManager:
                 try:
                     await connection.send_text(json.dumps(message, default=str))
                 except Exception as e:
-                    logger.warning(f"Failed to send CVE finding to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-
-    async def broadcast_scan_progress(self, progress_data: dict):
-        """Broadcast scan progress to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "scan_progress",
-                "data": progress_data
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send scan progress to WebSocket: {e}")
+                    logger.warning(f"Failed to send security finding deletion to WebSocket: {e}")
                     disconnected.append(connection)
 
             # Remove disconnected connections

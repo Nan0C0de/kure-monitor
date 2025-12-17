@@ -37,42 +37,5 @@ export const api = {
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
-  },
-
-  // CVE findings API
-  getCVEFindings: async () => {
-    const response = await fetch(`${API_BASE}/api/security/cves`);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
-  getDismissedCVEFindings: async () => {
-    const response = await fetch(`${API_BASE}/api/security/cves/dismissed`);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
-  dismissCVEFinding: async (findingId) => {
-    const response = await fetch(`${API_BASE}/api/security/cves/${findingId}`, {
-      method: 'DELETE'
-    });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
-  restoreCVEFinding: async (findingId) => {
-    const response = await fetch(`${API_BASE}/api/security/cves/${findingId}/restore`, {
-      method: 'PUT'
-    });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
-  acknowledgeCVEFinding: async (findingId) => {
-    const response = await fetch(`${API_BASE}/api/security/cves/${findingId}/acknowledge`, {
-      method: 'PUT'
-    });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
   }
 };
