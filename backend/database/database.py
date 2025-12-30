@@ -87,3 +87,9 @@ class Database:
 
     async def delete_pod_failures_by_namespace(self, namespace):
         return await self._db.delete_pod_failures_by_namespace(namespace)
+
+    async def add_namespace_to_rescan(self, namespace):
+        return await self._db.add_namespace_to_rescan(namespace)
+
+    async def get_namespaces_to_rescan(self):
+        return await self._db.get_namespaces_to_rescan()

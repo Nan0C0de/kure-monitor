@@ -31,6 +31,9 @@ class PodMonitor:
         self.excluded_namespaces_last_refresh: Optional[datetime] = None
         self.excluded_namespaces_refresh_interval = timedelta(minutes=1)
 
+        # Track which namespaces we've already processed from rescan queue
+        self.processed_rescan_namespaces: Dict[str, datetime] = {}
+
         # Initialize Kubernetes client
         try:
             config.load_incluster_config()  # For running in cluster
@@ -95,6 +98,43 @@ class PodMonitor:
             return True
         return False
 
+    async def _check_rescan_queue(self):
+        """Check if any namespaces need to be rescanned and clear their cache"""
+        try:
+            # Clean up old processed entries (older than 2 minutes)
+            now = datetime.now()
+            old_entries = [ns for ns, ts in self.processed_rescan_namespaces.items()
+                          if now - ts > timedelta(minutes=2)]
+            for ns in old_entries:
+                del self.processed_rescan_namespaces[ns]
+
+            namespaces_to_rescan = await self.backend_client.get_namespaces_to_rescan()
+            if namespaces_to_rescan:
+                processed_any = False
+                for namespace in namespaces_to_rescan:
+                    # Skip if we already processed this namespace recently
+                    if namespace in self.processed_rescan_namespaces:
+                        continue
+
+                    processed_any = True
+                    self.processed_rescan_namespaces[namespace] = now
+
+                    # Clear reported pods cache for this namespace
+                    pods_to_clear = [
+                        pod_key for pod_key in self.reported_pods.keys()
+                        if pod_key.startswith(f"{namespace}/")
+                    ]
+                    for pod_key in pods_to_clear:
+                        del self.reported_pods[pod_key]
+                        logger.info(f"Cleared cache for pod {pod_key} (namespace rescan)")
+
+                if processed_any:
+                    # Also refresh excluded namespaces immediately
+                    self.excluded_namespaces_last_refresh = None
+                    await self._refresh_excluded_namespaces()
+        except Exception as e:
+            logger.warning(f"Error checking rescan queue: {e}")
+
     async def start_monitoring(self):
         """Start monitoring pods for failures"""
         logger.info(f"Starting pod monitoring for cluster: {self.cluster_name}")
@@ -107,6 +147,8 @@ class PodMonitor:
 
         while True:
             try:
+                # Check if any namespaces need to be rescanned
+                await self._check_rescan_queue()
                 # Refresh excluded namespaces periodically
                 await self._refresh_excluded_namespaces()
                 await self._check_failed_pods()

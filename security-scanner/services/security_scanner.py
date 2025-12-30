@@ -52,6 +52,8 @@ class SecurityScanner:
         self.excluded_namespaces: List[str] = []
         self.excluded_namespaces_last_refresh: Optional[datetime] = None
         self.excluded_namespaces_refresh_interval = timedelta(minutes=1)
+        # Track which namespaces we've already processed from rescan queue
+        self.processed_rescan_namespaces: dict = {}
 
     def _init_kubernetes_client(self):
         """Initialize Kubernetes client"""
@@ -98,6 +100,50 @@ class SecurityScanner:
             return True
         return False
 
+    async def _check_rescan_queue(self):
+        """Periodically check if any namespaces need to be rescanned"""
+        while True:
+            try:
+                await asyncio.sleep(5)  # Check every 5 seconds
+
+                # Clean up old processed entries (older than 2 minutes)
+                now = datetime.utcnow()
+                old_entries = [ns for ns, ts in self.processed_rescan_namespaces.items()
+                              if (now - ts).total_seconds() > 120]
+                for ns in old_entries:
+                    del self.processed_rescan_namespaces[ns]
+
+                namespaces_to_rescan = await self.backend_client.get_namespaces_to_rescan()
+                if namespaces_to_rescan:
+                    processed_any = False
+                    for namespace in namespaces_to_rescan:
+                        # Skip if we already processed this namespace recently
+                        if namespace in self.processed_rescan_namespaces:
+                            continue
+
+                        processed_any = True
+                        self.processed_rescan_namespaces[namespace] = now
+
+                        if not self._is_namespace_excluded(namespace):
+                            logger.info(f"Rescanning namespace: {namespace}")
+                            await self._scan_namespace_pods(namespace)
+
+                    if processed_any:
+                        # Refresh excluded namespaces
+                        self.excluded_namespaces_last_refresh = None
+                        await self._refresh_excluded_namespaces()
+            except Exception as e:
+                logger.warning(f"Error checking rescan queue: {e}")
+
+    async def _scan_namespace_pods(self, namespace: str):
+        """Scan all pods in a specific namespace"""
+        try:
+            pods = self.v1.list_namespaced_pod(namespace)
+            for pod in pods.items:
+                await self._scan_single_pod(pod)
+        except Exception as e:
+            logger.error(f"Error scanning namespace {namespace}: {e}")
+
     async def start_scanning(self):
         """Start real-time security scanning with Kubernetes watches"""
         logger.info("Starting real-time security scanner")
@@ -128,6 +174,7 @@ class SecurityScanner:
             asyncio.create_task(self._watch_statefulsets()),
             asyncio.create_task(self._watch_ingresses()),
             asyncio.create_task(self._watch_cronjobs()),
+            asyncio.create_task(self._check_rescan_queue()),
         ]
 
         # Wait for watches to run (they run forever until cancelled)

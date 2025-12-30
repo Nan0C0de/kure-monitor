@@ -306,6 +306,9 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
                 await websocket_manager.broadcast_pod_deleted(pod['namespace'], pod['pod_name'])
             logger.info(f"Deleted {pods_count} pod failures for excluded namespace: {namespace}")
 
+            # Add to rescan queue so agent clears its cache
+            await db.add_namespace_to_rescan(namespace)
+
             return result
         except HTTPException:
             raise
@@ -320,6 +323,8 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             removed = await db.remove_excluded_namespace(namespace)
             if removed:
                 logger.info(f"Removed excluded namespace: {namespace}")
+                # Add to rescan queue so agent re-reports pods in this namespace
+                await db.add_namespace_to_rescan(namespace)
                 return {"message": f"Namespace '{namespace}' removed from exclusion list"}
             else:
                 raise HTTPException(status_code=404, detail=f"Namespace '{namespace}' not found in exclusion list")
@@ -327,6 +332,15 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             raise
         except Exception as e:
             logger.error(f"Error removing excluded namespace: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/admin/namespaces-to-rescan")
+    async def get_namespaces_to_rescan():
+        """Get namespaces that need to be rescanned (for agents)"""
+        try:
+            return await db.get_namespaces_to_rescan()
+        except Exception as e:
+            logger.error(f"Error getting namespaces to rescan: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     return router
