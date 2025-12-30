@@ -543,6 +543,13 @@ class SecurityScanner:
                 w = watch.Watch()
                 for event in w.stream(self.batch_v1.list_cron_job_for_all_namespaces, timeout_seconds=0):
                     callback(event)
+            except ApiException as e:
+                if e.status == 403:
+                    logger.warning(f"CronJob watch forbidden (missing RBAC permissions) - disabling CronJob watch")
+                    return  # Stop retrying on permission errors
+                logger.error(f"CronJob watch API error: {e}, restarting...")
+                import time
+                time.sleep(5)
             except Exception as e:
                 logger.error(f"CronJob watch error: {e}, restarting...")
                 import time

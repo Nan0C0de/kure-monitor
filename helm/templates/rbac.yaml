@@ -76,6 +76,12 @@ rules:
 - apiGroups: ["networking.k8s.io"]
   resources: ["networkpolicies", "ingresses"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["get", "list", "watch"]
 # Required for CVE scanner to get cluster version
 - nonResourceURLs: ["/version"]
   verbs: ["get"]

@@ -208,14 +208,14 @@ const Dashboard = () => {
         {/* Tabs */}
         <div className="mb-6">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+            <nav className="-mb-px flex">
               <button
                 onClick={() => setActiveTab('monitoring')}
                 className={`${
                   activeTab === 'monitoring'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                } mr-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
               >
                 <Activity className="w-5 h-5" />
                 <span>Pod Monitoring</span>
@@ -231,7 +231,7 @@ const Dashboard = () => {
                   activeTab === 'security'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                } mr-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
               >
                 <Shield className="w-5 h-5" />
                 <span>Security Scan</span>
