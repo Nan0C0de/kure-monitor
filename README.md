@@ -9,9 +9,11 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 ## Features
 
 - 🔍 **Real-time Pod Monitoring** - Detects failures across all namespaces instantly
+- 🛡️ **Security Scanning** - Real-time detection of security misconfigurations and vulnerabilities
 - 🧠 **AI-Powered Solutions** - Generates contextual troubleshooting steps using LLMs
 - 📊 **Modern Web Dashboard** - Clean interface with expandable failure details
-- 🔒 **Secure by Design** - RBAC-compliant Alwith network policies and security contexts
+- ⚙️ **Admin Panel** - Manage namespace exclusions in real-time
+- 🔒 **Secure by Design** - RBAC-compliant with network policies and security contexts
 - 🌐 **Multi-Provider LLM Support** - OpenAI, Anthropic, and Groq integration
 - 🗄️ **PostgreSQL Backend** - Robust data persistence with full-text search
 - ⚡ **Lightweight & Scalable** - Minimal resource footprint with horizontal scaling
@@ -19,27 +21,28 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 ## Architecture
 
 ```
-┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
-│ Kure Agent  │───▶│ Kure Backend │───▶│ LLM Providers   │
-│ (DaemonSet) │    │ (FastAPI)    │    │ OpenAI/Anthropic│
-└─────────────┘    └──────────────┘    └─────────────────┘
-       │                    │
-       │                    ▼
-       │            ┌──────────────┐
-       │            │ PostgreSQL   │
-       │            │ Database     │
-       │            └──────────────┘
-       │
-       ▼                    ▲
-┌─────────────┐            │
-│ Kubernetes  │            │
-│ API Server  │            │
-└─────────────┘            │
-                           │
-                    ┌──────────────┐
-                    │ Kure Frontend│
-                    │ (React)      │
-                    └──────────────┘
+┌─────────────────┐    ┌──────────────┐    ┌─────────────────┐
+│ Kure Agent      │───▶│ Kure Backend │───▶│ LLM Providers   │
+│ (Pod Monitor)   │    │ (FastAPI)    │    │ OpenAI/Anthropic│
+└─────────────────┘    └──────────────┘    └─────────────────┘
+        │                      │
+        │                      ▼
+        │              ┌──────────────┐
+        │              │ PostgreSQL   │
+        │              │ Database     │
+        │              └──────────────┘
+        │
+        ▼                      ▲
+┌─────────────────┐            │
+│ Kubernetes      │            │
+│ API Server      │            │
+└─────────────────┘            │
+        ▲                      │
+        │              ┌──────────────┐
+┌─────────────────┐    │ Kure Frontend│
+│ Security Scanner│    │ (React)      │
+│ (Pod Auditor)   │───▶└──────────────┘
+└─────────────────┘
 ```
 
 ## Quick Start
@@ -107,6 +110,17 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 
 **Provider Aliases:** `claude` → `anthropic`, `groq_cloud` → `groq`
 
+## Admin Panel
+
+The Admin Panel allows you to manage namespace exclusions in real-time:
+
+- **Exclude Namespaces** - Prevent specific namespaces from being monitored
+- **Include Namespaces** - Re-enable monitoring for previously excluded namespaces
+- **Real-time Updates** - Changes take effect immediately via WebSocket notifications
+- **Namespace Suggestions** - Shows available namespaces with active findings
+
+System namespaces (`kube-system`, `kube-public`, `kube-node-lease`) are always excluded by default.
+
 ## Monitoring and Troubleshooting
 
 ### Check System Status
@@ -117,6 +131,7 @@ kubectl get pods
 # View logs
 kubectl logs -l app.kubernetes.io/component=backend
 kubectl logs -l app.kubernetes.io/component=agent
+kubectl logs -l app.kubernetes.io/component=security-scanner
 kubectl logs -l app.kubernetes.io/component=frontend
 ```
 
