@@ -5,7 +5,7 @@ import json
 from typing import List
 from datetime import datetime, timezone
 from .database_base import DatabaseInterface
-from models.models import PodFailureResponse, SecurityFindingResponse
+from models.models import PodFailureResponse, SecurityFindingResponse, ExcludedNamespaceResponse
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +133,20 @@ class PostgreSQLDatabase(DatabaseInterface):
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_security_findings_dismissed
                     ON security_findings(dismissed)
+                """)
+
+                # Create excluded_namespaces table for admin settings
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS excluded_namespaces (
+                        id SERIAL PRIMARY KEY,
+                        namespace VARCHAR(255) NOT NULL UNIQUE,
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_excluded_namespaces_namespace
+                    ON excluded_namespaces(namespace)
                 """)
 
             logger.info("PostgreSQL database initialized successfully")
@@ -398,3 +412,70 @@ class PostgreSQLDatabase(DatabaseInterface):
         """Close database connection pool"""
         if self.pool:
             await self.pool.close()
+
+    # Excluded namespaces methods
+    async def add_excluded_namespace(self, namespace: str) -> ExcludedNamespaceResponse:
+        """Add a namespace to the exclusion list"""
+        async with self.pool.acquire() as conn:
+            try:
+                result = await conn.fetchrow(
+                    """INSERT INTO excluded_namespaces (namespace)
+                       VALUES ($1)
+                       ON CONFLICT (namespace) DO NOTHING
+                       RETURNING id, namespace, created_at""",
+                    namespace
+                )
+                if result:
+                    return ExcludedNamespaceResponse(
+                        id=result['id'],
+                        namespace=result['namespace'],
+                        created_at=result['created_at'].isoformat()
+                    )
+                # If no result, namespace already exists - fetch it
+                existing = await conn.fetchrow(
+                    "SELECT id, namespace, created_at FROM excluded_namespaces WHERE namespace = $1",
+                    namespace
+                )
+                return ExcludedNamespaceResponse(
+                    id=existing['id'],
+                    namespace=existing['namespace'],
+                    created_at=existing['created_at'].isoformat()
+                )
+            except Exception as e:
+                logger.error(f"Error adding excluded namespace: {e}")
+                raise
+
+    async def remove_excluded_namespace(self, namespace: str) -> bool:
+        """Remove a namespace from the exclusion list"""
+        async with self.pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM excluded_namespaces WHERE namespace = $1",
+                namespace
+            )
+            # Extract count from result string like "DELETE 1"
+            count = int(result.split()[-1]) if result else 0
+            return count > 0
+
+    async def get_excluded_namespaces(self) -> List[ExcludedNamespaceResponse]:
+        """Get all excluded namespaces"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, namespace, created_at FROM excluded_namespaces ORDER BY namespace"
+            )
+            return [
+                ExcludedNamespaceResponse(
+                    id=row['id'],
+                    namespace=row['namespace'],
+                    created_at=row['created_at'].isoformat()
+                )
+                for row in rows
+            ]
+
+    async def is_namespace_excluded(self, namespace: str) -> bool:
+        """Check if a namespace is in the exclusion list"""
+        async with self.pool.acquire() as conn:
+            result = await conn.fetchrow(
+                "SELECT 1 FROM excluded_namespaces WHERE namespace = $1",
+                namespace
+            )
+            return result is not None

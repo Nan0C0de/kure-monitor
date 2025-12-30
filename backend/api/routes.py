@@ -4,7 +4,8 @@ import traceback
 
 from models.models import (
     PodFailureReport, PodFailureResponse,
-    SecurityFindingReport, SecurityFindingResponse
+    SecurityFindingReport, SecurityFindingResponse,
+    ExcludedNamespace, ExcludedNamespaceResponse
 )
 from database.database import Database
 from services.solution_engine import SolutionEngine
@@ -261,6 +262,49 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             return {"message": f"Deleted {count} findings for resource", "count": count}
         except Exception as e:
             logger.error(f"Error deleting findings by resource: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Admin endpoints - Excluded namespaces
+    @router.get("/admin/excluded-namespaces", response_model=list[ExcludedNamespaceResponse])
+    async def get_excluded_namespaces():
+        """Get all excluded namespaces"""
+        try:
+            return await db.get_excluded_namespaces()
+        except Exception as e:
+            logger.error(f"Error getting excluded namespaces: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/excluded-namespaces", response_model=ExcludedNamespaceResponse)
+    async def add_excluded_namespace(request: ExcludedNamespace):
+        """Add a namespace to the exclusion list"""
+        try:
+            if not request.namespace or not request.namespace.strip():
+                raise HTTPException(status_code=400, detail="Namespace name is required")
+
+            namespace = request.namespace.strip()
+            result = await db.add_excluded_namespace(namespace)
+            logger.info(f"Added excluded namespace: {namespace}")
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error adding excluded namespace: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/admin/excluded-namespaces/{namespace}")
+    async def remove_excluded_namespace(namespace: str):
+        """Remove a namespace from the exclusion list"""
+        try:
+            removed = await db.remove_excluded_namespace(namespace)
+            if removed:
+                logger.info(f"Removed excluded namespace: {namespace}")
+                return {"message": f"Namespace '{namespace}' removed from exclusion list"}
+            else:
+                raise HTTPException(status_code=404, detail=f"Namespace '{namespace}' not found in exclusion list")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error removing excluded namespace: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     return router

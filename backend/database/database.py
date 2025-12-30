@@ -65,3 +65,16 @@ class Database:
 
     async def close(self):
         return await self._db.close()
+
+    # Excluded namespaces methods
+    async def add_excluded_namespace(self, namespace):
+        return await self._db.add_excluded_namespace(namespace)
+
+    async def remove_excluded_namespace(self, namespace):
+        return await self._db.remove_excluded_namespace(namespace)
+
+    async def get_excluded_namespaces(self):
+        return await self._db.get_excluded_namespaces()
+
+    async def is_namespace_excluded(self, namespace):
+        return await self._db.is_namespace_excluded(namespace)

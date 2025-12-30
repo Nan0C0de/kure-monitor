@@ -57,3 +57,12 @@ class SecurityFindingReport(SecurityFinding):
 class SecurityFindingResponse(SecurityFinding):
     id: Optional[int] = None
     dismissed: bool = False
+
+
+# Admin models
+class ExcludedNamespace(BaseModel):
+    namespace: str
+    created_at: Optional[str] = None
+
+class ExcludedNamespaceResponse(ExcludedNamespace):
+    id: Optional[int] = None

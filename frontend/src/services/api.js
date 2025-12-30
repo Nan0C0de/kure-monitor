@@ -37,5 +37,32 @@ export const api = {
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
+  },
+
+  // Admin API - Excluded Namespaces
+  getExcludedNamespaces: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  addExcludedNamespace: async (namespace) => {
+    const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ namespace })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  removeExcludedNamespace: async (namespace) => {
+    const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces/${encodeURIComponent(namespace)}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
   }
 };

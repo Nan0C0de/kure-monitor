@@ -2,8 +2,8 @@ import asyncio
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-from typing import Set, Tuple
+from datetime import datetime, timedelta
+from typing import Set, Tuple, List, Optional
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 from services.backend_client import BackendClient
@@ -42,10 +42,16 @@ class SecurityScanner:
         self.apps_v1 = None
         self.rbac_v1 = None
         self.networking_v1 = None
+        self.batch_v1 = None
+        self.policy_v1 = None
         # Track resources that have findings: Set of (resource_type, namespace, resource_name)
         self.tracked_resources: Set[Tuple[str, str, str]] = set()
         # Lock for thread-safe access to tracked_resources
         self._lock = asyncio.Lock()
+        # Cache for admin-configured excluded namespaces
+        self.excluded_namespaces: List[str] = []
+        self.excluded_namespaces_last_refresh: Optional[datetime] = None
+        self.excluded_namespaces_refresh_interval = timedelta(minutes=1)
 
     def _init_kubernetes_client(self):
         """Initialize Kubernetes client"""
@@ -66,6 +72,31 @@ class SecurityScanner:
         self.apps_v1 = client.AppsV1Api()
         self.rbac_v1 = client.RbacAuthorizationV1Api()
         self.networking_v1 = client.NetworkingV1Api()
+        self.batch_v1 = client.BatchV1Api()
+        self.policy_v1 = client.PolicyV1Api()
+
+    async def _refresh_excluded_namespaces(self):
+        """Refresh the excluded namespaces cache from backend"""
+        now = datetime.utcnow()
+        if (self.excluded_namespaces_last_refresh is None or
+                now - self.excluded_namespaces_last_refresh > self.excluded_namespaces_refresh_interval):
+            try:
+                self.excluded_namespaces = await self.backend_client.get_excluded_namespaces()
+                self.excluded_namespaces_last_refresh = now
+                if self.excluded_namespaces:
+                    logger.info(f"Refreshed excluded namespaces: {self.excluded_namespaces}")
+            except Exception as e:
+                logger.warning(f"Failed to refresh excluded namespaces: {e}")
+
+    def _is_namespace_excluded(self, namespace: str) -> bool:
+        """Check if a namespace is excluded from scanning"""
+        # Check system namespaces
+        if namespace in self.SYSTEM_NAMESPACES:
+            return True
+        # Check admin-configured excluded namespaces
+        if namespace in self.excluded_namespaces:
+            return True
+        return False
 
     async def start_scanning(self):
         """Start real-time security scanning with Kubernetes watches"""
@@ -76,6 +107,9 @@ class SecurityScanner:
 
         # Clear all findings on startup
         await self.backend_client.clear_security_findings()
+
+        # Initial refresh of excluded namespaces
+        await self._refresh_excluded_namespaces()
 
         # Run initial scan to populate findings
         logger.info("Running initial security scan...")
@@ -90,6 +124,10 @@ class SecurityScanner:
             asyncio.create_task(self._watch_cluster_roles()),
             asyncio.create_task(self._watch_roles()),
             asyncio.create_task(self._watch_namespaces()),
+            asyncio.create_task(self._watch_daemonsets()),
+            asyncio.create_task(self._watch_statefulsets()),
+            asyncio.create_task(self._watch_ingresses()),
+            asyncio.create_task(self._watch_cronjobs()),
         ]
 
         # Wait for watches to run (they run forever until cancelled)
@@ -151,7 +189,11 @@ class SecurityScanner:
                 event = await event_queue.get()
                 pod = event['object']
                 namespace = pod.metadata.namespace
-                if namespace in self.SYSTEM_NAMESPACES:
+
+                # Refresh excluded namespaces periodically
+                await self._refresh_excluded_namespaces()
+
+                if self._is_namespace_excluded(namespace):
                     continue
 
                 if event['type'] == 'DELETED':
@@ -196,7 +238,7 @@ class SecurityScanner:
                 if event['type'] == 'DELETED':
                     deployment = event['object']
                     namespace = deployment.metadata.namespace
-                    if namespace not in self.SYSTEM_NAMESPACES:
+                    if not self._is_namespace_excluded(namespace):
                         await self._handle_resource_deletion("Deployment", namespace, deployment.metadata.name)
             except Exception as e:
                 logger.error(f"Deployment watch consumer error: {e}")
@@ -233,7 +275,7 @@ class SecurityScanner:
                 if event['type'] == 'DELETED':
                     service = event['object']
                     namespace = service.metadata.namespace
-                    if namespace not in self.SYSTEM_NAMESPACES:
+                    if not self._is_namespace_excluded(namespace):
                         await self._handle_resource_deletion("Service", namespace, service.metadata.name)
             except Exception as e:
                 logger.error(f"Service watch consumer error: {e}")
@@ -306,7 +348,7 @@ class SecurityScanner:
                 if event['type'] == 'DELETED':
                     role = event['object']
                     namespace = role.metadata.namespace
-                    if namespace not in self.SYSTEM_NAMESPACES:
+                    if not self._is_namespace_excluded(namespace):
                         await self._handle_resource_deletion("Role", namespace, role.metadata.name)
             except Exception as e:
                 logger.error(f"Role watch consumer error: {e}")
@@ -343,10 +385,158 @@ class SecurityScanner:
                 if event['type'] == 'DELETED':
                     ns = event['object']
                     ns_name = ns.metadata.name
-                    if ns_name not in self.SYSTEM_NAMESPACES:
+                    if not self._is_namespace_excluded(ns_name):
                         await self._handle_resource_deletion("Namespace", ns_name, ns_name)
             except Exception as e:
                 logger.error(f"Namespace watch consumer error: {e}")
+                await asyncio.sleep(1)
+
+    def _daemonset_watch_sync(self, callback):
+        """Synchronous DaemonSet watch"""
+        while True:
+            try:
+                logger.info("Starting DaemonSet watch (sync thread)")
+                w = watch.Watch()
+                for event in w.stream(self.apps_v1.list_daemon_set_for_all_namespaces, timeout_seconds=0):
+                    callback(event)
+            except Exception as e:
+                logger.error(f"DaemonSet watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
+
+    async def _watch_daemonsets(self):
+        """Watch for DaemonSet changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ds-watch")
+        executor.submit(self._daemonset_watch_sync, on_event)
+
+        logger.info("DaemonSet watch consumer started")
+        while True:
+            try:
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    ds = event['object']
+                    namespace = ds.metadata.namespace
+                    if not self._is_namespace_excluded(namespace):
+                        await self._handle_resource_deletion("DaemonSet", namespace, ds.metadata.name)
+            except Exception as e:
+                logger.error(f"DaemonSet watch consumer error: {e}")
+                await asyncio.sleep(1)
+
+    def _statefulset_watch_sync(self, callback):
+        """Synchronous StatefulSet watch"""
+        while True:
+            try:
+                logger.info("Starting StatefulSet watch (sync thread)")
+                w = watch.Watch()
+                for event in w.stream(self.apps_v1.list_stateful_set_for_all_namespaces, timeout_seconds=0):
+                    callback(event)
+            except Exception as e:
+                logger.error(f"StatefulSet watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
+
+    async def _watch_statefulsets(self):
+        """Watch for StatefulSet changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sts-watch")
+        executor.submit(self._statefulset_watch_sync, on_event)
+
+        logger.info("StatefulSet watch consumer started")
+        while True:
+            try:
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    sts = event['object']
+                    namespace = sts.metadata.namespace
+                    if not self._is_namespace_excluded(namespace):
+                        await self._handle_resource_deletion("StatefulSet", namespace, sts.metadata.name)
+            except Exception as e:
+                logger.error(f"StatefulSet watch consumer error: {e}")
+                await asyncio.sleep(1)
+
+    def _ingress_watch_sync(self, callback):
+        """Synchronous Ingress watch"""
+        while True:
+            try:
+                logger.info("Starting Ingress watch (sync thread)")
+                w = watch.Watch()
+                for event in w.stream(self.networking_v1.list_ingress_for_all_namespaces, timeout_seconds=0):
+                    callback(event)
+            except Exception as e:
+                logger.error(f"Ingress watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
+
+    async def _watch_ingresses(self):
+        """Watch for Ingress changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ingress-watch")
+        executor.submit(self._ingress_watch_sync, on_event)
+
+        logger.info("Ingress watch consumer started")
+        while True:
+            try:
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    ingress = event['object']
+                    namespace = ingress.metadata.namespace
+                    if not self._is_namespace_excluded(namespace):
+                        await self._handle_resource_deletion("Ingress", namespace, ingress.metadata.name)
+            except Exception as e:
+                logger.error(f"Ingress watch consumer error: {e}")
+                await asyncio.sleep(1)
+
+    def _cronjob_watch_sync(self, callback):
+        """Synchronous CronJob watch"""
+        while True:
+            try:
+                logger.info("Starting CronJob watch (sync thread)")
+                w = watch.Watch()
+                for event in w.stream(self.batch_v1.list_cron_job_for_all_namespaces, timeout_seconds=0):
+                    callback(event)
+            except Exception as e:
+                logger.error(f"CronJob watch error: {e}, restarting...")
+                import time
+                time.sleep(5)
+
+    async def _watch_cronjobs(self):
+        """Watch for CronJob changes in real-time"""
+        loop = asyncio.get_running_loop()
+        event_queue = asyncio.Queue()
+
+        def on_event(event):
+            loop.call_soon_threadsafe(event_queue.put_nowait, event)
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cj-watch")
+        executor.submit(self._cronjob_watch_sync, on_event)
+
+        logger.info("CronJob watch consumer started")
+        while True:
+            try:
+                event = await event_queue.get()
+                if event['type'] == 'DELETED':
+                    cj = event['object']
+                    namespace = cj.metadata.namespace
+                    if not self._is_namespace_excluded(namespace):
+                        await self._handle_resource_deletion("CronJob", namespace, cj.metadata.name)
+            except Exception as e:
+                logger.error(f"CronJob watch consumer error: {e}")
                 await asyncio.sleep(1)
 
     async def _scan_single_pod(self, pod):
@@ -551,12 +741,23 @@ class SecurityScanner:
 
     async def scan_cluster(self):
         """Run all security checks"""
+        # Refresh excluded namespaces before full scan
+        await self._refresh_excluded_namespaces()
+
         await self.scan_pods()
         await self.scan_deployments()
         await self.scan_services()
         await self.scan_rbac()
         await self.scan_network_policies()
         await self.scan_service_accounts()
+        await self.scan_pod_security_admission()
+        await self.scan_ingresses()
+        await self.scan_seccomp_profiles()
+        await self.scan_cluster_role_bindings()
+        await self.scan_pod_disruption_budgets()
+        await self.scan_resource_quotas()
+        await self.scan_configmaps()
+        await self.scan_cronjobs()
 
     async def scan_pods(self):
         """Scan pods for security issues based on Pod Security Standards and NSA/CISA guidelines"""
@@ -565,8 +766,8 @@ class SecurityScanner:
             pods = self.v1.list_pod_for_all_namespaces()
 
             for pod in pods.items:
-                # Skip pods in kube-system namespace
-                if pod.metadata.namespace in ['kube-system', 'kube-public', 'kube-node-lease']:
+                # Skip pods in excluded namespaces (system + admin-configured)
+                if self._is_namespace_excluded(pod.metadata.namespace):
                     continue
 
                 timestamp = datetime.utcnow().isoformat() + "Z"
@@ -806,7 +1007,8 @@ class SecurityScanner:
             deployments = self.apps_v1.list_deployment_for_all_namespaces()
 
             for deployment in deployments.items:
-                if deployment.metadata.namespace in ['kube-system', 'kube-public', 'kube-node-lease']:
+                # Skip deployments in excluded namespaces (system + admin-configured)
+                if self._is_namespace_excluded(deployment.metadata.namespace):
                     continue
 
                 timestamp = datetime.utcnow().isoformat() + "Z"
@@ -838,7 +1040,8 @@ class SecurityScanner:
             services = self.v1.list_service_for_all_namespaces()
 
             for service in services.items:
-                if service.metadata.namespace in ['kube-system', 'kube-public', 'kube-node-lease']:
+                # Skip services in excluded namespaces (system + admin-configured)
+                if self._is_namespace_excluded(service.metadata.namespace):
                     continue
 
                 timestamp = datetime.utcnow().isoformat() + "Z"
@@ -991,7 +1194,8 @@ class SecurityScanner:
             # Also check namespaced Roles for dangerous permissions - NEW
             roles = self.rbac_v1.list_role_for_all_namespaces()
             for role in roles.items:
-                if role.metadata.namespace in ['kube-system', 'kube-public', 'kube-node-lease']:
+                # Skip roles in excluded namespaces (system + admin-configured)
+                if self._is_namespace_excluded(role.metadata.namespace):
                     continue
 
                 timestamp = datetime.utcnow().isoformat() + "Z"
@@ -1045,8 +1249,8 @@ class SecurityScanner:
             for ns in namespaces.items:
                 ns_name = ns.metadata.name
 
-                # Skip system namespaces
-                if ns_name in ['kube-system', 'kube-public', 'kube-node-lease', 'kube-flannel']:
+                # Skip excluded namespaces (system + admin-configured)
+                if self._is_namespace_excluded(ns_name):
                     continue
 
                 # Check if namespace has any pods (skip empty namespaces)
@@ -1084,7 +1288,8 @@ class SecurityScanner:
             timestamp = datetime.utcnow().isoformat() + "Z"
 
             for pod in pods.items:
-                if pod.metadata.namespace in ['kube-system', 'kube-public', 'kube-node-lease']:
+                # Skip pods in excluded namespaces (system + admin-configured)
+                if self._is_namespace_excluded(pod.metadata.namespace):
                     continue
 
                 pod_name = pod.metadata.name
@@ -1143,3 +1348,502 @@ class SecurityScanner:
             self._track_resource(resource_type, namespace, resource_name)
 
         await self.backend_client.report_security_finding(finding_data)
+
+    async def scan_pod_security_admission(self):
+        """Scan namespaces for Pod Security Admission (PSA) labels"""
+        logger.info("Scanning Pod Security Admission labels...")
+        try:
+            namespaces = self.v1.list_namespace()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            for ns in namespaces.items:
+                ns_name = ns.metadata.name
+
+                # Skip excluded namespaces (system + admin-configured)
+                if self._is_namespace_excluded(ns_name):
+                    continue
+
+                labels = ns.metadata.labels or {}
+
+                # Check for PSA enforce label
+                enforce_label = labels.get('pod-security.kubernetes.io/enforce')
+                warn_label = labels.get('pod-security.kubernetes.io/warn')
+                audit_label = labels.get('pod-security.kubernetes.io/audit')
+
+                # Check if namespace has any pods
+                pods = self.v1.list_namespaced_pod(ns_name)
+                if not pods.items:
+                    continue
+
+                if not enforce_label and not warn_label and not audit_label:
+                    await self.report_finding({
+                        "resource_type": "Namespace",
+                        "resource_name": ns_name,
+                        "namespace": ns_name,
+                        "severity": "medium",
+                        "category": "Compliance",
+                        "title": "No Pod Security Admission labels configured",
+                        "description": f"Namespace '{ns_name}' has no Pod Security Admission labels configured. PSA provides built-in enforcement of Pod Security Standards.",
+                        "remediation": "Add PSA labels to the namespace: 'pod-security.kubernetes.io/enforce: baseline' or 'restricted' for production workloads.",
+                        "timestamp": timestamp
+                    })
+                elif enforce_label == 'privileged':
+                    await self.report_finding({
+                        "resource_type": "Namespace",
+                        "resource_name": ns_name,
+                        "namespace": ns_name,
+                        "severity": "high",
+                        "category": "Security",
+                        "title": "Pod Security Admission set to privileged",
+                        "description": f"Namespace '{ns_name}' has PSA enforce set to 'privileged', which allows unrestricted pod configurations including privileged containers.",
+                        "remediation": "Consider using 'baseline' or 'restricted' enforce level for better security. Use 'privileged' only for system namespaces.",
+                        "timestamp": timestamp
+                    })
+
+            logger.info("Pod Security Admission scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning PSA: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning PSA: {e}")
+
+    async def scan_ingresses(self):
+        """Scan Ingress resources for security issues"""
+        logger.info("Scanning Ingresses for security issues...")
+        try:
+            ingresses = self.networking_v1.list_ingress_for_all_namespaces()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            # Dangerous annotations that could bypass security
+            dangerous_annotations = [
+                'nginx.ingress.kubernetes.io/ssl-passthrough',
+                'nginx.ingress.kubernetes.io/backend-protocol',
+                'nginx.ingress.kubernetes.io/configuration-snippet',
+                'nginx.ingress.kubernetes.io/server-snippet',
+            ]
+
+            for ingress in ingresses.items:
+                if self._is_namespace_excluded(ingress.metadata.namespace):
+                    continue
+
+                ingress_name = ingress.metadata.name
+                namespace = ingress.metadata.namespace
+                annotations = ingress.metadata.annotations or {}
+
+                # Check for missing TLS
+                if not ingress.spec.tls:
+                    await self.report_finding({
+                        "resource_type": "Ingress",
+                        "resource_name": ingress_name,
+                        "namespace": namespace,
+                        "severity": "high",
+                        "category": "Security",
+                        "title": "Ingress without TLS configuration",
+                        "description": f"Ingress '{ingress_name}' does not have TLS configured. Traffic will be unencrypted.",
+                        "remediation": "Configure TLS for the Ingress using a certificate from cert-manager or a manually provisioned certificate.",
+                        "timestamp": timestamp
+                    })
+
+                # Check for wildcard hosts
+                if ingress.spec.rules:
+                    for rule in ingress.spec.rules:
+                        if rule.host and rule.host.startswith('*'):
+                            await self.report_finding({
+                                "resource_type": "Ingress",
+                                "resource_name": ingress_name,
+                                "namespace": namespace,
+                                "severity": "medium",
+                                "category": "Security",
+                                "title": f"Ingress with wildcard host: {rule.host}",
+                                "description": f"Ingress '{ingress_name}' uses wildcard host '{rule.host}'. This could expose services to unintended subdomains.",
+                                "remediation": "Use specific hostnames instead of wildcards to limit exposure.",
+                                "timestamp": timestamp
+                            })
+
+                # Check for dangerous annotations
+                for annotation in dangerous_annotations:
+                    if annotation in annotations:
+                        await self.report_finding({
+                            "resource_type": "Ingress",
+                            "resource_name": ingress_name,
+                            "namespace": namespace,
+                            "severity": "medium",
+                            "category": "Security",
+                            "title": f"Potentially dangerous Ingress annotation",
+                            "description": f"Ingress '{ingress_name}' uses annotation '{annotation}' which could be used to bypass security controls or inject configuration.",
+                            "remediation": "Review if this annotation is necessary and ensure it doesn't introduce security vulnerabilities.",
+                            "timestamp": timestamp
+                        })
+
+            logger.info("Ingress security scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning Ingresses: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning Ingresses: {e}")
+
+    async def scan_seccomp_profiles(self):
+        """Scan pods for missing seccomp profiles (PSS Restricted requirement)"""
+        logger.info("Scanning seccomp profiles...")
+        try:
+            pods = self.v1.list_pod_for_all_namespaces()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            for pod in pods.items:
+                if self._is_namespace_excluded(pod.metadata.namespace):
+                    continue
+
+                pod_name = pod.metadata.name
+                namespace = pod.metadata.namespace
+
+                # Check pod-level seccomp profile
+                pod_sec_ctx = pod.spec.security_context
+                pod_has_seccomp = (
+                    pod_sec_ctx and pod_sec_ctx.seccomp_profile and
+                    pod_sec_ctx.seccomp_profile.type in ['RuntimeDefault', 'Localhost']
+                )
+
+                all_containers = (pod.spec.containers or []) + (pod.spec.init_containers or [])
+
+                for container in all_containers:
+                    container_name = container.name
+                    sec_ctx = container.security_context
+
+                    # Check container-level seccomp profile
+                    container_has_seccomp = (
+                        sec_ctx and sec_ctx.seccomp_profile and
+                        sec_ctx.seccomp_profile.type in ['RuntimeDefault', 'Localhost']
+                    )
+
+                    if not pod_has_seccomp and not container_has_seccomp:
+                        await self.report_finding({
+                            "resource_type": "Pod",
+                            "resource_name": pod_name,
+                            "namespace": namespace,
+                            "severity": "medium",
+                            "category": "Security",
+                            "title": f"Missing seccomp profile: {container_name}",
+                            "description": f"Container '{container_name}' does not have a seccomp profile configured. Seccomp restricts which system calls a container can make.",
+                            "remediation": "Set seccompProfile.type to 'RuntimeDefault' in the pod or container securityContext. This is required for PSS Restricted compliance.",
+                            "timestamp": timestamp
+                        })
+
+            logger.info("Seccomp profile scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning seccomp profiles: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning seccomp profiles: {e}")
+
+    async def scan_cluster_role_bindings(self):
+        """Scan ClusterRoleBindings for security issues"""
+        logger.info("Scanning ClusterRoleBindings...")
+        try:
+            bindings = self.rbac_v1.list_cluster_role_binding()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            # Dangerous subjects that should never have cluster-wide permissions
+            dangerous_subjects = [
+                ('Group', 'system:anonymous'),
+                ('Group', 'system:unauthenticated'),
+            ]
+
+            # High-privilege cluster roles
+            high_privilege_roles = ['cluster-admin', 'admin', 'edit']
+
+            for binding in bindings.items:
+                if binding.metadata.name.startswith('system:'):
+                    continue
+
+                binding_name = binding.metadata.name
+                role_ref = binding.role_ref.name if binding.role_ref else None
+                subjects = binding.subjects or []
+
+                # Check for bindings to dangerous subjects
+                for subject in subjects:
+                    subject_key = (subject.kind, subject.name)
+                    if subject_key in dangerous_subjects:
+                        await self.report_finding({
+                            "resource_type": "ClusterRoleBinding",
+                            "resource_name": binding_name,
+                            "namespace": "cluster-wide",
+                            "severity": "critical",
+                            "category": "Security",
+                            "title": f"ClusterRoleBinding grants permissions to {subject.name}",
+                            "description": f"ClusterRoleBinding '{binding_name}' grants cluster-wide permissions to '{subject.name}'. This allows unauthenticated access to cluster resources.",
+                            "remediation": "Remove this binding or change the subject to authenticated users/groups only.",
+                            "timestamp": timestamp
+                        })
+
+                # Check for ServiceAccounts bound to high-privilege roles
+                if role_ref in high_privilege_roles:
+                    for subject in subjects:
+                        if subject.kind == 'ServiceAccount':
+                            await self.report_finding({
+                                "resource_type": "ClusterRoleBinding",
+                                "resource_name": binding_name,
+                                "namespace": "cluster-wide",
+                                "severity": "high",
+                                "category": "Security",
+                                "title": f"ServiceAccount bound to {role_ref}",
+                                "description": f"ServiceAccount '{subject.namespace}/{subject.name}' is bound to high-privilege ClusterRole '{role_ref}' via '{binding_name}'.",
+                                "remediation": "Review if this ServiceAccount requires cluster-admin level access. Apply principle of least privilege.",
+                                "timestamp": timestamp
+                            })
+
+            logger.info("ClusterRoleBinding scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning ClusterRoleBindings: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning ClusterRoleBindings: {e}")
+
+    async def scan_pod_disruption_budgets(self):
+        """Scan for critical deployments without PodDisruptionBudgets"""
+        logger.info("Scanning PodDisruptionBudgets...")
+        try:
+            deployments = self.apps_v1.list_deployment_for_all_namespaces()
+            pdbs = self.policy_v1.list_pod_disruption_budget_for_all_namespaces()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            # Build a map of namespaces with PDBs and their selectors
+            pdb_selectors = {}
+            for pdb in pdbs.items:
+                ns = pdb.metadata.namespace
+                if ns not in pdb_selectors:
+                    pdb_selectors[ns] = []
+                if pdb.spec.selector and pdb.spec.selector.match_labels:
+                    pdb_selectors[ns].append(pdb.spec.selector.match_labels)
+
+            for deployment in deployments.items:
+                if self._is_namespace_excluded(deployment.metadata.namespace):
+                    continue
+
+                deploy_name = deployment.metadata.name
+                namespace = deployment.metadata.namespace
+                replicas = deployment.spec.replicas or 1
+
+                # Only check deployments with 2+ replicas (critical/HA workloads)
+                if replicas < 2:
+                    continue
+
+                # Check if any PDB covers this deployment
+                deploy_labels = deployment.spec.selector.match_labels or {}
+                has_pdb = False
+
+                if namespace in pdb_selectors:
+                    for pdb_labels in pdb_selectors[namespace]:
+                        # Check if PDB selector matches deployment
+                        if all(deploy_labels.get(k) == v for k, v in pdb_labels.items()):
+                            has_pdb = True
+                            break
+
+                if not has_pdb:
+                    await self.report_finding({
+                        "resource_type": "Deployment",
+                        "resource_name": deploy_name,
+                        "namespace": namespace,
+                        "severity": "low",
+                        "category": "Best Practice",
+                        "title": "High-availability deployment without PodDisruptionBudget",
+                        "description": f"Deployment '{deploy_name}' has {replicas} replicas but no PodDisruptionBudget. During cluster maintenance, all pods could be evicted simultaneously.",
+                        "remediation": "Create a PodDisruptionBudget to ensure minimum availability during voluntary disruptions like node drains.",
+                        "timestamp": timestamp
+                    })
+
+            logger.info("PodDisruptionBudget scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning PDBs: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning PDBs: {e}")
+
+    async def scan_resource_quotas(self):
+        """Scan namespaces for missing ResourceQuotas and LimitRanges"""
+        logger.info("Scanning ResourceQuotas and LimitRanges...")
+        try:
+            namespaces = self.v1.list_namespace()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            for ns in namespaces.items:
+                ns_name = ns.metadata.name
+
+                if self._is_namespace_excluded(ns_name):
+                    continue
+
+                # Check if namespace has pods
+                pods = self.v1.list_namespaced_pod(ns_name)
+                if not pods.items:
+                    continue
+
+                # Check for ResourceQuota
+                quotas = self.v1.list_namespaced_resource_quota(ns_name)
+                if not quotas.items:
+                    await self.report_finding({
+                        "resource_type": "Namespace",
+                        "resource_name": ns_name,
+                        "namespace": ns_name,
+                        "severity": "low",
+                        "category": "Best Practice",
+                        "title": "Namespace has no ResourceQuota",
+                        "description": f"Namespace '{ns_name}' has no ResourceQuota configured. Workloads can consume unlimited cluster resources.",
+                        "remediation": "Create a ResourceQuota to limit the total resources (CPU, memory, storage, object count) that can be consumed in this namespace.",
+                        "timestamp": timestamp
+                    })
+
+                # Check for LimitRange
+                limit_ranges = self.v1.list_namespaced_limit_range(ns_name)
+                if not limit_ranges.items:
+                    await self.report_finding({
+                        "resource_type": "Namespace",
+                        "resource_name": ns_name,
+                        "namespace": ns_name,
+                        "severity": "low",
+                        "category": "Best Practice",
+                        "title": "Namespace has no LimitRange",
+                        "description": f"Namespace '{ns_name}' has no LimitRange configured. Containers without resource limits can consume unlimited resources.",
+                        "remediation": "Create a LimitRange to set default resource limits and requests for containers in this namespace.",
+                        "timestamp": timestamp
+                    })
+
+            logger.info("ResourceQuota and LimitRange scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning ResourceQuotas: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning ResourceQuotas: {e}")
+
+    async def scan_configmaps(self):
+        """Scan ConfigMaps for sensitive data patterns"""
+        logger.info("Scanning ConfigMaps for sensitive data...")
+        try:
+            import re
+            configmaps = self.v1.list_config_map_for_all_namespaces()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            # Patterns that suggest sensitive data in ConfigMaps
+            sensitive_patterns = [
+                (r'password\s*[=:]\s*\S+', 'password'),
+                (r'api[_-]?key\s*[=:]\s*\S+', 'API key'),
+                (r'secret[_-]?key\s*[=:]\s*\S+', 'secret key'),
+                (r'access[_-]?token\s*[=:]\s*\S+', 'access token'),
+                (r'private[_-]?key', 'private key'),
+                (r'-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----', 'private key'),
+                (r'aws[_-]?secret[_-]?access[_-]?key', 'AWS secret'),
+            ]
+
+            # Keys that often contain sensitive data
+            sensitive_keys = [
+                'password', 'passwd', 'secret', 'token', 'api_key', 'apikey',
+                'private_key', 'privatekey', 'credentials', 'auth'
+            ]
+
+            for cm in configmaps.items:
+                if self._is_namespace_excluded(cm.metadata.namespace):
+                    continue
+
+                cm_name = cm.metadata.name
+                namespace = cm.metadata.namespace
+                data = cm.data or {}
+
+                found_sensitive = set()
+
+                for key, value in data.items():
+                    # Check if key name suggests sensitive data
+                    key_lower = key.lower()
+                    for sensitive_key in sensitive_keys:
+                        if sensitive_key in key_lower:
+                            found_sensitive.add(f"key '{key}' (contains '{sensitive_key}')")
+                            break
+
+                    # Check value for sensitive patterns
+                    if value:
+                        for pattern, pattern_name in sensitive_patterns:
+                            if re.search(pattern, value, re.IGNORECASE):
+                                found_sensitive.add(f"value matching '{pattern_name}' pattern")
+                                break
+
+                if found_sensitive:
+                    await self.report_finding({
+                        "resource_type": "ConfigMap",
+                        "resource_name": cm_name,
+                        "namespace": namespace,
+                        "severity": "high",
+                        "category": "Security",
+                        "title": "ConfigMap may contain sensitive data",
+                        "description": f"ConfigMap '{cm_name}' appears to contain sensitive data: {', '.join(list(found_sensitive)[:3])}. ConfigMaps are not encrypted and should not store secrets.",
+                        "remediation": "Move sensitive data to Kubernetes Secrets (which can be encrypted at rest) or use external secret management like HashiCorp Vault.",
+                        "timestamp": timestamp
+                    })
+
+            logger.info("ConfigMap scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning ConfigMaps: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning ConfigMaps: {e}")
+
+    async def scan_cronjobs(self):
+        """Scan CronJobs and Jobs for security issues"""
+        logger.info("Scanning CronJobs and Jobs...")
+        try:
+            cronjobs = self.batch_v1.list_cron_job_for_all_namespaces()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            for cronjob in cronjobs.items:
+                if self._is_namespace_excluded(cronjob.metadata.namespace):
+                    continue
+
+                cj_name = cronjob.metadata.name
+                namespace = cronjob.metadata.namespace
+                job_template = cronjob.spec.job_template.spec.template.spec
+
+                # Check for excessive history limits
+                success_limit = cronjob.spec.successful_jobs_history_limit
+                failed_limit = cronjob.spec.failed_jobs_history_limit
+
+                if success_limit and success_limit > 10:
+                    await self.report_finding({
+                        "resource_type": "CronJob",
+                        "resource_name": cj_name,
+                        "namespace": namespace,
+                        "severity": "low",
+                        "category": "Best Practice",
+                        "title": "CronJob retains excessive job history",
+                        "description": f"CronJob '{cj_name}' retains {success_limit} successful jobs. This can consume significant cluster resources over time.",
+                        "remediation": "Set successfulJobsHistoryLimit to a lower value (e.g., 3) to reduce resource consumption.",
+                        "timestamp": timestamp
+                    })
+
+                # Check containers in job template for privileged settings
+                all_containers = (job_template.containers or []) + (job_template.init_containers or [])
+
+                for container in all_containers:
+                    sec_ctx = container.security_context
+
+                    if sec_ctx and sec_ctx.privileged:
+                        await self.report_finding({
+                            "resource_type": "CronJob",
+                            "resource_name": cj_name,
+                            "namespace": namespace,
+                            "severity": "critical",
+                            "category": "Security",
+                            "title": f"CronJob runs privileged container: {container.name}",
+                            "description": f"CronJob '{cj_name}' creates jobs with privileged container '{container.name}'. Privileged jobs that run on schedule pose significant security risks.",
+                            "remediation": "Remove 'privileged: true' from the container's securityContext. Use specific capabilities if elevated permissions are required.",
+                            "timestamp": timestamp
+                        })
+
+                    # Check for host namespaces
+                    if job_template.host_network:
+                        await self.report_finding({
+                            "resource_type": "CronJob",
+                            "resource_name": cj_name,
+                            "namespace": namespace,
+                            "severity": "high",
+                            "category": "Security",
+                            "title": "CronJob uses host network",
+                            "description": f"CronJob '{cj_name}' creates jobs with hostNetwork access, which bypasses network policies.",
+                            "remediation": "Remove 'hostNetwork: true' unless the job specifically requires host network access.",
+                            "timestamp": timestamp
+                        })
+                        break  # Only report once per CronJob
+
+            logger.info("CronJob scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning CronJobs: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning CronJobs: {e}")

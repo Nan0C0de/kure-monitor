@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class PodMonitor:
+    # System namespaces that are always excluded
+    SYSTEM_NAMESPACES = ["kube-system", "kube-public", "kube-node-lease", "local-path-storage", "kure-system"]
+
     def __init__(self):
         self.config = Config()
         self.backend_client = BackendClient(self.config.backend_url)
@@ -22,6 +25,11 @@ class PodMonitor:
 
         # Track pods we've already reported to avoid spam
         self.reported_pods: Dict[str, datetime] = {}
+
+        # Cache for excluded namespaces from admin settings
+        self.excluded_namespaces: List[str] = []
+        self.excluded_namespaces_last_refresh: Optional[datetime] = None
+        self.excluded_namespaces_refresh_interval = timedelta(minutes=1)
 
         # Initialize Kubernetes client
         try:
@@ -64,15 +72,43 @@ class PodMonitor:
             logger.warning(f"Could not get cluster name from config: {e}")
             return 'k8s-cluster'
 
+    async def _refresh_excluded_namespaces(self):
+        """Refresh the excluded namespaces cache from backend"""
+        now = datetime.now()
+        if (self.excluded_namespaces_last_refresh is None or
+                now - self.excluded_namespaces_last_refresh > self.excluded_namespaces_refresh_interval):
+            try:
+                self.excluded_namespaces = await self.backend_client.get_excluded_namespaces()
+                self.excluded_namespaces_last_refresh = now
+                if self.excluded_namespaces:
+                    logger.info(f"Refreshed excluded namespaces: {self.excluded_namespaces}")
+            except Exception as e:
+                logger.warning(f"Failed to refresh excluded namespaces: {e}")
+
+    def _is_namespace_excluded(self, namespace: str) -> bool:
+        """Check if a namespace is excluded from scanning"""
+        # Check system namespaces
+        if namespace in self.SYSTEM_NAMESPACES:
+            return True
+        # Check admin-configured excluded namespaces
+        if namespace in self.excluded_namespaces:
+            return True
+        return False
+
     async def start_monitoring(self):
         """Start monitoring pods for failures"""
         logger.info(f"Starting pod monitoring for cluster: {self.cluster_name}")
-        
+
         # Report cluster name to backend
         await self.backend_client.report_cluster_info(self.cluster_name)
 
+        # Initial refresh of excluded namespaces
+        await self._refresh_excluded_namespaces()
+
         while True:
             try:
+                # Refresh excluded namespaces periodically
+                await self._refresh_excluded_namespaces()
                 await self._check_failed_pods()
                 await asyncio.sleep(self.config.check_interval)
             except Exception as e:
@@ -101,15 +137,11 @@ class PodMonitor:
 
     def _is_pod_failed(self, pod) -> bool:
         """Check if pod is not in ready/healthy state"""
-        # Skip system pods and completed jobs
+        # Skip excluded namespaces (system namespaces + admin-configured exclusions)
         namespace = pod.metadata.namespace
-        if namespace in ["kube-system", "kube-public", "kube-node-lease", "local-path-storage"]:
+        if self._is_namespace_excluded(namespace):
             return False
-            
-        # Skip our own monitoring components
-        if namespace == "kure-system":
-            return False
-            
+
         # Failed phase is obviously a failure
         if pod.status.phase == "Failed":
             return True
