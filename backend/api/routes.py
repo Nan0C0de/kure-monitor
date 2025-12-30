@@ -274,9 +274,18 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.error(f"Error getting excluded namespaces: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.get("/admin/namespaces")
+    async def get_all_namespaces():
+        """Get all namespaces that have findings (for suggestions)"""
+        try:
+            return await db.get_all_namespaces()
+        except Exception as e:
+            logger.error(f"Error getting namespaces: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @router.post("/admin/excluded-namespaces", response_model=ExcludedNamespaceResponse)
     async def add_excluded_namespace(request: ExcludedNamespace):
-        """Add a namespace to the exclusion list"""
+        """Add a namespace to the exclusion list and remove all its findings"""
         try:
             if not request.namespace or not request.namespace.strip():
                 raise HTTPException(status_code=400, detail="Namespace name is required")
@@ -284,6 +293,19 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             namespace = request.namespace.strip()
             result = await db.add_excluded_namespace(namespace)
             logger.info(f"Added excluded namespace: {namespace}")
+
+            # Delete all security findings for this namespace and broadcast deletions
+            findings_count, deleted_findings = await db.delete_findings_by_namespace(namespace)
+            for finding in deleted_findings:
+                await websocket_manager.broadcast_security_finding_deleted(finding)
+            logger.info(f"Deleted {findings_count} security findings for excluded namespace: {namespace}")
+
+            # Delete all pod failures for this namespace and broadcast deletions
+            pods_count, deleted_pods = await db.delete_pod_failures_by_namespace(namespace)
+            for pod in deleted_pods:
+                await websocket_manager.broadcast_pod_deleted(pod['namespace'], pod['pod_name'])
+            logger.info(f"Deleted {pods_count} pod failures for excluded namespace: {namespace}")
+
             return result
         except HTTPException:
             raise

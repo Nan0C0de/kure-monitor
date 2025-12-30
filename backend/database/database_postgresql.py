@@ -479,3 +479,75 @@ class PostgreSQLDatabase(DatabaseInterface):
                 namespace
             )
             return result is not None
+
+    async def get_all_namespaces(self) -> List[str]:
+        """Get all unique namespaces from security findings and pod failures"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT DISTINCT namespace FROM (
+                    SELECT namespace FROM security_findings WHERE dismissed = FALSE
+                    UNION
+                    SELECT namespace FROM pod_failures WHERE dismissed = FALSE
+                ) AS all_namespaces
+                ORDER BY namespace
+            """)
+            return [row['namespace'] for row in rows]
+
+    async def delete_findings_by_namespace(self, namespace: str) -> tuple[int, list]:
+        """Delete all security findings for a namespace and return deleted findings"""
+        async with self.pool.acquire() as conn:
+            # First get the findings to return them for WebSocket broadcast
+            rows = await conn.fetch(
+                """SELECT id, resource_type, resource_name, namespace, severity, category,
+                          title, description, remediation, timestamp
+                   FROM security_findings WHERE namespace = $1 AND dismissed = FALSE""",
+                namespace
+            )
+            deleted_findings = [
+                {
+                    'id': row['id'],
+                    'resource_type': row['resource_type'],
+                    'resource_name': row['resource_name'],
+                    'namespace': row['namespace'],
+                    'severity': row['severity'],
+                    'category': row['category'],
+                    'title': row['title'],
+                    'description': row['description'],
+                    'remediation': row['remediation'],
+                    'timestamp': row['timestamp'].isoformat() if row['timestamp'] else None
+                }
+                for row in rows
+            ]
+
+            # Delete (or mark as dismissed) the findings
+            result = await conn.execute(
+                "DELETE FROM security_findings WHERE namespace = $1",
+                namespace
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count, deleted_findings
+
+    async def delete_pod_failures_by_namespace(self, namespace: str) -> tuple[int, list]:
+        """Delete all pod failures for a namespace and return deleted pods"""
+        async with self.pool.acquire() as conn:
+            # First get the pods to return them for WebSocket broadcast
+            rows = await conn.fetch(
+                """SELECT id, pod_name, namespace FROM pod_failures
+                   WHERE namespace = $1 AND dismissed = FALSE""",
+                namespace
+            )
+            deleted_pods = [
+                {
+                    'pod_name': row['pod_name'],
+                    'namespace': row['namespace']
+                }
+                for row in rows
+            ]
+
+            # Delete the pod failures
+            result = await conn.execute(
+                "DELETE FROM pod_failures WHERE namespace = $1",
+                namespace
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count, deleted_pods

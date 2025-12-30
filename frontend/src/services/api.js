@@ -46,6 +46,12 @@ export const api = {
     return response.json();
   },
 
+  getAllNamespaces: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/namespaces`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   addExcludedNamespace: async (namespace) => {
     const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces`, {
       method: 'POST',

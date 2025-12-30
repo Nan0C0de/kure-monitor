@@ -1,35 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
 import { api } from '../services/api';
 
 const AdminPanel = () => {
   const [excludedNamespaces, setExcludedNamespaces] = useState([]);
+  const [availableNamespaces, setAvailableNamespaces] = useState([]);
   const [newNamespace, setNewNamespace] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
   useEffect(() => {
-    loadExcludedNamespaces();
+    loadData();
   }, []);
 
-  const loadExcludedNamespaces = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const data = await api.getExcludedNamespaces();
-      setExcludedNamespaces(data);
+      const [excluded, available] = await Promise.all([
+        api.getExcludedNamespaces(),
+        api.getAllNamespaces()
+      ]);
+      setExcludedNamespaces(excluded);
+      setAvailableNamespaces(available);
       setError(null);
     } catch (err) {
-      setError('Failed to load excluded namespaces');
-      console.error('Error loading excluded namespaces:', err);
+      setError('Failed to load data');
+      console.error('Error loading data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddNamespace = async (e) => {
-    e.preventDefault();
-    const namespace = newNamespace.trim();
+  // Filter suggestions: available namespaces that are not already excluded
+  const suggestions = availableNamespaces.filter(
+    ns => !excludedNamespaces.some(excluded => excluded.namespace === ns)
+  );
+
+  // Filter suggestions based on input
+  const filteredSuggestions = newNamespace.trim()
+    ? suggestions.filter(ns => ns.toLowerCase().includes(newNamespace.toLowerCase()))
+    : suggestions;
+
+  const handleAddNamespace = async (namespaceToAdd) => {
+    const namespace = (namespaceToAdd || newNamespace).trim();
 
     if (!namespace) {
       setError('Please enter a namespace name');
@@ -46,8 +61,9 @@ const AdminPanel = () => {
       const result = await api.addExcludedNamespace(namespace);
       setExcludedNamespaces(prev => [...prev, result]);
       setNewNamespace('');
+      setShowSuggestions(false);
       setError(null);
-      setSuccessMessage(`Namespace "${namespace}" added to exclusion list`);
+      setSuccessMessage(`Namespace "${namespace}" excluded. All findings removed.`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError('Failed to add namespace');
@@ -60,12 +76,17 @@ const AdminPanel = () => {
       await api.removeExcludedNamespace(namespace);
       setExcludedNamespaces(prev => prev.filter(ns => ns.namespace !== namespace));
       setError(null);
-      setSuccessMessage(`Namespace "${namespace}" removed from exclusion list`);
+      setSuccessMessage(`Namespace "${namespace}" will now be scanned again`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError('Failed to remove namespace');
       console.error('Error removing namespace:', err);
     }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handleAddNamespace();
   };
 
   if (loading) {
@@ -107,24 +128,53 @@ const AdminPanel = () => {
         </div>
       )}
 
-      {/* Add namespace form */}
-      <form onSubmit={handleAddNamespace} className="mb-6">
+      {/* Add namespace form with suggestions */}
+      <form onSubmit={handleSubmit} className="mb-6">
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={newNamespace}
-            onChange={(e) => setNewNamespace(e.target.value)}
-            placeholder="Enter namespace name"
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={newNamespace}
+              onChange={(e) => {
+                setNewNamespace(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              placeholder="Enter or select namespace"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            {showSuggestions && filteredSuggestions.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                  Available namespaces with findings
+                </div>
+                {filteredSuggestions.map(ns => (
+                  <button
+                    key={ns}
+                    type="button"
+                    onClick={() => handleAddNamespace(ns)}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50"
+                  >
+                    {ns}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="submit"
             className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <Plus className="w-4 h-4 mr-1" />
-            Add
+            Exclude
           </button>
         </div>
+        {suggestions.length > 0 && !showSuggestions && (
+          <p className="mt-1 text-xs text-gray-500">
+            Click the input to see {suggestions.length} available namespace{suggestions.length !== 1 ? 's' : ''}
+          </p>
+        )}
       </form>
 
       {/* Excluded namespaces list */}
@@ -157,7 +207,7 @@ const AdminPanel = () => {
                   className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   <Trash2 className="w-3 h-3 mr-1" />
-                  Remove
+                  Include
                 </button>
               </li>
             ))}

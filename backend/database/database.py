@@ -78,3 +78,12 @@ class Database:
 
     async def is_namespace_excluded(self, namespace):
         return await self._db.is_namespace_excluded(namespace)
+
+    async def get_all_namespaces(self):
+        return await self._db.get_all_namespaces()
+
+    async def delete_findings_by_namespace(self, namespace):
+        return await self._db.delete_findings_by_namespace(namespace)
+
+    async def delete_pod_failures_by_namespace(self, namespace):
+        return await self._db.delete_pod_failures_by_namespace(namespace)
