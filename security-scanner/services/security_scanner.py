@@ -7,6 +7,7 @@ from typing import Set, Tuple, List, Optional
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 from services.backend_client import BackendClient
+from services.websocket_client import WebSocketClient
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,8 @@ class SecurityScanner:
 
     def __init__(self):
         self.backend_url = os.getenv("BACKEND_URL", "http://kure-monitor-backend:8000")
-        self.scan_interval = int(os.getenv("SCAN_INTERVAL", "120"))  # Scan for new issues every 2 minutes
         self.backend_client = BackendClient(self.backend_url)
+        self.websocket_client = WebSocketClient(self.backend_url)
         self.v1 = None
         self.apps_v1 = None
         self.rbac_v1 = None
@@ -52,8 +53,6 @@ class SecurityScanner:
         self.excluded_namespaces: List[str] = []
         self.excluded_namespaces_last_refresh: Optional[datetime] = None
         self.excluded_namespaces_refresh_interval = timedelta(minutes=1)
-        # Track which namespaces we've already processed from rescan queue
-        self.processed_rescan_namespaces: dict = {}
 
     def _init_kubernetes_client(self):
         """Initialize Kubernetes client"""
@@ -100,40 +99,23 @@ class SecurityScanner:
             return True
         return False
 
-    async def _check_rescan_queue(self):
-        """Periodically check if any namespaces need to be rescanned"""
-        while True:
-            try:
-                await asyncio.sleep(5)  # Check every 5 seconds
+    async def _handle_namespace_change(self, namespace: str, action: str):
+        """Handle real-time namespace exclusion changes from WebSocket"""
+        try:
+            # Refresh excluded namespaces immediately
+            self.excluded_namespaces_last_refresh = None
+            await self._refresh_excluded_namespaces()
 
-                # Clean up old processed entries (older than 2 minutes)
-                now = datetime.utcnow()
-                old_entries = [ns for ns, ts in self.processed_rescan_namespaces.items()
-                              if (now - ts).total_seconds() > 120]
-                for ns in old_entries:
-                    del self.processed_rescan_namespaces[ns]
-
-                namespaces_to_rescan = await self.backend_client.get_namespaces_to_rescan()
-                if namespaces_to_rescan:
-                    processed_any = False
-                    for namespace in namespaces_to_rescan:
-                        # Skip if we already processed this namespace recently
-                        if namespace in self.processed_rescan_namespaces:
-                            continue
-
-                        processed_any = True
-                        self.processed_rescan_namespaces[namespace] = now
-
-                        if not self._is_namespace_excluded(namespace):
-                            logger.info(f"Rescanning namespace: {namespace}")
-                            await self._scan_namespace_pods(namespace)
-
-                    if processed_any:
-                        # Refresh excluded namespaces
-                        self.excluded_namespaces_last_refresh = None
-                        await self._refresh_excluded_namespaces()
-            except Exception as e:
-                logger.warning(f"Error checking rescan queue: {e}")
+            if action == "included":
+                # Namespace was included (removed from exclusion) - rescan it
+                if not self._is_namespace_excluded(namespace):
+                    logger.info(f"Namespace '{namespace}' included - rescanning...")
+                    await self._scan_namespace_pods(namespace)
+            elif action == "excluded":
+                # Namespace was excluded - already handled by backend deleting findings
+                logger.info(f"Namespace '{namespace}' excluded - exclusion list updated")
+        except Exception as e:
+            logger.error(f"Error handling namespace change: {e}")
 
     async def _scan_namespace_pods(self, namespace: str):
         """Scan all pods in a specific namespace"""
@@ -157,6 +139,9 @@ class SecurityScanner:
         # Initial refresh of excluded namespaces
         await self._refresh_excluded_namespaces()
 
+        # Set up WebSocket client for real-time namespace exclusion changes
+        self.websocket_client.set_namespace_change_handler(self._handle_namespace_change)
+
         # Run initial scan to populate findings
         logger.info("Running initial security scan...")
         await self.scan_cluster()
@@ -174,7 +159,7 @@ class SecurityScanner:
             asyncio.create_task(self._watch_statefulsets()),
             asyncio.create_task(self._watch_ingresses()),
             asyncio.create_task(self._watch_cronjobs()),
-            asyncio.create_task(self._check_rescan_queue()),
+            asyncio.create_task(self.websocket_client.connect()),  # Real-time namespace changes
         ]
 
         # Wait for watches to run (they run forever until cancelled)
@@ -184,6 +169,7 @@ class SecurityScanner:
             # Cancel watch tasks on shutdown
             for task in watch_tasks:
                 task.cancel()
+            await self.websocket_client.disconnect()
 
     async def _handle_resource_deletion(self, resource_type: str, namespace: str, resource_name: str):
         """Handle deletion of a resource - remove its findings from backend"""

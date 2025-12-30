@@ -148,29 +148,3 @@ class BackendClient:
             logger.warning(f"Error fetching excluded namespaces: {e}")
             return []
 
-    async def get_namespaces_to_rescan(self) -> list:
-        """Get namespaces that need to be rescanned (clears cache on backend)"""
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                        f"{self.backend_url}/api/admin/namespaces-to-rescan",
-                        timeout=aiohttp.ClientTimeout(total=10)
-                ) as response:
-                    if response.status == 200:
-                        namespaces = await response.json()
-                        if namespaces:
-                            logger.info(f"Namespaces to rescan: {namespaces}")
-                        return namespaces
-                    else:
-                        logger.warning(f"Backend returned HTTP {response.status} for namespaces to rescan")
-                        return []
-
-        except asyncio.TimeoutError:
-            logger.warning("Timeout while fetching namespaces to rescan (10s)")
-            return []
-        except aiohttp.ClientError as e:
-            logger.warning(f"HTTP client error while fetching namespaces to rescan: {e}")
-            return []
-        except Exception as e:
-            logger.warning(f"Error fetching namespaces to rescan: {e}")
-            return []

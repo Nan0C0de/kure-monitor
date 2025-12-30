@@ -149,15 +149,6 @@ class PostgreSQLDatabase(DatabaseInterface):
                     ON excluded_namespaces(namespace)
                 """)
 
-                # Create namespace rescan queue table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS namespace_rescan_queue (
-                        id SERIAL PRIMARY KEY,
-                        namespace VARCHAR(255) NOT NULL UNIQUE,
-                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-
             logger.info("PostgreSQL database initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize PostgreSQL database: {e}")
@@ -560,27 +551,3 @@ class PostgreSQLDatabase(DatabaseInterface):
             )
             count = int(result.split()[-1]) if result else 0
             return count, deleted_pods
-
-    async def add_namespace_to_rescan(self, namespace: str):
-        """Add a namespace to the rescan queue for agents to re-check"""
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                """INSERT INTO namespace_rescan_queue (namespace)
-                   VALUES ($1)
-                   ON CONFLICT (namespace) DO UPDATE SET created_at = CURRENT_TIMESTAMP""",
-                namespace
-            )
-
-    async def get_namespaces_to_rescan(self) -> List[str]:
-        """Get namespaces that need to be rescanned (entries older than 60s are removed)"""
-        async with self.pool.acquire() as conn:
-            # Clean up old entries (older than 60 seconds)
-            await conn.execute(
-                "DELETE FROM namespace_rescan_queue WHERE created_at < NOW() - INTERVAL '60 seconds'"
-            )
-
-            # Return current entries
-            rows = await conn.fetch(
-                "SELECT namespace FROM namespace_rescan_queue"
-            )
-            return [row['namespace'] for row in rows]
