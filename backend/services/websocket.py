@@ -127,6 +127,27 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
+    async def broadcast_pod_exclusion_change(self, namespace: str, pod_name: str, action: str):
+        """Broadcast pod exclusion change to all connected clients (including agent)"""
+        if self.active_connections:
+            message = {
+                "type": "pod_exclusion_change",
+                "data": {"namespace": namespace, "pod_name": pod_name, "action": action}
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send pod exclusion change to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            # Remove disconnected connections
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
     async def websocket_endpoint(self, websocket: WebSocket):
         await self.connect(websocket)
         try:

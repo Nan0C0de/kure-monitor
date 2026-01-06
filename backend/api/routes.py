@@ -5,7 +5,8 @@ import traceback
 from models.models import (
     PodFailureReport, PodFailureResponse,
     SecurityFindingReport, SecurityFindingResponse,
-    ExcludedNamespace, ExcludedNamespaceResponse
+    ExcludedNamespace, ExcludedNamespaceResponse,
+    ExcludedPod, ExcludedPodResponse
 )
 from database.database import Database
 from services.solution_engine import SolutionEngine
@@ -285,26 +286,20 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
 
     @router.post("/admin/excluded-namespaces", response_model=ExcludedNamespaceResponse)
     async def add_excluded_namespace(request: ExcludedNamespace):
-        """Add a namespace to the exclusion list and remove all its findings"""
+        """Add a namespace to the security scan exclusion list and remove all its findings"""
         try:
             if not request.namespace or not request.namespace.strip():
                 raise HTTPException(status_code=400, detail="Namespace name is required")
 
             namespace = request.namespace.strip()
             result = await db.add_excluded_namespace(namespace)
-            logger.info(f"Added excluded namespace: {namespace}")
+            logger.info(f"Added excluded namespace for security scan: {namespace}")
 
             # Delete all security findings for this namespace and broadcast deletions
             findings_count, deleted_findings = await db.delete_findings_by_namespace(namespace)
             for finding in deleted_findings:
                 await websocket_manager.broadcast_security_finding_deleted(finding)
             logger.info(f"Deleted {findings_count} security findings for excluded namespace: {namespace}")
-
-            # Delete all pod failures for this namespace and broadcast deletions
-            pods_count, deleted_pods = await db.delete_pod_failures_by_namespace(namespace)
-            for pod in deleted_pods:
-                await websocket_manager.broadcast_pod_deleted(pod['namespace'], pod['pod_name'])
-            logger.info(f"Deleted {pods_count} pod failures for excluded namespace: {namespace}")
 
             # Broadcast to all connected clients (frontend + scanners) for real-time update
             await websocket_manager.broadcast_namespace_exclusion_change(namespace, "excluded")
@@ -332,6 +327,73 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             raise
         except Exception as e:
             logger.error(f"Error removing excluded namespace: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Admin endpoints - Excluded pods (pod monitoring exclusions)
+    @router.get("/admin/excluded-pods")
+    async def get_excluded_pods():
+        """Get all excluded pods from pod monitoring"""
+        try:
+            return await db.get_excluded_pods()
+        except Exception as e:
+            logger.error(f"Error getting excluded pods: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/admin/monitored-pods")
+    async def get_monitored_pods():
+        """Get all pods that are currently being monitored (for suggestions)"""
+        try:
+            return await db.get_all_monitored_pods()
+        except Exception as e:
+            logger.error(f"Error getting monitored pods: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/excluded-pods")
+    async def add_excluded_pod(request: ExcludedPod):
+        """Add a pod to the monitoring exclusion list and remove its failures"""
+        try:
+            if not request.namespace or not request.namespace.strip():
+                raise HTTPException(status_code=400, detail="Namespace is required")
+            if not request.pod_name or not request.pod_name.strip():
+                raise HTTPException(status_code=400, detail="Pod name is required")
+
+            namespace = request.namespace.strip()
+            pod_name = request.pod_name.strip()
+            result = await db.add_excluded_pod(namespace, pod_name)
+            logger.info(f"Added excluded pod: {namespace}/{pod_name}")
+
+            # Delete pod failure for this pod and broadcast deletion
+            count, deleted_pods = await db.delete_pod_failure_by_pod(namespace, pod_name)
+            for pod in deleted_pods:
+                await websocket_manager.broadcast_pod_deleted(pod['namespace'], pod['pod_name'])
+            logger.info(f"Deleted {count} pod failures for excluded pod: {namespace}/{pod_name}")
+
+            # Broadcast pod exclusion change for real-time update
+            await websocket_manager.broadcast_pod_exclusion_change(namespace, pod_name, "excluded")
+
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error adding excluded pod: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/admin/excluded-pods/{namespace}/{pod_name}")
+    async def remove_excluded_pod(namespace: str, pod_name: str):
+        """Remove a pod from the monitoring exclusion list"""
+        try:
+            removed = await db.remove_excluded_pod(namespace, pod_name)
+            if removed:
+                logger.info(f"Removed excluded pod: {namespace}/{pod_name}")
+                # Broadcast pod exclusion change for real-time update
+                await websocket_manager.broadcast_pod_exclusion_change(namespace, pod_name, "included")
+                return {"message": f"Pod '{namespace}/{pod_name}' removed from exclusion list"}
+            else:
+                raise HTTPException(status_code=404, detail=f"Pod '{namespace}/{pod_name}' not found in exclusion list")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error removing excluded pod: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     return router

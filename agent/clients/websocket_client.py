@@ -13,6 +13,7 @@ class WebSocketClient:
         ws_url = backend_url.replace('http://', 'ws://').replace('https://', 'wss://').rstrip('/')
         self.ws_url = f"{ws_url}/ws"
         self.on_namespace_change: Optional[Callable] = None
+        self.on_pod_exclusion_change: Optional[Callable] = None
         self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
         self._session: Optional[aiohttp.ClientSession] = None
         self._running = False
@@ -20,6 +21,10 @@ class WebSocketClient:
     def set_namespace_change_handler(self, handler: Callable):
         """Set the callback for namespace exclusion changes"""
         self.on_namespace_change = handler
+
+    def set_pod_exclusion_change_handler(self, handler: Callable):
+        """Set the callback for pod exclusion changes"""
+        self.on_pod_exclusion_change = handler
 
     async def connect(self):
         """Connect to the backend WebSocket"""
@@ -69,6 +74,15 @@ class WebSocketClient:
 
                 if self.on_namespace_change:
                     await self.on_namespace_change(namespace, action)
+
+            elif msg_type == 'pod_exclusion_change':
+                namespace = message['data'].get('namespace')
+                pod_name = message['data'].get('pod_name')
+                action = message['data'].get('action')
+                logger.info(f"Received pod exclusion change: {namespace}/{pod_name} -> {action}")
+
+                if self.on_pod_exclusion_change:
+                    await self.on_pod_exclusion_change(namespace, pod_name, action)
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse WebSocket message: {e}")

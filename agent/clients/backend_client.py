@@ -148,3 +148,32 @@ class BackendClient:
             logger.warning(f"Error fetching excluded namespaces: {e}")
             return []
 
+    async def get_excluded_pods(self) -> list:
+        """Get list of excluded pods from backend (for pod monitoring exclusions)"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                        f"{self.backend_url}/api/admin/excluded-pods",
+                        timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        # Return list of tuples (namespace, pod_name)
+                        pods = [(item.get('namespace'), item.get('pod_name')) for item in data
+                                if item.get('namespace') and item.get('pod_name')]
+                        logger.debug(f"Fetched excluded pods: {pods}")
+                        return pods
+                    else:
+                        logger.warning(f"Backend returned HTTP {response.status} for excluded pods")
+                        return []
+
+        except asyncio.TimeoutError:
+            logger.warning("Timeout while fetching excluded pods (10s)")
+            return []
+        except aiohttp.ClientError as e:
+            logger.warning(f"HTTP client error while fetching excluded pods: {e}")
+            return []
+        except Exception as e:
+            logger.warning(f"Error fetching excluded pods: {e}")
+            return []
+

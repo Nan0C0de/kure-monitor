@@ -149,6 +149,22 @@ class PostgreSQLDatabase(DatabaseInterface):
                     ON excluded_namespaces(namespace)
                 """)
 
+                # Create excluded_pods table for pod monitoring exclusions
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS excluded_pods (
+                        id SERIAL PRIMARY KEY,
+                        pod_name VARCHAR(255) NOT NULL,
+                        namespace VARCHAR(255) NOT NULL,
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(pod_name, namespace)
+                    )
+                """)
+
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_excluded_pods_pod_namespace
+                    ON excluded_pods(pod_name, namespace)
+                """)
+
             logger.info("PostgreSQL database initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize PostgreSQL database: {e}")
@@ -548,6 +564,110 @@ class PostgreSQLDatabase(DatabaseInterface):
             result = await conn.execute(
                 "DELETE FROM pod_failures WHERE namespace = $1",
                 namespace
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count, deleted_pods
+
+    # Excluded pods methods (for pod monitoring exclusions)
+    async def add_excluded_pod(self, namespace: str, pod_name: str) -> dict:
+        """Add a pod to the monitoring exclusion list"""
+        async with self.pool.acquire() as conn:
+            try:
+                result = await conn.fetchrow(
+                    """INSERT INTO excluded_pods (namespace, pod_name)
+                       VALUES ($1, $2)
+                       ON CONFLICT (pod_name, namespace) DO NOTHING
+                       RETURNING id, namespace, pod_name, created_at""",
+                    namespace, pod_name
+                )
+                if result:
+                    return {
+                        'id': result['id'],
+                        'namespace': result['namespace'],
+                        'pod_name': result['pod_name'],
+                        'created_at': result['created_at'].isoformat()
+                    }
+                # If no result, pod already exists - fetch it
+                existing = await conn.fetchrow(
+                    "SELECT id, namespace, pod_name, created_at FROM excluded_pods WHERE namespace = $1 AND pod_name = $2",
+                    namespace, pod_name
+                )
+                return {
+                    'id': existing['id'],
+                    'namespace': existing['namespace'],
+                    'pod_name': existing['pod_name'],
+                    'created_at': existing['created_at'].isoformat()
+                }
+            except Exception as e:
+                logger.error(f"Error adding excluded pod: {e}")
+                raise
+
+    async def remove_excluded_pod(self, namespace: str, pod_name: str) -> bool:
+        """Remove a pod from the monitoring exclusion list"""
+        async with self.pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM excluded_pods WHERE namespace = $1 AND pod_name = $2",
+                namespace, pod_name
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count > 0
+
+    async def get_excluded_pods(self) -> List[dict]:
+        """Get all excluded pods"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, namespace, pod_name, created_at FROM excluded_pods ORDER BY namespace, pod_name"
+            )
+            return [
+                {
+                    'id': row['id'],
+                    'namespace': row['namespace'],
+                    'pod_name': row['pod_name'],
+                    'created_at': row['created_at'].isoformat()
+                }
+                for row in rows
+            ]
+
+    async def is_pod_excluded(self, namespace: str, pod_name: str) -> bool:
+        """Check if a pod is in the monitoring exclusion list"""
+        async with self.pool.acquire() as conn:
+            result = await conn.fetchrow(
+                "SELECT 1 FROM excluded_pods WHERE namespace = $1 AND pod_name = $2",
+                namespace, pod_name
+            )
+            return result is not None
+
+    async def get_all_monitored_pods(self) -> List[dict]:
+        """Get all unique pods from pod failures (for suggestions)"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT DISTINCT namespace, pod_name FROM pod_failures
+                WHERE dismissed = FALSE
+                ORDER BY namespace, pod_name
+            """)
+            return [{'namespace': row['namespace'], 'pod_name': row['pod_name']} for row in rows]
+
+    async def delete_pod_failure_by_pod(self, namespace: str, pod_name: str) -> tuple[int, list]:
+        """Delete pod failure for a specific pod and return deleted info"""
+        async with self.pool.acquire() as conn:
+            # First get the pod to return it for WebSocket broadcast
+            rows = await conn.fetch(
+                """SELECT id, pod_name, namespace FROM pod_failures
+                   WHERE namespace = $1 AND pod_name = $2 AND dismissed = FALSE""",
+                namespace, pod_name
+            )
+            deleted_pods = [
+                {
+                    'pod_name': row['pod_name'],
+                    'namespace': row['namespace']
+                }
+                for row in rows
+            ]
+
+            # Delete the pod failure
+            result = await conn.execute(
+                "DELETE FROM pod_failures WHERE namespace = $1 AND pod_name = $2",
+                namespace, pod_name
             )
             count = int(result.split()[-1]) if result else 0
             return count, deleted_pods

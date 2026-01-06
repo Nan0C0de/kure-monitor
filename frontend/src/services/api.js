@@ -70,5 +70,38 @@ export const api = {
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
+  },
+
+  // Admin API - Excluded Pods (Pod Monitoring Exclusions)
+  getExcludedPods: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/excluded-pods`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getMonitoredPods: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/monitored-pods`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  addExcludedPod: async (namespace, podName) => {
+    const response = await fetch(`${API_BASE}/api/admin/excluded-pods`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ namespace, pod_name: podName })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  removeExcludedPod: async (namespace, podName) => {
+    const response = await fetch(`${API_BASE}/api/admin/excluded-pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
   }
 };

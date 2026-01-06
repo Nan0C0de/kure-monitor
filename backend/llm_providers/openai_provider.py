@@ -77,9 +77,5 @@ class OpenAIProvider(LLMProvider):
         
         except Exception as e:
             logger.error(f"Error calling OpenAI API: {e}")
-            # Fallback to basic solution
-            return LLMResponse(
-                content=f"Failed to generate AI solution for {failure_reason}. Please check pod logs and events manually.",
-                provider=self.provider_name,
-                model=self.model
-            )
+            # Re-raise to let solution engine use its better fallback
+            raise

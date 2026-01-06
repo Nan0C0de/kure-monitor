@@ -28,10 +28,15 @@ class PodMonitor:
         # Track pods we've already reported to avoid spam
         self.reported_pods: Dict[str, datetime] = {}
 
-        # Cache for excluded namespaces from admin settings
+        # Cache for excluded namespaces from admin settings (for security scan only, not used here anymore)
         self.excluded_namespaces: List[str] = []
         self.excluded_namespaces_last_refresh: Optional[datetime] = None
         self.excluded_namespaces_refresh_interval = timedelta(minutes=1)
+
+        # Cache for excluded pods from admin settings (for pod monitoring exclusions)
+        self.excluded_pods: List[tuple] = []  # List of (namespace, pod_name) tuples
+        self.excluded_pods_last_refresh: Optional[datetime] = None
+        self.excluded_pods_refresh_interval = timedelta(minutes=1)
 
         # Initialize Kubernetes client
         try:
@@ -75,7 +80,7 @@ class PodMonitor:
             return 'k8s-cluster'
 
     async def _refresh_excluded_namespaces(self):
-        """Refresh the excluded namespaces cache from backend"""
+        """Refresh the excluded namespaces cache from backend (kept for compatibility, not used for pod monitoring)"""
         now = datetime.now()
         if (self.excluded_namespaces_last_refresh is None or
                 now - self.excluded_namespaces_last_refresh > self.excluded_namespaces_refresh_interval):
@@ -83,54 +88,67 @@ class PodMonitor:
                 self.excluded_namespaces = await self.backend_client.get_excluded_namespaces()
                 self.excluded_namespaces_last_refresh = now
                 if self.excluded_namespaces:
-                    logger.info(f"Refreshed excluded namespaces: {self.excluded_namespaces}")
+                    logger.debug(f"Refreshed excluded namespaces: {self.excluded_namespaces}")
             except Exception as e:
                 logger.warning(f"Failed to refresh excluded namespaces: {e}")
 
+    async def _refresh_excluded_pods(self):
+        """Refresh the excluded pods cache from backend"""
+        now = datetime.now()
+        if (self.excluded_pods_last_refresh is None or
+                now - self.excluded_pods_last_refresh > self.excluded_pods_refresh_interval):
+            try:
+                self.excluded_pods = await self.backend_client.get_excluded_pods()
+                self.excluded_pods_last_refresh = now
+                if self.excluded_pods:
+                    logger.info(f"Refreshed excluded pods: {self.excluded_pods}")
+            except Exception as e:
+                logger.warning(f"Failed to refresh excluded pods: {e}")
+
     def _is_namespace_excluded(self, namespace: str) -> bool:
-        """Check if a namespace is excluded from scanning"""
-        # Check system namespaces
+        """Check if a namespace is a system namespace (excluded from scanning)"""
+        # Only check system namespaces - admin namespace exclusions are for security scan only
         if namespace in self.SYSTEM_NAMESPACES:
-            return True
-        # Check admin-configured excluded namespaces
-        if namespace in self.excluded_namespaces:
             return True
         return False
 
-    async def _handle_namespace_change(self, namespace: str, action: str):
-        """Handle real-time namespace exclusion changes from WebSocket"""
-        try:
-            # Refresh excluded namespaces immediately
-            self.excluded_namespaces_last_refresh = None
-            await self._refresh_excluded_namespaces()
+    def _is_pod_excluded(self, namespace: str, pod_name: str) -> bool:
+        """Check if a specific pod is excluded from pod monitoring"""
+        return (namespace, pod_name) in self.excluded_pods
 
+    async def _handle_namespace_change(self, namespace: str, action: str):
+        """Handle real-time namespace exclusion changes from WebSocket (for security scan only now)"""
+        # Namespace exclusions are now only for security scan, not pod monitoring
+        # Keep this handler for potential future use or logging
+        logger.info(f"Namespace exclusion change received (security scan only): {namespace} -> {action}")
+
+    async def _handle_pod_exclusion_change(self, namespace: str, pod_name: str, action: str):
+        """Handle real-time pod exclusion changes from WebSocket"""
+        try:
+            # Refresh excluded pods immediately
+            self.excluded_pods_last_refresh = None
+            await self._refresh_excluded_pods()
+
+            pod_key = f"{namespace}/{pod_name}"
             if action == "included":
-                # Namespace was included (removed from exclusion) - clear cache so pods get re-reported
-                pods_to_clear = [
-                    pod_key for pod_key in self.reported_pods.keys()
-                    if pod_key.startswith(f"{namespace}/")
-                ]
-                for pod_key in pods_to_clear:
+                # Pod was included (removed from exclusion) - clear cache so it gets re-reported if failing
+                if pod_key in self.reported_pods:
                     del self.reported_pods[pod_key]
-                    logger.info(f"Cleared cache for pod {pod_key} (namespace included)")
+                    logger.info(f"Cleared cache for pod {pod_key} (pod included)")
             elif action == "excluded":
-                # Namespace was excluded - clear cache (pods won't be re-reported due to exclusion check)
-                pods_to_clear = [
-                    pod_key for pod_key in self.reported_pods.keys()
-                    if pod_key.startswith(f"{namespace}/")
-                ]
-                for pod_key in pods_to_clear:
+                # Pod was excluded - clear from reported cache
+                if pod_key in self.reported_pods:
                     del self.reported_pods[pod_key]
-                logger.info(f"Namespace '{namespace}' excluded - exclusion list updated")
+                logger.info(f"Pod '{pod_key}' excluded from monitoring")
         except Exception as e:
-            logger.error(f"Error handling namespace change: {e}")
+            logger.error(f"Error handling pod exclusion change: {e}")
 
     async def _monitoring_loop(self):
         """Main monitoring loop for checking failed pods"""
         while True:
             try:
-                # Refresh excluded namespaces periodically
-                await self._refresh_excluded_namespaces()
+                # Refresh excluded pods periodically (namespace exclusions are for security scan only)
+                await self._refresh_excluded_pods()
                 await self._check_failed_pods()
                 await asyncio.sleep(self.config.check_interval)
             except Exception as e:
@@ -144,11 +162,12 @@ class PodMonitor:
         # Report cluster name to backend
         await self.backend_client.report_cluster_info(self.cluster_name)
 
-        # Initial refresh of excluded namespaces
-        await self._refresh_excluded_namespaces()
+        # Initial refresh of excluded pods (namespace exclusions are for security scan only)
+        await self._refresh_excluded_pods()
 
-        # Set up WebSocket client for real-time namespace exclusion changes
+        # Set up WebSocket client for real-time exclusion changes
         self.websocket_client.set_namespace_change_handler(self._handle_namespace_change)
+        self.websocket_client.set_pod_exclusion_change_handler(self._handle_pod_exclusion_change)
 
         # Run monitoring loop and WebSocket client concurrently
         tasks = [
@@ -185,9 +204,14 @@ class PodMonitor:
 
     def _is_pod_failed(self, pod) -> bool:
         """Check if pod is not in ready/healthy state"""
-        # Skip excluded namespaces (system namespaces + admin-configured exclusions)
+        # Skip system namespaces
         namespace = pod.metadata.namespace
+        pod_name = pod.metadata.name
         if self._is_namespace_excluded(namespace):
+            return False
+
+        # Skip excluded pods (admin-configured pod monitoring exclusions)
+        if self._is_pod_excluded(namespace, pod_name):
             return False
 
         # Failed phase is obviously a failure

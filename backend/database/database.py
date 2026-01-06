@@ -88,3 +88,22 @@ class Database:
     async def delete_pod_failures_by_namespace(self, namespace):
         return await self._db.delete_pod_failures_by_namespace(namespace)
 
+    # Excluded pods methods (pod monitoring exclusions)
+    async def add_excluded_pod(self, namespace, pod_name):
+        return await self._db.add_excluded_pod(namespace, pod_name)
+
+    async def remove_excluded_pod(self, namespace, pod_name):
+        return await self._db.remove_excluded_pod(namespace, pod_name)
+
+    async def get_excluded_pods(self):
+        return await self._db.get_excluded_pods()
+
+    async def is_pod_excluded(self, namespace, pod_name):
+        return await self._db.is_pod_excluded(namespace, pod_name)
+
+    async def get_all_monitored_pods(self):
+        return await self._db.get_all_monitored_pods()
+
+    async def delete_pod_failure_by_pod(self, namespace, pod_name):
+        return await self._db.delete_pod_failure_by_pod(namespace, pod_name)
+

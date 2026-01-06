@@ -39,7 +39,19 @@ class SolutionEngine:
                     'Insufficient cpu': 'Not enough CPU resources available. Scale cluster or reduce resource requests.',
                     'Insufficient memory': 'Not enough memory available. Scale cluster or reduce memory requests.',
                     'No nodes available': 'No suitable nodes found. Check node selectors, taints, and tolerations.',
-                    'pod has unbound immediate PersistentVolumeClaims': 'Missing persistent volume. Create PV or check storage class configuration.'
+                    'pod has unbound immediate PersistentVolumeClaims': 'Missing persistent volume. Create PV or check storage class configuration.',
+                    'FailedScheduling': 'Scheduler cannot place pod. Check node resources, taints/tolerations, and node selectors.'
+                }
+            },
+            'FailedScheduling': {
+                'default': 'Pod cannot be scheduled to any node. Check: 1) Node resources (CPU/Memory), 2) Node selectors match available nodes, 3) Tolerations match node taints, 4) Affinity rules are satisfiable.',
+                'patterns': {
+                    'Insufficient cpu': 'Not enough CPU resources on nodes. Scale cluster, reduce resource requests, or wait for other pods to complete.',
+                    'Insufficient memory': 'Not enough memory on nodes. Scale cluster, reduce memory requests, or wait for other pods to complete.',
+                    'node(s) didn\'t match Pod\'s node affinity': 'No nodes match the pod\'s node selector or affinity rules. Update selectors or add matching nodes.',
+                    'node(s) had taint': 'Nodes have taints that pod does not tolerate. Add tolerations to pod spec or remove taints from nodes.',
+                    'persistentvolumeclaim': 'PVC not bound. Check PVC status and ensure storage class/PV is available.',
+                    '0/': 'No nodes available for scheduling. Check if nodes are Ready and have sufficient resources.'
                 }
             },
             'CreateContainerConfigError': {

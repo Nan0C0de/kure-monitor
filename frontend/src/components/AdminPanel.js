@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, CheckCircle, Shield, Activity } from 'lucide-react';
 import { api } from '../services/api';
 
 const AdminPanel = () => {
+  // Security Scan Namespace Exclusions state
   const [excludedNamespaces, setExcludedNamespaces] = useState([]);
   const [availableNamespaces, setAvailableNamespaces] = useState([]);
   const [newNamespace, setNewNamespace] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showNamespaceSuggestions, setShowNamespaceSuggestions] = useState(false);
+
+  // Pod Monitoring Exclusions state
+  const [excludedPods, setExcludedPods] = useState([]);
+  const [monitoredPods, setMonitoredPods] = useState([]);
+  const [newPodNamespace, setNewPodNamespace] = useState('');
+  const [newPodName, setNewPodName] = useState('');
+  const [showPodSuggestions, setShowPodSuggestions] = useState(false);
+
+  // General state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
@@ -18,12 +28,16 @@ const AdminPanel = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [excluded, available] = await Promise.all([
+      const [excluded, available, excludedPodsData, monitoredPodsData] = await Promise.all([
         api.getExcludedNamespaces(),
-        api.getAllNamespaces()
+        api.getAllNamespaces(),
+        api.getExcludedPods(),
+        api.getMonitoredPods()
       ]);
       setExcludedNamespaces(excluded);
       setAvailableNamespaces(available);
+      setExcludedPods(excludedPodsData);
+      setMonitoredPods(monitoredPodsData);
       setError(null);
     } catch (err) {
       setError('Failed to load data');
@@ -33,15 +47,28 @@ const AdminPanel = () => {
     }
   };
 
-  // Filter suggestions: available namespaces that are not already excluded
-  const suggestions = availableNamespaces.filter(
+  // Namespace suggestions: available namespaces that are not already excluded
+  const namespaceSuggestions = availableNamespaces.filter(
     ns => !excludedNamespaces.some(excluded => excluded.namespace === ns)
   );
 
-  // Filter suggestions based on input
-  const filteredSuggestions = newNamespace.trim()
-    ? suggestions.filter(ns => ns.toLowerCase().includes(newNamespace.toLowerCase()))
-    : suggestions;
+  const filteredNamespaceSuggestions = newNamespace.trim()
+    ? namespaceSuggestions.filter(ns => ns.toLowerCase().includes(newNamespace.toLowerCase()))
+    : namespaceSuggestions;
+
+  // Pod suggestions: monitored pods that are not already excluded
+  const podSuggestions = monitoredPods.filter(
+    pod => !excludedPods.some(excluded =>
+      excluded.namespace === pod.namespace && excluded.pod_name === pod.pod_name
+    )
+  );
+
+  const filteredPodSuggestions = (newPodNamespace.trim() || newPodName.trim())
+    ? podSuggestions.filter(pod =>
+        pod.namespace.toLowerCase().includes(newPodNamespace.toLowerCase()) &&
+        pod.pod_name.toLowerCase().includes(newPodName.toLowerCase())
+      )
+    : podSuggestions;
 
   const handleAddNamespace = async (namespaceToAdd) => {
     const namespace = (namespaceToAdd || newNamespace).trim();
@@ -51,7 +78,6 @@ const AdminPanel = () => {
       return;
     }
 
-    // Check if already excluded
     if (excludedNamespaces.some(ns => ns.namespace === namespace)) {
       setError('This namespace is already excluded');
       return;
@@ -61,9 +87,9 @@ const AdminPanel = () => {
       const result = await api.addExcludedNamespace(namespace);
       setExcludedNamespaces(prev => [...prev, result]);
       setNewNamespace('');
-      setShowSuggestions(false);
+      setShowNamespaceSuggestions(false);
       setError(null);
-      setSuccessMessage(`Namespace "${namespace}" excluded. All findings removed.`);
+      setSuccessMessage(`Namespace "${namespace}" excluded from security scan.`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError('Failed to add namespace');
@@ -84,9 +110,58 @@ const AdminPanel = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleAddPod = async (podToAdd) => {
+    const namespace = (podToAdd?.namespace || newPodNamespace).trim();
+    const podName = (podToAdd?.pod_name || newPodName).trim();
+
+    if (!namespace || !podName) {
+      setError('Please enter both namespace and pod name');
+      return;
+    }
+
+    if (excludedPods.some(pod => pod.namespace === namespace && pod.pod_name === podName)) {
+      setError('This pod is already excluded');
+      return;
+    }
+
+    try {
+      const result = await api.addExcludedPod(namespace, podName);
+      setExcludedPods(prev => [...prev, result]);
+      setNewPodNamespace('');
+      setNewPodName('');
+      setShowPodSuggestions(false);
+      setError(null);
+      setSuccessMessage(`Pod "${namespace}/${podName}" excluded from monitoring.`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError('Failed to add pod');
+      console.error('Error adding pod:', err);
+    }
+  };
+
+  const handleRemovePod = async (namespace, podName) => {
+    try {
+      await api.removeExcludedPod(namespace, podName);
+      setExcludedPods(prev => prev.filter(pod =>
+        !(pod.namespace === namespace && pod.pod_name === podName)
+      ));
+      setError(null);
+      setSuccessMessage(`Pod "${namespace}/${podName}" will now be monitored again`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError('Failed to remove pod');
+      console.error('Error removing pod:', err);
+    }
+  };
+
+  const handleNamespaceSubmit = (e) => {
     e.preventDefault();
     handleAddNamespace();
+  };
+
+  const handlePodSubmit = (e) => {
+    e.preventDefault();
+    handleAddPod();
   };
 
   if (loading) {
@@ -101,17 +176,9 @@ const AdminPanel = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Namespace Exclusions</h2>
-        <p className="text-sm text-gray-600">
-          Namespaces added here will be excluded from pod monitoring and security scanning.
-          System namespaces (kube-system, kube-public, etc.) are always excluded by default.
-        </p>
-      </div>
-
+    <div className="p-6 space-y-8">
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3">
+        <div className="bg-red-50 border border-red-200 rounded-md p-3">
           <div className="flex items-center">
             <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
             <span className="text-sm text-red-800">{error}</span>
@@ -120,7 +187,7 @@ const AdminPanel = () => {
       )}
 
       {successMessage && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-3">
+        <div className="bg-green-50 border border-green-200 rounded-md p-3">
           <div className="flex items-center">
             <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
             <span className="text-sm text-green-800">{successMessage}</span>
@@ -128,91 +195,202 @@ const AdminPanel = () => {
         </div>
       )}
 
-      {/* Add namespace form with suggestions */}
-      <form onSubmit={handleSubmit} className="mb-6">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={newNamespace}
-              onChange={(e) => {
-                setNewNamespace(e.target.value);
-                setShowSuggestions(true);
-              }}
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              placeholder="Enter or select namespace"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            {showSuggestions && filteredSuggestions.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
-                  Available namespaces with findings
+      {/* Security Scan Namespace Exclusions */}
+      <div>
+        <div className="mb-4 flex items-center">
+          <Shield className="w-5 h-5 text-orange-500 mr-2" />
+          <h2 className="text-lg font-semibold text-gray-900">Security Scan Namespace Exclusions</h2>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Namespaces added here will be excluded from security scanning only.
+          System namespaces (kube-system, kube-public, etc.) are always excluded by default.
+        </p>
+
+        <form onSubmit={handleNamespaceSubmit} className="mb-4">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={newNamespace}
+                onChange={(e) => {
+                  setNewNamespace(e.target.value);
+                  setShowNamespaceSuggestions(true);
+                }}
+                onFocus={() => setShowNamespaceSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowNamespaceSuggestions(false), 200)}
+                placeholder="Enter or select namespace"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {showNamespaceSuggestions && filteredNamespaceSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                    Available namespaces
+                  </div>
+                  {filteredNamespaceSuggestions.map(ns => (
+                    <button
+                      key={ns}
+                      type="button"
+                      onClick={() => handleAddNamespace(ns)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50"
+                    >
+                      {ns}
+                    </button>
+                  ))}
                 </div>
-                {filteredSuggestions.map(ns => (
+              )}
+            </div>
+            <button
+              type="submit"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-orange-600 border border-transparent rounded-md shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Exclude
+            </button>
+          </div>
+        </form>
+
+        <div className="border border-gray-200 rounded-md">
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700">
+              Excluded Namespaces ({excludedNamespaces.length})
+            </h3>
+          </div>
+
+          {excludedNamespaces.length === 0 ? (
+            <div className="px-4 py-6 text-center text-gray-500">
+              <p className="text-sm">No namespaces excluded from security scan.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-200">
+              {excludedNamespaces.map((ns) => (
+                <li key={ns.namespace} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
+                  <div>
+                    <span className="text-sm font-medium text-gray-900">{ns.namespace}</span>
+                    {ns.created_at && (
+                      <span className="ml-2 text-xs text-gray-500">
+                        Added {new Date(ns.created_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
                   <button
-                    key={ns}
-                    type="button"
-                    onClick={() => handleAddNamespace(ns)}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50"
+                    onClick={() => handleRemoveNamespace(ns.namespace)}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                   >
-                    {ns}
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Include
                   </button>
-                ))}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* Pod Monitoring Exclusions */}
+      <div>
+        <div className="mb-4 flex items-center">
+          <Activity className="w-5 h-5 text-blue-500 mr-2" />
+          <h2 className="text-lg font-semibold text-gray-900">Pod Monitoring Exclusions</h2>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Pods added here will be excluded from pod failure monitoring.
+          Use this to ignore known pods that you don't want to receive alerts for.
+        </p>
+
+        <form onSubmit={handlePodSubmit} className="mb-4">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newPodNamespace}
+                  onChange={(e) => {
+                    setNewPodNamespace(e.target.value);
+                    setShowPodSuggestions(true);
+                  }}
+                  onFocus={() => setShowPodSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowPodSuggestions(false), 200)}
+                  placeholder="Namespace"
+                  className="w-1/3 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <input
+                  type="text"
+                  value={newPodName}
+                  onChange={(e) => {
+                    setNewPodName(e.target.value);
+                    setShowPodSuggestions(true);
+                  }}
+                  onFocus={() => setShowPodSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowPodSuggestions(false), 200)}
+                  placeholder="Pod name"
+                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
-            )}
-          </div>
-          <button
-            type="submit"
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Exclude
-          </button>
-        </div>
-        {suggestions.length > 0 && !showSuggestions && (
-          <p className="mt-1 text-xs text-gray-500">
-            Click the input to see {suggestions.length} available namespace{suggestions.length !== 1 ? 's' : ''}
-          </p>
-        )}
-      </form>
-
-      {/* Excluded namespaces list */}
-      <div className="border border-gray-200 rounded-md">
-        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700">
-            Excluded Namespaces ({excludedNamespaces.length})
-          </h3>
-        </div>
-
-        {excludedNamespaces.length === 0 ? (
-          <div className="px-4 py-8 text-center text-gray-500">
-            <p className="text-sm">No namespaces excluded yet.</p>
-            <p className="text-xs mt-1">Add namespaces above to exclude them from scanning.</p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {excludedNamespaces.map((ns) => (
-              <li key={ns.namespace} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
-                <div>
-                  <span className="text-sm font-medium text-gray-900">{ns.namespace}</span>
-                  {ns.created_at && (
-                    <span className="ml-2 text-xs text-gray-500">
-                      Added {new Date(ns.created_at).toLocaleDateString()}
-                    </span>
-                  )}
+              {showPodSuggestions && filteredPodSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                    Monitored pods with issues
+                  </div>
+                  {filteredPodSuggestions.map(pod => (
+                    <button
+                      key={`${pod.namespace}/${pod.pod_name}`}
+                      type="button"
+                      onClick={() => handleAddPod(pod)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50"
+                    >
+                      <span className="text-gray-500">{pod.namespace}/</span>
+                      <span className="font-medium">{pod.pod_name}</span>
+                    </button>
+                  ))}
                 </div>
-                <button
-                  onClick={() => handleRemoveNamespace(ns.namespace)}
-                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  Include
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+              )}
+            </div>
+            <button
+              type="submit"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Exclude
+            </button>
+          </div>
+        </form>
+
+        <div className="border border-gray-200 rounded-md">
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700">
+              Excluded Pods ({excludedPods.length})
+            </h3>
+          </div>
+
+          {excludedPods.length === 0 ? (
+            <div className="px-4 py-6 text-center text-gray-500">
+              <p className="text-sm">No pods excluded from monitoring.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-200">
+              {excludedPods.map((pod) => (
+                <li key={`${pod.namespace}/${pod.pod_name}`} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
+                  <div>
+                    <span className="text-sm text-gray-500">{pod.namespace}/</span>
+                    <span className="text-sm font-medium text-gray-900">{pod.pod_name}</span>
+                    {pod.created_at && (
+                      <span className="ml-2 text-xs text-gray-500">
+                        Added {new Date(pod.created_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRemovePod(pod.namespace, pod.pod_name)}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Include
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

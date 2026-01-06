@@ -77,9 +77,5 @@ class GroqProvider(LLMProvider):
         
         except Exception as e:
             logger.error(f"Error calling Groq API: {e}")
-            # Fallback to basic solution
-            return LLMResponse(
-                content=f"AI solution temporarily unavailable (Groq API error). \n\nBasic troubleshooting for {failure_reason}:\n• Run 'kubectl describe pod <pod-name>' for detailed status\n• Check 'kubectl logs <pod-name>' for application errors\n• Verify resource limits and image accessibility",
-                provider=self.provider_name,
-                model=self.model
-            )
+            # Re-raise to let solution engine use its better fallback
+            raise
