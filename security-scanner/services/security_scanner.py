@@ -76,18 +76,32 @@ class SecurityScanner:
         self.batch_v1 = client.BatchV1Api()
         self.policy_v1 = client.PolicyV1Api()
 
-    async def _refresh_excluded_namespaces(self):
-        """Refresh the excluded namespaces cache from backend"""
+    async def _refresh_excluded_namespaces(self, force: bool = False) -> bool:
+        """Refresh the excluded namespaces cache from backend
+
+        Args:
+            force: If True, refresh regardless of cache age
+
+        Returns:
+            True if refresh was successful, False otherwise
+        """
         now = datetime.utcnow()
-        if (self.excluded_namespaces_last_refresh is None or
+        if (force or self.excluded_namespaces_last_refresh is None or
                 now - self.excluded_namespaces_last_refresh > self.excluded_namespaces_refresh_interval):
             try:
-                self.excluded_namespaces = await self.backend_client.get_excluded_namespaces()
+                namespaces = await self.backend_client.get_excluded_namespaces()
+                # Only update if we got a successful response (not an empty error response)
+                self.excluded_namespaces = namespaces
                 self.excluded_namespaces_last_refresh = now
                 if self.excluded_namespaces:
                     logger.info(f"Refreshed excluded namespaces: {self.excluded_namespaces}")
+                else:
+                    logger.info("No excluded namespaces configured")
+                return True
             except Exception as e:
                 logger.warning(f"Failed to refresh excluded namespaces: {e}")
+                return False
+        return True
 
     def _is_namespace_excluded(self, namespace: str) -> bool:
         """Check if a namespace is excluded from scanning"""
@@ -102,9 +116,8 @@ class SecurityScanner:
     async def _handle_namespace_change(self, namespace: str, action: str):
         """Handle real-time namespace exclusion changes from WebSocket"""
         try:
-            # Refresh excluded namespaces immediately
-            self.excluded_namespaces_last_refresh = None
-            await self._refresh_excluded_namespaces()
+            # Refresh excluded namespaces immediately (force refresh)
+            await self._refresh_excluded_namespaces(force=True)
 
             if action == "included":
                 # Namespace was included (removed from exclusion) - rescan it
@@ -126,6 +139,30 @@ class SecurityScanner:
         except Exception as e:
             logger.error(f"Error scanning namespace {namespace}: {e}")
 
+    async def _wait_for_backend(self, max_retries: int = 30, retry_interval: float = 2.0):
+        """Wait for backend to be ready before starting scan
+
+        Args:
+            max_retries: Maximum number of retries
+            retry_interval: Seconds between retries
+        """
+        for attempt in range(max_retries):
+            try:
+                # Try to fetch excluded namespaces as a health check
+                success = await self._refresh_excluded_namespaces(force=True)
+                if success:
+                    logger.info("Backend is ready, excluded namespaces loaded successfully")
+                    return True
+            except Exception as e:
+                logger.warning(f"Backend not ready (attempt {attempt + 1}/{max_retries}): {e}")
+
+            if attempt < max_retries - 1:
+                logger.info(f"Waiting {retry_interval}s before retrying...")
+                await asyncio.sleep(retry_interval)
+
+        logger.error(f"Backend not ready after {max_retries} attempts")
+        return False
+
     async def start_scanning(self):
         """Start real-time security scanning with Kubernetes watches"""
         logger.info("Starting real-time security scanner")
@@ -133,11 +170,14 @@ class SecurityScanner:
 
         self._init_kubernetes_client()
 
-        # Clear all findings on startup
-        await self.backend_client.clear_security_findings()
+        # Wait for backend to be ready and load excluded namespaces
+        logger.info("Waiting for backend to be ready...")
+        backend_ready = await self._wait_for_backend()
+        if not backend_ready:
+            logger.warning("Starting scan without confirmed excluded namespaces - some excluded namespaces may be scanned")
 
-        # Initial refresh of excluded namespaces
-        await self._refresh_excluded_namespaces()
+        # Clear all findings on startup (after loading exclusions)
+        await self.backend_client.clear_security_findings()
 
         # Set up WebSocket client for real-time namespace exclusion changes
         self.websocket_client.set_namespace_change_handler(self._handle_namespace_change)

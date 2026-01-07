@@ -26,12 +26,6 @@ export const api = {
     return response.json();
   },
 
-  getClusterInfo: async () => {
-    const response = await fetch(`${API_BASE}/api/cluster/info`);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
   // Security findings API
   getSecurityFindings: async () => {
     const response = await fetch(`${API_BASE}/api/security/findings`);

@@ -12,7 +12,6 @@ const Dashboard = () => {
   const [securityFindings, setSecurityFindings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [clusterName, setClusterName] = useState('k8s-cluster');
   const [namespaceFilter, setNamespaceFilter] = useState('');
   const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
@@ -165,14 +164,12 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [activePods, findings, clusterInfo] = await Promise.all([
+      const [activePods, findings] = await Promise.all([
         api.getFailedPods(),
-        api.getSecurityFindings(),
-        api.getClusterInfo().catch(() => ({ cluster_name: 'k8s-cluster' }))
+        api.getSecurityFindings()
       ]);
       setPods(activePods);
       setSecurityFindings(findings);
-      setClusterName(clusterInfo.cluster_name || 'k8s-cluster');
       setError(null);
     } catch (err) {
       setError('Failed to load data');
@@ -205,16 +202,11 @@ const Dashboard = () => {
               <h1 className="text-2xl font-bold text-gray-900">Kure Dashboard</h1>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <span className="text-sm text-gray-600 font-medium">{clusterName}</span>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                  <span className="text-sm text-gray-600 font-bold">
-                    {connected ? 'Connected' : 'Disconnected'}
-                  </span>
-                </div>
-              </div>
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+              <span className="text-sm text-gray-600 font-bold">
+                {connected ? 'Connected' : 'Disconnected'}
+              </span>
             </div>
           </div>
         </div>

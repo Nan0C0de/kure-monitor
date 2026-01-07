@@ -41,43 +41,10 @@ class PodMonitor:
         # Initialize Kubernetes client
         try:
             config.load_incluster_config()  # For running in cluster
-            self.cluster_name = self._get_cluster_name_from_env()
         except Exception:
             config.load_kube_config()  # For local development
-            self.cluster_name = self._get_cluster_name_from_config()
 
         self.v1 = client.CoreV1Api()
-
-    def _get_cluster_name_from_env(self):
-        """Get cluster name from environment variables (in-cluster)"""
-        import os
-        # Try to get from env var first, then try to detect kind cluster
-        cluster_name = os.environ.get('CLUSTER_NAME')
-        if cluster_name:
-            return cluster_name
-        
-        # Try to detect if we're in a kind cluster by checking hostname patterns
-        try:
-            hostname = os.environ.get('HOSTNAME', '')
-            if 'kind' in hostname:
-                return 'kind-kure'
-        except Exception:
-            pass
-            
-        return 'k8s-cluster'
-
-    def _get_cluster_name_from_config(self):
-        """Get cluster name from kubectl config (local development)"""
-        try:
-            contexts, current_context = config.list_kube_config_contexts()
-            if current_context and 'cluster' in current_context['context']:
-                return current_context['context']['cluster']
-            elif current_context:
-                return current_context['name']
-            return 'k8s-cluster'
-        except Exception as e:
-            logger.warning(f"Could not get cluster name from config: {e}")
-            return 'k8s-cluster'
 
     async def _refresh_excluded_namespaces(self):
         """Refresh the excluded namespaces cache from backend (kept for compatibility, not used for pod monitoring)"""
@@ -164,7 +131,7 @@ class PodMonitor:
 
     async def start_monitoring(self):
         """Start monitoring pods for failures"""
-        logger.info(f"Starting pod monitoring for cluster: {self.cluster_name}")
+        logger.info("Starting pod monitoring")
 
         # Initial refresh of excluded pods (namespace exclusions are for security scan only)
         await self._refresh_excluded_pods()

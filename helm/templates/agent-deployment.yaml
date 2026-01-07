@@ -1,28 +1,28 @@
-{{- if .Values.podMonitor.enabled }}
+{{- if .Values.agent.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kure.fullname" . }}-pod-monitor
+  name: {{ include "kure.fullname" . }}-agent
   labels:
     {{- include "kure.labels" . | nindent 4 }}
-    app.kubernetes.io/component: pod-monitor
+    app.kubernetes.io/component: agent
 spec:
   replicas: 1
   selector:
     matchLabels:
       {{- include "kure.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: pod-monitor
+      app.kubernetes.io/component: agent
   template:
     metadata:
       labels:
         {{- include "kure.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: pod-monitor
+        app.kubernetes.io/component: agent
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ .Values.podMonitor.serviceAccount.name }}
+      serviceAccountName: {{ .Values.agent.serviceAccount.name }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
@@ -41,12 +41,10 @@ spec:
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
       containers:
-      - name: pod-monitor
-        image: "{{ .Values.global.imageRegistry }}{{ .Values.podMonitor.image.repository }}:{{ .Values.podMonitor.image.tag }}"
-        imagePullPolicy: {{ .Values.podMonitor.image.pullPolicy }}
+      - name: agent
+        image: "{{ .Values.global.imageRegistry }}{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
+        imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
         env:
-        - name: CLUSTER_NAME
-          value: "{{ .Values.podMonitor.clusterName }}"
         - name: BACKEND_URL
           value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
         - name: PYTHONUNBUFFERED
@@ -59,21 +57,21 @@ spec:
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         resources:
-          {{- toYaml .Values.podMonitor.resources | nindent 10 }}
+          {{- toYaml .Values.agent.resources | nindent 10 }}
       volumes:
       - name: tmp
         emptyDir: {}
       - name: var-tmp
         emptyDir: {}
-      {{- with .Values.podMonitor.nodeSelector }}
+      {{- with .Values.agent.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.podMonitor.affinity }}
+      {{- with .Values.agent.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.podMonitor.tolerations }}
+      {{- with .Values.agent.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

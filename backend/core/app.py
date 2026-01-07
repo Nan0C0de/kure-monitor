@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import logging
-import os
 
 from database.database import Database
 from services.solution_engine import SolutionEngine
@@ -18,8 +17,6 @@ def create_app() -> FastAPI:
     db = Database()
     solution_engine = SolutionEngine()
     websocket_manager = WebSocketManager()
-    # Read cluster name from environment variable (set by deployment)
-    cluster_info = {"cluster_name": os.getenv("CLUSTER_NAME", "k8s-cluster")}
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -44,7 +41,7 @@ def create_app() -> FastAPI:
         return {"status": "healthy"}
 
     # Include routers
-    api_router = create_api_router(db, solution_engine, websocket_manager, cluster_info)
+    api_router = create_api_router(db, solution_engine, websocket_manager)
     app.include_router(api_router)
     app.include_router(websocket_manager.router)
     

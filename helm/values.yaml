@@ -6,11 +6,8 @@ global:
   imagePullSecrets: []
 
 # Pod monitoring agent configuration
-podMonitor:
+agent:
   enabled: true  # Set to false to disable pod monitoring
-
-  # Cluster name to display in the dashboard
-  clusterName: "k8s-cluster"  # Change this to your cluster name
 
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/agent
@@ -35,7 +32,7 @@ podMonitor:
 
   serviceAccount:
     create: true
-    name: kure-pod-monitor
+    name: kure-agent
 
 # Security scanner agent configuration
 securityScanner:

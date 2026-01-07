@@ -84,15 +84,6 @@ async def test_dismiss_failed_pod(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_cluster_info_endpoint(client: AsyncClient):
-    """Test cluster info endpoint"""
-    response = await client.get("/api/cluster/info")
-    assert response.status_code == 200
-    data = response.json()
-    assert "cluster_name" in data
-
-
-@pytest.mark.asyncio
 async def test_invalid_pod_data(client: AsyncClient):
     """Test reporting pod with invalid data"""
     invalid_pod_data = {

@@ -99,7 +99,14 @@ class BackendClient:
             return False
 
     async def get_excluded_namespaces(self) -> list:
-        """Get list of excluded namespaces from backend"""
+        """Get list of excluded namespaces from backend
+
+        Returns:
+            List of excluded namespace names
+
+        Raises:
+            Exception: If unable to fetch from backend
+        """
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -112,16 +119,15 @@ class BackendClient:
                         logger.debug(f"Fetched excluded namespaces: {namespaces}")
                         return namespaces
                     else:
-                        logger.warning(f"Backend returned HTTP {response.status} for excluded namespaces")
-                        return []
+                        raise Exception(f"Backend returned HTTP {response.status}")
 
         except asyncio.TimeoutError:
-            logger.warning("Timeout while fetching excluded namespaces (10s)")
-            return []
+            raise Exception("Timeout while fetching excluded namespaces (10s)")
         except aiohttp.ClientError as e:
-            logger.warning(f"HTTP client error while fetching excluded namespaces: {e}")
-            return []
+            raise Exception(f"HTTP client error: {e}")
         except Exception as e:
-            logger.warning(f"Error fetching excluded namespaces: {e}")
-            return []
+            # Re-raise if it's already our exception
+            if "Backend returned" in str(e) or "Timeout" in str(e) or "HTTP client" in str(e):
+                raise
+            raise Exception(f"Error fetching excluded namespaces: {e}")
 

@@ -14,7 +14,7 @@ from services.websocket import WebSocketManager
 
 logger = logging.getLogger(__name__)
 
-def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager, cluster_info: dict) -> APIRouter:
+def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager) -> APIRouter:
     """Create and configure the API router"""
     router = APIRouter(prefix="/api")
 
@@ -196,15 +196,6 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             return {"error": "Pod manifest retrieval not implemented yet"}
         except Exception as e:
             logger.error(f"Error getting pod manifest: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.get("/cluster/info")
-    async def get_cluster_info():
-        """Get cluster information"""
-        try:
-            return cluster_info
-        except Exception as e:
-            logger.error(f"Error getting cluster info: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     # Security findings endpoints

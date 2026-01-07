@@ -66,28 +66,4 @@ describe('API Service', () => {
     });
   });
 
-  describe('getClusterInfo', () => {
-    test('fetches cluster info successfully', async () => {
-      const mockInfo = { cluster_name: 'test-cluster' };
-
-      fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockInfo,
-      });
-
-      const result = await api.getClusterInfo();
-
-      expect(fetch).toHaveBeenCalledWith('/api/cluster/info');
-      expect(result).toEqual(mockInfo);
-    });
-
-    test('throws error when cluster info fetch fails', async () => {
-      fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 503,
-      });
-
-      await expect(api.getClusterInfo()).rejects.toThrow('HTTP error! status: 503');
-    });
-  });
 });
