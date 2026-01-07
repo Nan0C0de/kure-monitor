@@ -94,8 +94,6 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 | `KURE_LLM_API_KEY` | Backend | API key for chosen LLM provider | None | Yes* |
 | `KURE_LLM_MODEL` | Backend | Specific model to use | None | Yes* |
 | `DATABASE_URL` | Backend | PostgreSQL connection string | Auto-generated | Yes** |
-| `CLUSTER_NAME` | Agent | Kubernetes cluster identifier | `k8s-cluster` | No |
-| `CHECK_INTERVAL` | Agent | Pod check interval (seconds) | `30` | No |
 
 \* All three LLM values (PROVIDER, API_KEY, MODEL) must be provided together for AI functionality, or all omitted to use rule-based solutions only  
 \** Auto-generated if using included PostgreSQL deployment

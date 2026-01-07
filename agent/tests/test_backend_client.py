@@ -80,32 +80,6 @@ class TestBackendClient:
             assert result == False
 
     @pytest.mark.asyncio
-    async def test_report_cluster_info_success(self, backend_client):
-        """Test successful cluster info reporting"""
-        with patch('aiohttp.ClientSession') as mock_session:
-            # Mock successful response
-            mock_response = Mock()
-            mock_response.status = 200
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
-            
-            result = await backend_client.report_cluster_info("test-cluster")
-            
-            assert result == True
-
-    @pytest.mark.asyncio
-    async def test_report_cluster_info_failure(self, backend_client):
-        """Test cluster info reporting failure"""
-        with patch('aiohttp.ClientSession') as mock_session:
-            # Mock error response
-            mock_response = Mock()
-            mock_response.status = 400
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
-            
-            result = await backend_client.report_cluster_info("test-cluster")
-            
-            assert result == False
-
-    @pytest.mark.asyncio
     async def test_dismiss_deleted_pod_success(self, backend_client):
         """Test successful pod dismissal"""
         with patch('aiohttp.ClientSession') as mock_session:

@@ -2,8 +2,8 @@ apiVersion: v2
 name: kure
 description: A Kubernetes health monitoring system with agent, backend, and frontend components
 type: application
-version: 1.1.0
-appVersion: "1.1.0"
+version: 1.2.0
+appVersion: "1.2.0"
 keywords:
   - kubernetes
   - monitoring
@@ -34,7 +34,7 @@ annotations:
   artifacthub.io/install: |
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
-    helm install kure-monitor kure-monitor/kure --version 1.1.0 \
+    helm install kure-monitor kure-monitor/kure --version 1.2.0 \
       --create-namespace --namespace kure-system \
       --set backend.env.KURE_LLM_PROVIDER=openai \
       --set backend.env.KURE_LLM_API_KEY=your_api_key_here \

@@ -14,7 +14,7 @@ podMonitor:
 
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/agent
-    tag: "1.1.0"
+    tag: "1.2.0"
     pullPolicy: IfNotPresent
 
   resources:
@@ -43,15 +43,12 @@ securityScanner:
 
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/security-scanner
-    tag: "1.1.0"
+    tag: "1.2.0"
     pullPolicy: IfNotPresent
-
-  scanInterval: "3600"  # Misconfiguration scan interval in seconds (default: 1 hour)
 
   # CVE Scanner configuration
   cve:
     enabled: true  # Set to false to disable CVE scanning
-    scanInterval: "86400"  # CVE scan interval in seconds (default: 24 hours)
 
   resources:
     requests:
@@ -79,7 +76,7 @@ backend:
   
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/backend
-    tag: "1.1.0"
+    tag: "1.2.0"
     pullPolicy: IfNotPresent
   
   service:
@@ -118,7 +115,7 @@ frontend:
   
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/frontend
-    tag: "1.1.0"
+    tag: "1.2.0"
     pullPolicy: IfNotPresent
   
   service:
