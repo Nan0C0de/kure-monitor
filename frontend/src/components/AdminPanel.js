@@ -12,7 +12,6 @@ const AdminPanel = () => {
   // Pod Monitoring Exclusions state
   const [excludedPods, setExcludedPods] = useState([]);
   const [monitoredPods, setMonitoredPods] = useState([]);
-  const [newPodNamespace, setNewPodNamespace] = useState('');
   const [newPodName, setNewPodName] = useState('');
   const [showPodSuggestions, setShowPodSuggestions] = useState(false);
 
@@ -56,16 +55,13 @@ const AdminPanel = () => {
     ? namespaceSuggestions.filter(ns => ns.toLowerCase().includes(newNamespace.toLowerCase()))
     : namespaceSuggestions;
 
-  // Pod suggestions: monitored pods that are not already excluded
+  // Pod suggestions: monitored pods that are not already excluded (by pod name only)
   const podSuggestions = monitoredPods.filter(
-    pod => !excludedPods.some(excluded =>
-      excluded.namespace === pod.namespace && excluded.pod_name === pod.pod_name
-    )
+    pod => !excludedPods.some(excluded => excluded.pod_name === pod.pod_name)
   );
 
-  const filteredPodSuggestions = (newPodNamespace.trim() || newPodName.trim())
+  const filteredPodSuggestions = newPodName.trim()
     ? podSuggestions.filter(pod =>
-        pod.namespace.toLowerCase().includes(newPodNamespace.toLowerCase()) &&
         pod.pod_name.toLowerCase().includes(newPodName.toLowerCase())
       )
     : podSuggestions;
@@ -111,27 +107,25 @@ const AdminPanel = () => {
   };
 
   const handleAddPod = async (podToAdd) => {
-    const namespace = (podToAdd?.namespace || newPodNamespace).trim();
     const podName = (podToAdd?.pod_name || newPodName).trim();
 
-    if (!namespace || !podName) {
-      setError('Please enter both namespace and pod name');
+    if (!podName) {
+      setError('Please enter a pod name');
       return;
     }
 
-    if (excludedPods.some(pod => pod.namespace === namespace && pod.pod_name === podName)) {
+    if (excludedPods.some(pod => pod.pod_name === podName)) {
       setError('This pod is already excluded');
       return;
     }
 
     try {
-      const result = await api.addExcludedPod(namespace, podName);
+      const result = await api.addExcludedPod(podName);
       setExcludedPods(prev => [...prev, result]);
-      setNewPodNamespace('');
       setNewPodName('');
       setShowPodSuggestions(false);
       setError(null);
-      setSuccessMessage(`Pod "${namespace}/${podName}" excluded from monitoring.`);
+      setSuccessMessage(`Pod "${podName}" excluded from monitoring.`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError('Failed to add pod');
@@ -139,14 +133,12 @@ const AdminPanel = () => {
     }
   };
 
-  const handleRemovePod = async (namespace, podName) => {
+  const handleRemovePod = async (podName) => {
     try {
-      await api.removeExcludedPod(namespace, podName);
-      setExcludedPods(prev => prev.filter(pod =>
-        !(pod.namespace === namespace && pod.pod_name === podName)
-      ));
+      await api.removeExcludedPod(podName);
+      setExcludedPods(prev => prev.filter(pod => pod.pod_name !== podName));
       setError(null);
-      setSuccessMessage(`Pod "${namespace}/${podName}" will now be monitored again`);
+      setSuccessMessage(`Pod "${podName}" will now be monitored again`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError('Failed to remove pod');
@@ -293,39 +285,25 @@ const AdminPanel = () => {
           <h2 className="text-lg font-semibold text-gray-900">Pod Monitoring Exclusions</h2>
         </div>
         <p className="text-sm text-gray-600 mb-4">
-          Pods added here will be excluded from pod failure monitoring.
+          Pods added here (by name) will be excluded from pod failure monitoring across all namespaces.
           Use this to ignore known pods that you don't want to receive alerts for.
         </p>
 
         <form onSubmit={handlePodSubmit} className="mb-4">
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newPodNamespace}
-                  onChange={(e) => {
-                    setNewPodNamespace(e.target.value);
-                    setShowPodSuggestions(true);
-                  }}
-                  onFocus={() => setShowPodSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowPodSuggestions(false), 200)}
-                  placeholder="Namespace"
-                  className="w-1/3 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <input
-                  type="text"
-                  value={newPodName}
-                  onChange={(e) => {
-                    setNewPodName(e.target.value);
-                    setShowPodSuggestions(true);
-                  }}
-                  onFocus={() => setShowPodSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowPodSuggestions(false), 200)}
-                  placeholder="Pod name"
-                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+              <input
+                type="text"
+                value={newPodName}
+                onChange={(e) => {
+                  setNewPodName(e.target.value);
+                  setShowPodSuggestions(true);
+                }}
+                onFocus={() => setShowPodSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowPodSuggestions(false), 200)}
+                placeholder="Enter or select pod name"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
               {showPodSuggestions && filteredPodSuggestions.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                   <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
@@ -333,13 +311,13 @@ const AdminPanel = () => {
                   </div>
                   {filteredPodSuggestions.map(pod => (
                     <button
-                      key={`${pod.namespace}/${pod.pod_name}`}
+                      key={pod.pod_name}
                       type="button"
                       onClick={() => handleAddPod(pod)}
                       className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50"
                     >
-                      <span className="text-gray-500">{pod.namespace}/</span>
                       <span className="font-medium">{pod.pod_name}</span>
+                      <span className="text-gray-400 text-xs ml-2">({pod.namespace})</span>
                     </button>
                   ))}
                 </div>
@@ -369,9 +347,8 @@ const AdminPanel = () => {
           ) : (
             <ul className="divide-y divide-gray-200">
               {excludedPods.map((pod) => (
-                <li key={`${pod.namespace}/${pod.pod_name}`} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
+                <li key={pod.pod_name} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
                   <div>
-                    <span className="text-sm text-gray-500">{pod.namespace}/</span>
                     <span className="text-sm font-medium text-gray-900">{pod.pod_name}</span>
                     {pod.created_at && (
                       <span className="ml-2 text-xs text-gray-500">
@@ -380,7 +357,7 @@ const AdminPanel = () => {
                     )}
                   </div>
                   <button
-                    onClick={() => handleRemovePod(pod.namespace, pod.pod_name)}
+                    onClick={() => handleRemovePod(pod.pod_name)}
                     className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                   >
                     <Trash2 className="w-3 h-3 mr-1" />

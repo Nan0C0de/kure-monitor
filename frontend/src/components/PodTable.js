@@ -1,7 +1,7 @@
 import React from 'react';
 import PodTableRow from './PodTableRow';
 
-const PodTable = ({ pods }) => {
+const PodTable = ({ pods, onSolutionUpdated }) => {
   return (
     <div className="overflow-hidden">
       <table className="min-w-full divide-y divide-gray-200">
@@ -26,6 +26,7 @@ const PodTable = ({ pods }) => {
             <PodTableRow
               key={pod.id}
               pod={pod}
+              onSolutionUpdated={onSolutionUpdated}
             />
           ))}
         </tbody>

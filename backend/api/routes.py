@@ -51,9 +51,12 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
                 timestamp=report.creation_timestamp
             )
 
-            # Save to database
+            # Save to database and get the ID
             logger.info(f"Saving pod failure to database: {report.namespace}/{report.pod_name}")
-            await db.save_pod_failure(response)
+            pod_id = await db.save_pod_failure(response)
+
+            # Update response with the database ID
+            response.id = pod_id
 
             # Notify frontend via WebSocket
             logger.info(f"Broadcasting pod failure via WebSocket: {report.namespace}/{report.pod_name}")
@@ -110,6 +113,57 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             return {"message": "Pod failure restored"}
         except Exception as e:
             logger.error(f"Error restoring pod failure: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/pods/failed/{pod_id}/retry-solution", response_model=PodFailureResponse)
+    async def retry_ai_solution(pod_id: int):
+        """Retry generating AI solution for a pod failure"""
+        try:
+            # Get the pod failure from database
+            pod_failure = await db.get_pod_failure_by_id(pod_id)
+            if not pod_failure:
+                raise HTTPException(status_code=404, detail="Pod failure not found")
+
+            logger.info(f"Retrying AI solution for pod: {pod_failure.namespace}/{pod_failure.pod_name}")
+
+            # Generate new solution
+            pod_context = {
+                "name": pod_failure.pod_name,
+                "namespace": pod_failure.namespace,
+                "image": "Unknown"
+            }
+
+            # Convert container_statuses and events from dicts to model objects for solution engine
+            from models.models import ContainerStatus, PodEvent
+            container_statuses = [ContainerStatus(**s) if isinstance(s, dict) else s for s in pod_failure.container_statuses]
+            events = [PodEvent(**e) if isinstance(e, dict) else e for e in pod_failure.events]
+
+            solution = await solution_engine.get_solution(
+                reason=pod_failure.failure_reason,
+                message=pod_failure.failure_message,
+                events=events,
+                container_statuses=container_statuses,
+                pod_context=pod_context
+            )
+
+            # Update solution in database
+            await db.update_pod_solution(pod_id, solution)
+
+            # Get updated pod failure
+            updated_pod = await db.get_pod_failure_by_id(pod_id)
+
+            # Broadcast update via WebSocket
+            await websocket_manager.broadcast_pod_solution_updated(updated_pod)
+
+            logger.info(f"Successfully regenerated AI solution for pod: {pod_failure.namespace}/{pod_failure.pod_name}")
+            return updated_pod
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            error_msg = f"Failed to retry AI solution for pod {pod_id}: {str(e)}"
+            logger.error(error_msg)
+            logger.error(f"Error details: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.post("/pods/dismiss-deleted")
@@ -350,26 +404,23 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
 
     @router.post("/admin/excluded-pods")
     async def add_excluded_pod(request: ExcludedPod):
-        """Add a pod to the monitoring exclusion list and remove its failures"""
+        """Add a pod to the monitoring exclusion list (by name only) and remove its failures"""
         try:
-            if not request.namespace or not request.namespace.strip():
-                raise HTTPException(status_code=400, detail="Namespace is required")
             if not request.pod_name or not request.pod_name.strip():
                 raise HTTPException(status_code=400, detail="Pod name is required")
 
-            namespace = request.namespace.strip()
             pod_name = request.pod_name.strip()
-            result = await db.add_excluded_pod(namespace, pod_name)
-            logger.info(f"Added excluded pod: {namespace}/{pod_name}")
+            result = await db.add_excluded_pod(pod_name)
+            logger.info(f"Added excluded pod: {pod_name}")
 
-            # Delete pod failure for this pod and broadcast deletion
-            count, deleted_pods = await db.delete_pod_failure_by_pod(namespace, pod_name)
+            # Delete pod failures for this pod name and broadcast deletion
+            count, deleted_pods = await db.delete_pod_failure_by_pod(pod_name)
             for pod in deleted_pods:
                 await websocket_manager.broadcast_pod_deleted(pod['namespace'], pod['pod_name'])
-            logger.info(f"Deleted {count} pod failures for excluded pod: {namespace}/{pod_name}")
+            logger.info(f"Deleted {count} pod failures for excluded pod: {pod_name}")
 
             # Broadcast pod exclusion change for real-time update
-            await websocket_manager.broadcast_pod_exclusion_change(namespace, pod_name, "excluded")
+            await websocket_manager.broadcast_pod_exclusion_change(pod_name, "excluded")
 
             return result
         except HTTPException:
@@ -378,18 +429,18 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.error(f"Error adding excluded pod: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.delete("/admin/excluded-pods/{namespace}/{pod_name}")
-    async def remove_excluded_pod(namespace: str, pod_name: str):
+    @router.delete("/admin/excluded-pods/{pod_name}")
+    async def remove_excluded_pod(pod_name: str):
         """Remove a pod from the monitoring exclusion list"""
         try:
-            removed = await db.remove_excluded_pod(namespace, pod_name)
+            removed = await db.remove_excluded_pod(pod_name)
             if removed:
-                logger.info(f"Removed excluded pod: {namespace}/{pod_name}")
+                logger.info(f"Removed excluded pod: {pod_name}")
                 # Broadcast pod exclusion change for real-time update
-                await websocket_manager.broadcast_pod_exclusion_change(namespace, pod_name, "included")
-                return {"message": f"Pod '{namespace}/{pod_name}' removed from exclusion list"}
+                await websocket_manager.broadcast_pod_exclusion_change(pod_name, "included")
+                return {"message": f"Pod '{pod_name}' removed from exclusion list"}
             else:
-                raise HTTPException(status_code=404, detail=f"Pod '{namespace}/{pod_name}' not found in exclusion list")
+                raise HTTPException(status_code=404, detail=f"Pod '{pod_name}' not found in exclusion list")
         except HTTPException:
             raise
         except Exception as e:

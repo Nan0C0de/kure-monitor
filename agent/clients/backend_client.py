@@ -149,7 +149,7 @@ class BackendClient:
             return []
 
     async def get_excluded_pods(self) -> list:
-        """Get list of excluded pods from backend (for pod monitoring exclusions)"""
+        """Get list of excluded pod names from backend (for pod monitoring exclusions)"""
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -158,9 +158,8 @@ class BackendClient:
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
-                        # Return list of tuples (namespace, pod_name)
-                        pods = [(item.get('namespace'), item.get('pod_name')) for item in data
-                                if item.get('namespace') and item.get('pod_name')]
+                        # Return list of pod names only
+                        pods = [item.get('pod_name') for item in data if item.get('pod_name')]
                         logger.debug(f"Fetched excluded pods: {pods}")
                         return pods
                     else:

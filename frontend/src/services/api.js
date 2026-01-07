@@ -18,6 +18,14 @@ export const api = {
     return response.json();
   },
 
+  retrySolution: async (podId) => {
+    const response = await fetch(`${API_BASE}/api/pods/failed/${podId}/retry-solution`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   getClusterInfo: async () => {
     const response = await fetch(`${API_BASE}/api/cluster/info`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -72,7 +80,7 @@ export const api = {
     return response.json();
   },
 
-  // Admin API - Excluded Pods (Pod Monitoring Exclusions)
+  // Admin API - Excluded Pods (Pod Monitoring Exclusions - by pod name only)
   getExcludedPods: async () => {
     const response = await fetch(`${API_BASE}/api/admin/excluded-pods`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -85,20 +93,20 @@ export const api = {
     return response.json();
   },
 
-  addExcludedPod: async (namespace, podName) => {
+  addExcludedPod: async (podName) => {
     const response = await fetch(`${API_BASE}/api/admin/excluded-pods`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ namespace, pod_name: podName })
+      body: JSON.stringify({ pod_name: podName })
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
-  removeExcludedPod: async (namespace, podName) => {
-    const response = await fetch(`${API_BASE}/api/admin/excluded-pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}`, {
+  removeExcludedPod: async (podName) => {
+    const response = await fetch(`${API_BASE}/api/admin/excluded-pods/${encodeURIComponent(podName)}`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);

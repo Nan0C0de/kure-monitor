@@ -1,39 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export const useWebSocket = (onMessage) => {
   const [connected, setConnected] = useState(false);
-  const [ws, setWs] = useState(null);
+  const wsRef = useRef(null);
+  const onMessageRef = useRef(onMessage);
+  const reconnectTimeoutRef = useRef(null);
+  const isConnectingRef = useRef(false);
 
+  // Keep the callback ref updated
   useEffect(() => {
-    const WS_URL = process.env.REACT_APP_WS_URL || 
-      (window.location.hostname === 'localhost' && window.location.port === '3000' ? 
-        'ws://localhost:8000/ws' : 
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
+
+  const connect = useCallback(() => {
+    // Prevent multiple simultaneous connection attempts
+    if (isConnectingRef.current || (wsRef.current && wsRef.current.readyState === WebSocket.OPEN)) {
+      return;
+    }
+
+    isConnectingRef.current = true;
+
+    const WS_URL = process.env.REACT_APP_WS_URL ||
+      (window.location.hostname === 'localhost' && window.location.port === '3000' ?
+        'ws://localhost:8000/ws' :
         `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
+
     const websocket = new WebSocket(WS_URL);
 
     websocket.onopen = () => {
+      isConnectingRef.current = false;
       setConnected(true);
-      setWs(websocket);
+      wsRef.current = websocket;
     };
 
     websocket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      onMessage(message);
+      try {
+        const message = JSON.parse(event.data);
+        // Use the ref to always get the current callback
+        if (onMessageRef.current) {
+          onMessageRef.current(message);
+        }
+      } catch (e) {
+        console.error('Error parsing WebSocket message:', e);
+      }
     };
 
     websocket.onclose = () => {
+      isConnectingRef.current = false;
       setConnected(false);
-      setWs(null);
+      wsRef.current = null;
+
+      // Attempt to reconnect after 5 seconds
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connect();
+      }, 5000);
     };
 
     websocket.onerror = (error) => {
+      isConnectingRef.current = false;
       console.warn('WebSocket connection error - this is normal if backend is not running');
     };
 
-    return () => {
-      websocket.close();
-    };
+    wsRef.current = websocket;
   }, []);
 
-  return { connected, ws };
+  useEffect(() => {
+    connect();
+
+    return () => {
+      // Clear any pending reconnect
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      // Close the connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [connect]);
+
+  return { connected, ws: wsRef.current };
 };

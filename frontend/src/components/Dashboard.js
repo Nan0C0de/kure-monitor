@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
@@ -17,15 +17,21 @@ const Dashboard = () => {
   const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
 
-  // Handle WebSocket messages
-  const handleWebSocketMessage = (message) => {
+  // Handle WebSocket messages - wrapped in useCallback for stability
+  const handleWebSocketMessage = useCallback((message) => {
     if (message.type === 'pod_failure') {
-      // Update or add pod failure
+      // Update or add pod failure (deduplicate by id OR by pod_name+namespace)
       setPods(prevPods => {
-        const existingIndex = prevPods.findIndex(
+        // Check by ID first (most reliable), then by name+namespace
+        const existingByIdIndex = message.data.id
+          ? prevPods.findIndex(pod => pod.id === message.data.id)
+          : -1;
+        const existingByNameIndex = prevPods.findIndex(
           pod => pod.pod_name === message.data.pod_name &&
                  pod.namespace === message.data.namespace
         );
+
+        const existingIndex = existingByIdIndex >= 0 ? existingByIdIndex : existingByNameIndex;
 
         if (existingIndex >= 0) {
           // Update existing pod
@@ -46,13 +52,18 @@ const Dashboard = () => {
         )
       );
     } else if (message.type === 'security_finding') {
-      // Update or add security finding (deduplicate by resource_name, namespace, and title)
+      // Update or add security finding (deduplicate by id OR by resource_name+namespace+title)
       setSecurityFindings(prevFindings => {
-        const existingIndex = prevFindings.findIndex(
+        const existingByIdIndex = message.data.id
+          ? prevFindings.findIndex(finding => finding.id === message.data.id)
+          : -1;
+        const existingByNameIndex = prevFindings.findIndex(
           finding => finding.resource_name === message.data.resource_name &&
                      finding.namespace === message.data.namespace &&
                      finding.title === message.data.title
         );
+
+        const existingIndex = existingByIdIndex >= 0 ? existingByIdIndex : existingByNameIndex;
 
         if (existingIndex >= 0) {
           // Update existing finding
@@ -73,7 +84,23 @@ const Dashboard = () => {
             finding.title === message.data.title)
         )
       );
+    } else if (message.type === 'pod_solution_updated') {
+      // Update pod with new solution
+      setPods(prevPods => {
+        return prevPods.map(pod =>
+          pod.id === message.data.id ? message.data : pod
+        );
+      });
     }
+  }, []);
+
+  // Handle solution update from retry button
+  const handleSolutionUpdated = (updatedPod) => {
+    setPods(prevPods => {
+      return prevPods.map(pod =>
+        pod.id === updatedPod.id ? updatedPod : pod
+      );
+    });
   };
 
   const { connected } = useWebSocket(handleWebSocketMessage);
@@ -344,7 +371,7 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <PodTable pods={filteredPods} />
+                <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} />
               )}
             </>
           )}

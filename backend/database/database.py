@@ -36,6 +36,12 @@ class Database:
     async def get_pod_failures(self, include_dismissed=False, dismissed_only=False):
         return await self._db.get_pod_failures(include_dismissed, dismissed_only)
 
+    async def get_pod_failure_by_id(self, failure_id):
+        return await self._db.get_pod_failure_by_id(failure_id)
+
+    async def update_pod_solution(self, failure_id, solution):
+        return await self._db.update_pod_solution(failure_id, solution)
+
     async def dismiss_pod_failure(self, failure_id):
         return await self._db.dismiss_pod_failure(failure_id)
 
@@ -88,22 +94,22 @@ class Database:
     async def delete_pod_failures_by_namespace(self, namespace):
         return await self._db.delete_pod_failures_by_namespace(namespace)
 
-    # Excluded pods methods (pod monitoring exclusions)
-    async def add_excluded_pod(self, namespace, pod_name):
-        return await self._db.add_excluded_pod(namespace, pod_name)
+    # Excluded pods methods (pod monitoring exclusions - by pod name only)
+    async def add_excluded_pod(self, pod_name):
+        return await self._db.add_excluded_pod(pod_name)
 
-    async def remove_excluded_pod(self, namespace, pod_name):
-        return await self._db.remove_excluded_pod(namespace, pod_name)
+    async def remove_excluded_pod(self, pod_name):
+        return await self._db.remove_excluded_pod(pod_name)
 
     async def get_excluded_pods(self):
         return await self._db.get_excluded_pods()
 
-    async def is_pod_excluded(self, namespace, pod_name):
-        return await self._db.is_pod_excluded(namespace, pod_name)
+    async def is_pod_excluded(self, pod_name):
+        return await self._db.is_pod_excluded(pod_name)
 
     async def get_all_monitored_pods(self):
         return await self._db.get_all_monitored_pods()
 
-    async def delete_pod_failure_by_pod(self, namespace, pod_name):
-        return await self._db.delete_pod_failure_by_pod(namespace, pod_name)
+    async def delete_pod_failure_by_pod(self, pod_name):
+        return await self._db.delete_pod_failure_by_pod(pod_name)
 

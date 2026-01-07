@@ -33,8 +33,8 @@ class PodMonitor:
         self.excluded_namespaces_last_refresh: Optional[datetime] = None
         self.excluded_namespaces_refresh_interval = timedelta(minutes=1)
 
-        # Cache for excluded pods from admin settings (for pod monitoring exclusions)
-        self.excluded_pods: List[tuple] = []  # List of (namespace, pod_name) tuples
+        # Cache for excluded pods from admin settings (for pod monitoring exclusions - by pod name only)
+        self.excluded_pods: List[str] = []  # List of pod names
         self.excluded_pods_last_refresh: Optional[datetime] = None
         self.excluded_pods_refresh_interval = timedelta(minutes=1)
 
@@ -112,9 +112,9 @@ class PodMonitor:
             return True
         return False
 
-    def _is_pod_excluded(self, namespace: str, pod_name: str) -> bool:
-        """Check if a specific pod is excluded from pod monitoring"""
-        return (namespace, pod_name) in self.excluded_pods
+    def _is_pod_excluded(self, pod_name: str) -> bool:
+        """Check if a specific pod is excluded from pod monitoring (by name only)"""
+        return pod_name in self.excluded_pods
 
     async def _handle_namespace_change(self, namespace: str, action: str):
         """Handle real-time namespace exclusion changes from WebSocket (for security scan only now)"""
@@ -122,24 +122,31 @@ class PodMonitor:
         # Keep this handler for potential future use or logging
         logger.info(f"Namespace exclusion change received (security scan only): {namespace} -> {action}")
 
-    async def _handle_pod_exclusion_change(self, namespace: str, pod_name: str, action: str):
+    async def _handle_pod_exclusion_change(self, pod_name: str, action: str):
         """Handle real-time pod exclusion changes from WebSocket"""
         try:
             # Refresh excluded pods immediately
             self.excluded_pods_last_refresh = None
             await self._refresh_excluded_pods()
 
-            pod_key = f"{namespace}/{pod_name}"
             if action == "included":
-                # Pod was included (removed from exclusion) - clear cache so it gets re-reported if failing
-                if pod_key in self.reported_pods:
+                # Pod was included (removed from exclusion) - clear cache for all pods with this name
+                pods_to_clear = [
+                    pod_key for pod_key in self.reported_pods.keys()
+                    if pod_key.endswith(f"/{pod_name}")
+                ]
+                for pod_key in pods_to_clear:
                     del self.reported_pods[pod_key]
                     logger.info(f"Cleared cache for pod {pod_key} (pod included)")
             elif action == "excluded":
                 # Pod was excluded - clear from reported cache
-                if pod_key in self.reported_pods:
+                pods_to_clear = [
+                    pod_key for pod_key in self.reported_pods.keys()
+                    if pod_key.endswith(f"/{pod_name}")
+                ]
+                for pod_key in pods_to_clear:
                     del self.reported_pods[pod_key]
-                logger.info(f"Pod '{pod_key}' excluded from monitoring")
+                logger.info(f"Pod '{pod_name}' excluded from monitoring")
         except Exception as e:
             logger.error(f"Error handling pod exclusion change: {e}")
 
@@ -210,8 +217,8 @@ class PodMonitor:
         if self._is_namespace_excluded(namespace):
             return False
 
-        # Skip excluded pods (admin-configured pod monitoring exclusions)
-        if self._is_pod_excluded(namespace, pod_name):
+        # Skip excluded pods (admin-configured pod monitoring exclusions - by name only)
+        if self._is_pod_excluded(pod_name):
             return False
 
         # Failed phase is obviously a failure

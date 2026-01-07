@@ -2,7 +2,7 @@ import asyncpg
 import logging
 import os
 import json
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 from .database_base import DatabaseInterface
 from models.models import PodFailureResponse, SecurityFindingResponse, ExcludedNamespaceResponse
@@ -149,20 +149,18 @@ class PostgreSQLDatabase(DatabaseInterface):
                     ON excluded_namespaces(namespace)
                 """)
 
-                # Create excluded_pods table for pod monitoring exclusions
+                # Create excluded_pods table for pod monitoring exclusions (by pod name only)
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS excluded_pods (
                         id SERIAL PRIMARY KEY,
-                        pod_name VARCHAR(255) NOT NULL,
-                        namespace VARCHAR(255) NOT NULL,
-                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE(pod_name, namespace)
+                        pod_name VARCHAR(255) NOT NULL UNIQUE,
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
 
                 await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_excluded_pods_pod_namespace
-                    ON excluded_pods(pod_name, namespace)
+                    CREATE INDEX IF NOT EXISTS idx_excluded_pods_pod_name
+                    ON excluded_pods(pod_name)
                 """)
 
             logger.info("PostgreSQL database initialized successfully")
@@ -271,6 +269,45 @@ class PostgreSQLDatabase(DatabaseInterface):
                 failures.append(failure)
 
             return failures
+
+    async def get_pod_failure_by_id(self, failure_id: int) -> Optional[PodFailureResponse]:
+        """Get a single pod failure by ID"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM pod_failures WHERE id = $1",
+                failure_id
+            )
+            if not row:
+                return None
+
+            creation_timestamp = row['creation_timestamp'].isoformat()
+            timestamp = row['timestamp'].isoformat()
+
+            return PodFailureResponse(
+                id=row['id'],
+                pod_name=row['pod_name'],
+                namespace=row['namespace'],
+                node_name=row['node_name'],
+                phase=row['phase'],
+                creation_timestamp=creation_timestamp,
+                failure_reason=row['failure_reason'],
+                failure_message=row['failure_message'],
+                container_statuses=json.loads(row['container_statuses']) if row['container_statuses'] else [],
+                events=json.loads(row['events']) if row['events'] else [],
+                logs=row['logs'],
+                manifest=row['manifest'] or '',
+                solution=row['solution'],
+                timestamp=timestamp,
+                dismissed=bool(row['dismissed'])
+            )
+
+    async def update_pod_solution(self, failure_id: int, solution: str):
+        """Update just the solution for a pod failure"""
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE pod_failures SET solution = $1 WHERE id = $2",
+                solution, failure_id
+            )
 
     async def dismiss_pod_failure(self, failure_id: int):
         """Mark a pod failure as dismissed"""
@@ -568,33 +605,31 @@ class PostgreSQLDatabase(DatabaseInterface):
             count = int(result.split()[-1]) if result else 0
             return count, deleted_pods
 
-    # Excluded pods methods (for pod monitoring exclusions)
-    async def add_excluded_pod(self, namespace: str, pod_name: str) -> dict:
-        """Add a pod to the monitoring exclusion list"""
+    # Excluded pods methods (for pod monitoring exclusions - by pod name only)
+    async def add_excluded_pod(self, pod_name: str) -> dict:
+        """Add a pod to the monitoring exclusion list (by name only)"""
         async with self.pool.acquire() as conn:
             try:
                 result = await conn.fetchrow(
-                    """INSERT INTO excluded_pods (namespace, pod_name)
-                       VALUES ($1, $2)
-                       ON CONFLICT (pod_name, namespace) DO NOTHING
-                       RETURNING id, namespace, pod_name, created_at""",
-                    namespace, pod_name
+                    """INSERT INTO excluded_pods (pod_name)
+                       VALUES ($1)
+                       ON CONFLICT (pod_name) DO NOTHING
+                       RETURNING id, pod_name, created_at""",
+                    pod_name
                 )
                 if result:
                     return {
                         'id': result['id'],
-                        'namespace': result['namespace'],
                         'pod_name': result['pod_name'],
                         'created_at': result['created_at'].isoformat()
                     }
                 # If no result, pod already exists - fetch it
                 existing = await conn.fetchrow(
-                    "SELECT id, namespace, pod_name, created_at FROM excluded_pods WHERE namespace = $1 AND pod_name = $2",
-                    namespace, pod_name
+                    "SELECT id, pod_name, created_at FROM excluded_pods WHERE pod_name = $1",
+                    pod_name
                 )
                 return {
                     'id': existing['id'],
-                    'namespace': existing['namespace'],
                     'pod_name': existing['pod_name'],
                     'created_at': existing['created_at'].isoformat()
                 }
@@ -602,12 +637,12 @@ class PostgreSQLDatabase(DatabaseInterface):
                 logger.error(f"Error adding excluded pod: {e}")
                 raise
 
-    async def remove_excluded_pod(self, namespace: str, pod_name: str) -> bool:
+    async def remove_excluded_pod(self, pod_name: str) -> bool:
         """Remove a pod from the monitoring exclusion list"""
         async with self.pool.acquire() as conn:
             result = await conn.execute(
-                "DELETE FROM excluded_pods WHERE namespace = $1 AND pod_name = $2",
-                namespace, pod_name
+                "DELETE FROM excluded_pods WHERE pod_name = $1",
+                pod_name
             )
             count = int(result.split()[-1]) if result else 0
             return count > 0
@@ -616,45 +651,44 @@ class PostgreSQLDatabase(DatabaseInterface):
         """Get all excluded pods"""
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT id, namespace, pod_name, created_at FROM excluded_pods ORDER BY namespace, pod_name"
+                "SELECT id, pod_name, created_at FROM excluded_pods ORDER BY pod_name"
             )
             return [
                 {
                     'id': row['id'],
-                    'namespace': row['namespace'],
                     'pod_name': row['pod_name'],
                     'created_at': row['created_at'].isoformat()
                 }
                 for row in rows
             ]
 
-    async def is_pod_excluded(self, namespace: str, pod_name: str) -> bool:
-        """Check if a pod is in the monitoring exclusion list"""
+    async def is_pod_excluded(self, pod_name: str) -> bool:
+        """Check if a pod is in the monitoring exclusion list (by name only)"""
         async with self.pool.acquire() as conn:
             result = await conn.fetchrow(
-                "SELECT 1 FROM excluded_pods WHERE namespace = $1 AND pod_name = $2",
-                namespace, pod_name
+                "SELECT 1 FROM excluded_pods WHERE pod_name = $1",
+                pod_name
             )
             return result is not None
 
     async def get_all_monitored_pods(self) -> List[dict]:
-        """Get all unique pods from pod failures (for suggestions)"""
+        """Get all unique pod names from pod failures (for suggestions), with namespace for display"""
         async with self.pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT DISTINCT namespace, pod_name FROM pod_failures
+                SELECT DISTINCT pod_name, namespace FROM pod_failures
                 WHERE dismissed = FALSE
-                ORDER BY namespace, pod_name
+                ORDER BY pod_name
             """)
-            return [{'namespace': row['namespace'], 'pod_name': row['pod_name']} for row in rows]
+            return [{'pod_name': row['pod_name'], 'namespace': row['namespace']} for row in rows]
 
-    async def delete_pod_failure_by_pod(self, namespace: str, pod_name: str) -> tuple[int, list]:
-        """Delete pod failure for a specific pod and return deleted info"""
+    async def delete_pod_failure_by_pod(self, pod_name: str) -> tuple[int, list]:
+        """Delete pod failures for a specific pod name (across all namespaces) and return deleted info"""
         async with self.pool.acquire() as conn:
-            # First get the pod to return it for WebSocket broadcast
+            # First get the pods to return them for WebSocket broadcast
             rows = await conn.fetch(
                 """SELECT id, pod_name, namespace FROM pod_failures
-                   WHERE namespace = $1 AND pod_name = $2 AND dismissed = FALSE""",
-                namespace, pod_name
+                   WHERE pod_name = $1 AND dismissed = FALSE""",
+                pod_name
             )
             deleted_pods = [
                 {
@@ -664,10 +698,10 @@ class PostgreSQLDatabase(DatabaseInterface):
                 for row in rows
             ]
 
-            # Delete the pod failure
+            # Delete the pod failures
             result = await conn.execute(
-                "DELETE FROM pod_failures WHERE namespace = $1 AND pod_name = $2",
-                namespace, pod_name
+                "DELETE FROM pod_failures WHERE pod_name = $1",
+                pod_name
             )
             count = int(result.split()[-1]) if result else 0
             return count, deleted_pods

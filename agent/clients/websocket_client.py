@@ -76,13 +76,12 @@ class WebSocketClient:
                     await self.on_namespace_change(namespace, action)
 
             elif msg_type == 'pod_exclusion_change':
-                namespace = message['data'].get('namespace')
                 pod_name = message['data'].get('pod_name')
                 action = message['data'].get('action')
-                logger.info(f"Received pod exclusion change: {namespace}/{pod_name} -> {action}")
+                logger.info(f"Received pod exclusion change: {pod_name} -> {action}")
 
                 if self.on_pod_exclusion_change:
-                    await self.on_pod_exclusion_change(namespace, pod_name, action)
+                    await self.on_pod_exclusion_change(pod_name, action)
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse WebSocket message: {e}")

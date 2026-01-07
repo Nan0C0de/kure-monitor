@@ -64,6 +64,27 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
+    async def broadcast_pod_solution_updated(self, pod_failure: PodFailureResponse):
+        """Broadcast pod solution update to all connected clients"""
+        if self.active_connections:
+            message = {
+                "type": "pod_solution_updated",
+                "data": pod_failure.dict()
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send solution update to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            # Remove disconnected connections
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
     async def broadcast_security_finding(self, finding: SecurityFindingResponse):
         """Broadcast new security finding to all connected clients"""
         if self.active_connections:
@@ -127,12 +148,12 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
-    async def broadcast_pod_exclusion_change(self, namespace: str, pod_name: str, action: str):
+    async def broadcast_pod_exclusion_change(self, pod_name: str, action: str):
         """Broadcast pod exclusion change to all connected clients (including agent)"""
         if self.active_connections:
             message = {
                 "type": "pod_exclusion_change",
-                "data": {"namespace": namespace, "pod_name": pod_name, "action": action}
+                "data": {"pod_name": pod_name, "action": action}
             }
 
             disconnected = []

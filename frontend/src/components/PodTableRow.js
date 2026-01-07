@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import PodDetails from './PodDetails';
 import ManifestModal from './ManifestModal';
 
-const PodTableRow = ({ pod }) => {
+const PodTableRow = ({ pod, onSolutionUpdated }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
 
@@ -16,6 +16,13 @@ const PodTableRow = ({ pod }) => {
       minute: '2-digit'
     });
   };
+
+  // Check if solution is a fallback (AI unavailable)
+  const isFallbackSolution = pod.solution && (
+    pod.solution.includes('AI solution temporarily unavailable') ||
+    pod.solution.includes('Failed to generate AI solution') ||
+    pod.solution.includes('Basic troubleshooting')
+  );
 
   return (
     <>
@@ -59,8 +66,20 @@ const PodTableRow = ({ pod }) => {
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-sm text-left hover:bg-gray-50 rounded transition-colors w-full"
             >
-              <div className="font-medium text-gray-600 mb-1">AI Solution Available</div>
-              <div className="text-xs text-gray-500">Click to expand for detailed solution</div>
+              {isFallbackSolution ? (
+                <>
+                  <div className="font-medium text-yellow-600 mb-1 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-1" />
+                    Basic Solution Available
+                  </div>
+                  <div className="text-xs text-gray-500">Click to expand and retry AI</div>
+                </>
+              ) : (
+                <>
+                  <div className="font-medium text-gray-600 mb-1">AI Solution Available</div>
+                  <div className="text-xs text-gray-500">Click to expand for detailed solution</div>
+                </>
+              )}
             </button>
           </div>
         </td>
@@ -73,9 +92,10 @@ const PodTableRow = ({ pod }) => {
       {isExpanded && (
         <tr className="bg-gray-50">
           <td colSpan="4" className="px-6 py-4">
-            <PodDetails 
-              pod={pod} 
+            <PodDetails
+              pod={pod}
               onViewManifest={() => setShowManifest(true)}
+              onSolutionUpdated={onSolutionUpdated}
             />
           </td>
         </tr>

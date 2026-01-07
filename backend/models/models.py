@@ -68,7 +68,6 @@ class ExcludedNamespaceResponse(ExcludedNamespace):
     id: Optional[int] = None
 
 class ExcludedPod(BaseModel):
-    namespace: str
     pod_name: str
     created_at: Optional[str] = None
 
