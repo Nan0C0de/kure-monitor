@@ -174,54 +174,30 @@ class DataCollector:
         return components[0] + ''.join(word.capitalize() for word in components[1:])
 
     def _get_pod_manifest(self, pod) -> str:
-        """Get the pod manifest as clean YAML"""
+        """Get the pod manifest as complete YAML (like kubectl get pod -o yaml)"""
         try:
             # Convert pod object to dict
             pod_dict = pod.to_dict()
             logger.info(f"Generating manifest for pod {pod.metadata.name}")
-            
-            # Clean up the manifest - remove runtime status info
-            if 'status' in pod_dict:
-                del pod_dict['status']
-            
-            # Ensure apiVersion and kind are present
+
+            # Keep status - it's important for debugging
+            # Just ensure apiVersion and kind are present
             pod_dict['apiVersion'] = 'v1'
             pod_dict['kind'] = 'Pod'
-            
-            # Remove runtime metadata fields that aren't useful for manifest viewing
+
+            # Only remove truly useless runtime metadata fields
             if 'metadata' in pod_dict:
                 metadata = pod_dict['metadata']
-                runtime_fields = ['resource_version', 'uid', 'self_link', 'generation', 
-                                'managed_fields', 'owner_references', 'finalizers']
-                for field in runtime_fields:
-                    if field in metadata:
-                        del metadata[field]
-            
-            # Remove spec fields that are runtime-generated
-            if 'spec' in pod_dict:
-                spec = pod_dict['spec']
-                runtime_spec_fields = ['node_name', 'service_account', 'volumes', 'tolerations',
-                                     'scheduler_name', 'priority', 'preemption_policy', 'enable_service_links']
-                for field in runtime_spec_fields:
-                    if field in spec:
-                        del spec[field]
-                
-                # Clean container specs
-                if 'containers' in spec:
-                    for container in spec['containers']:
-                        # Remove runtime container fields
-                        runtime_container_fields = ['termination_message_path', 'termination_message_policy',
-                                                  'volume_mounts', 'resources']
-                        for field in runtime_container_fields:
-                            if field in container:
-                                del container[field]
-            
+                # Only remove managed_fields as it's very verbose and not useful
+                if 'managed_fields' in metadata:
+                    del metadata['managed_fields']
+
             # Clean up the dictionary by removing None values
             clean_pod_dict = self._clean_dict(pod_dict)
-            
+
             # Convert to clean YAML
             manifest = yaml.safe_dump(clean_pod_dict, default_flow_style=False, sort_keys=False)
-            logger.info(f"Generated clean manifest length: {len(manifest)} characters")
+            logger.info(f"Generated complete manifest length: {len(manifest)} characters")
             return manifest
         except Exception as e:
             logger.error(f"Could not generate pod manifest: {e}")

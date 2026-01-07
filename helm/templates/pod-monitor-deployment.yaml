@@ -45,6 +45,8 @@ spec:
         image: "{{ .Values.global.imageRegistry }}{{ .Values.podMonitor.image.repository }}:{{ .Values.podMonitor.image.tag }}"
         imagePullPolicy: {{ .Values.podMonitor.image.pullPolicy }}
         env:
+        - name: CLUSTER_NAME
+          value: "{{ .Values.podMonitor.clusterName }}"
         - name: BACKEND_URL
           value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
         - name: PYTHONUNBUFFERED
