@@ -198,21 +198,6 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.error(f"Error getting pod manifest: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/cluster/register")
-    async def register_cluster_info(request: dict):
-        """Register cluster information from agent"""
-        try:
-            cluster_name = request.get("cluster_name")
-            if not cluster_name:
-                raise HTTPException(status_code=400, detail="cluster_name is required")
-            
-            cluster_info["cluster_name"] = cluster_name
-            logger.info(f"Registered cluster: {cluster_name}")
-            return {"message": "Cluster info registered successfully"}
-        except Exception as e:
-            logger.error(f"Error registering cluster info: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
     @router.get("/cluster/info")
     async def get_cluster_info():
         """Get cluster information"""

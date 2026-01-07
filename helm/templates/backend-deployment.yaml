@@ -67,6 +67,9 @@ spec:
         {{- else if or .Values.backend.env.KURE_LLM_PROVIDER .Values.backend.env.KURE_LLM_API_KEY .Values.backend.env.KURE_LLM_MODEL }}
         {{- fail "LLM configuration incomplete: KURE_LLM_PROVIDER, KURE_LLM_API_KEY, and KURE_LLM_MODEL must all be provided together or all be empty (to disable LLM)" }}
         {{- end }}
+        # Cluster name from pod monitor configuration
+        - name: CLUSTER_NAME
+          value: {{ .Values.podMonitor.clusterName | quote }}
         volumeMounts:
         - name: tmp
           mountPath: /tmp

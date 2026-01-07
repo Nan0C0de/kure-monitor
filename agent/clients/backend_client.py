@@ -61,29 +61,6 @@ class BackendClient:
             logger.error(f"Unexpected error while reporting pod {pod_identifier} to backend: {e}")
             return False
 
-    async def report_cluster_info(self, cluster_name: str):
-        """Report cluster information to backend"""
-        try:
-            logger.info(f"Reporting cluster info to backend: {cluster_name}")
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                        f"{self.backend_url}/api/cluster/register",
-                        json={"cluster_name": cluster_name},
-                        headers={'Content-Type': 'application/json'},
-                        timeout=aiohttp.ClientTimeout(total=10)
-                ) as response:
-                    if response.status == 200:
-                        logger.info(f"Successfully reported cluster info: {cluster_name}")
-                        return True
-                    else:
-                        logger.warning(f"Backend returned HTTP {response.status} for cluster info")
-                        return False
-                        
-        except Exception as e:
-            logger.warning(f"Could not report cluster info to backend: {e}")
-            return False
-
     async def dismiss_deleted_pod(self, namespace: str, pod_name: str):
         """Notify backend that a pod was deleted"""
         pod_identifier = f"{namespace}/{pod_name}"

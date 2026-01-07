@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import logging
+import os
 
 from database.database import Database
 from services.solution_engine import SolutionEngine
@@ -12,12 +13,13 @@ logger = logging.getLogger(__name__)
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application"""
-    
+
     # Global instances
     db = Database()
     solution_engine = SolutionEngine()
     websocket_manager = WebSocketManager()
-    cluster_info = {"cluster_name": "k8s-cluster"}
+    # Read cluster name from environment variable (set by deployment)
+    cluster_info = {"cluster_name": os.getenv("CLUSTER_NAME", "k8s-cluster")}
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -29,7 +31,7 @@ def create_app() -> FastAPI:
         await db.close()
 
     # Create FastAPI app
-    app = FastAPI(title="Kure Backend", version="1.1.0", lifespan=lifespan)
+    app = FastAPI(title="Kure Backend", version="1.2.0", lifespan=lifespan)
     
     # Configure middleware and exception handlers
     configure_cors(app)

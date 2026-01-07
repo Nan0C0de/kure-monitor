@@ -166,9 +166,6 @@ class PodMonitor:
         """Start monitoring pods for failures"""
         logger.info(f"Starting pod monitoring for cluster: {self.cluster_name}")
 
-        # Report cluster name to backend
-        await self.backend_client.report_cluster_info(self.cluster_name)
-
         # Initial refresh of excluded pods (namespace exclusions are for security scan only)
         await self._refresh_excluded_pods()
 

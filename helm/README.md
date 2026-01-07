@@ -7,7 +7,7 @@ A Kubernetes health monitoring system with intelligent failure detection and sol
 ```bash
 helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
-helm install kure-monitor kure-monitor/kure --version 1.1.0 \
+helm install kure-monitor kure-monitor/kure --version 1.2.0 \
   --create-namespace --namespace kure-system \
   --set backend.env.KURE_LLM_PROVIDER=openai \
   --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
@@ -22,11 +22,11 @@ Key configuration options in `values.yaml`:
 |-----------|-------------|---------|
 | `global.imageRegistry` | Image registry override | `""` |
 | `agent.image.repository` | Agent image repository | `ghcr.io/nan0c0de/kure-monitor/agent` |
-| `agent.image.tag` | Agent image tag | `1.1.0` |
+| `agent.image.tag` | Agent image tag | `1.2.0` |
 | `agent.serviceAccount.name` | Service account name | `kure-agent` |
 | `backend.replicaCount` | Backend replica count | `1` |
 | `backend.image.repository` | Backend image repository | `ghcr.io/nan0c0de/kure-monitor/backend` |
-| `backend.image.tag` | Backend image tag | `1.1.0` |
+| `backend.image.tag` | Backend image tag | `1.2.0` |
 | `backend.service.type` | Backend service type | `ClusterIP` |
 | `backend.service.port` | Backend service port | `8000` |
 | `backend.env.KURE_LLM_PROVIDER` | LLM provider (openai/anthropic/groq) | `""` |
@@ -34,7 +34,7 @@ Key configuration options in `values.yaml`:
 | `backend.env.KURE_LLM_MODEL` | LLM model name | `""` |
 | `frontend.replicaCount` | Frontend replica count | `1` |
 | `frontend.image.repository` | Frontend image repository | `ghcr.io/nan0c0de/kure-monitor/frontend` |
-| `frontend.image.tag` | Frontend image tag | `1.1.0` |
+| `frontend.image.tag` | Frontend image tag | `1.2.0` |
 | `frontend.service.type` | Frontend service type | `NodePort` |
 | `frontend.service.port` | Frontend service port | `8080` |
 | `frontend.service.nodePort` | Frontend NodePort | `30080` |
