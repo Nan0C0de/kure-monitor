@@ -1,7 +1,42 @@
 import React, { useState } from 'react';
-import { FileText, RefreshCw } from 'lucide-react';
+import { FileText, RefreshCw, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../services/api';
+
+// Code block component with copy button - defined as standalone component
+const CodeBlock = ({ code, language }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <div className="relative group my-3">
+      {language && (
+        <div className="absolute top-0 left-0 px-2 py-1 text-xs text-gray-400 bg-gray-700 rounded-tl rounded-br">
+          {language}
+        </div>
+      )}
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 p-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Copy code"
+      >
+        {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+      </button>
+      <pre className="bg-gray-800 text-gray-100 p-4 pt-8 rounded overflow-x-auto text-xs leading-relaxed whitespace-pre-wrap break-words">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
 
 const PodDetails = ({ pod, onViewManifest, onSolutionUpdated }) => {
   const [isRetrying, setIsRetrying] = useState(false);
@@ -65,7 +100,7 @@ const PodDetails = ({ pod, onViewManifest, onSolutionUpdated }) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-hidden w-full">
       {/* Pod Details */}
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -166,17 +201,15 @@ const PodDetails = ({ pod, onViewManifest, onSolutionUpdated }) => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <h4 className="font-medium text-gray-900">AI-Generated Solution</h4>
-            {isFallbackSolution && (
-              <button
-                onClick={handleRetrySolution}
-                disabled={isRetrying}
-                className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Retry AI Solution"
-              >
-                <RefreshCw className={`w-3 h-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
-                {isRetrying ? 'Retrying...' : 'Retry AI'}
-              </button>
-            )}
+            <button
+              onClick={handleRetrySolution}
+              disabled={isRetrying}
+              className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Retry AI Solution"
+            >
+              <RefreshCw className={`w-3 h-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
+              {isRetrying ? 'Retrying...' : 'Retry AI'}
+            </button>
           </div>
           <button
             onClick={onViewManifest}
@@ -187,12 +220,49 @@ const PodDetails = ({ pod, onViewManifest, onSolutionUpdated }) => {
             View Manifest
           </button>
         </div>
-        <div className={`rounded p-4 text-sm prose prose-sm max-w-none ${
+        <div className={`rounded p-4 text-sm overflow-hidden ${
           isFallbackSolution
             ? 'bg-yellow-50 border border-yellow-200'
             : 'bg-blue-50 border border-blue-200'
         }`}>
-          <ReactMarkdown>{pod.solution}</ReactMarkdown>
+          <div className="solution-content">
+            <ReactMarkdown
+              components={{
+                // Handle pre/code blocks
+                pre: ({ children }) => {
+                  const codeChild = React.Children.toArray(children).find(
+                    child => React.isValidElement(child) && child.type === 'code'
+                  );
+                  if (codeChild && React.isValidElement(codeChild)) {
+                    const className = codeChild.props.className || '';
+                    const language = className.replace('language-', '');
+                    const codeText = String(codeChild.props.children || '').replace(/\n$/, '');
+                    return <CodeBlock code={codeText} language={language} />;
+                  }
+                  return <pre className="bg-gray-800 text-gray-100 p-4 rounded overflow-x-auto text-xs my-3">{children}</pre>;
+                },
+                // Inline code as bold
+                code: ({ inline, className, children }) => {
+                  if (className?.startsWith('language-')) {
+                    return <code className={className}>{children}</code>;
+                  }
+                  return <strong className="font-semibold text-gray-900">{children}</strong>;
+                },
+                // Style other elements
+                p: ({ children }) => <p className="my-2 text-gray-700">{children}</p>,
+                h1: ({ children }) => <h1 className="text-lg font-bold text-gray-900 mt-4 mb-2">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-base font-bold text-gray-900 mt-4 mb-2">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-bold text-gray-900 mt-3 mb-2">{children}</h3>,
+                ul: ({ children }) => <ul className="list-disc list-inside my-2 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal list-inside my-2 space-y-1">{children}</ol>,
+                li: ({ children }) => <li className="text-gray-700">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                a: ({ href, children }) => <a href={href} className="text-blue-600 hover:underline">{children}</a>,
+              }}
+            >
+              {pod.solution}
+            </ReactMarkdown>
+          </div>
         </div>
       </div>
     </div>
