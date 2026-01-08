@@ -153,3 +153,30 @@ class BackendClient:
             logger.warning(f"Error fetching excluded pods: {e}")
             return []
 
+    async def report_cluster_metrics(self, metrics: Dict[str, Any]) -> bool:
+        """Send cluster metrics to backend"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                        f"{self.backend_url}/api/metrics/cluster",
+                        json=metrics,
+                        headers={'Content-Type': 'application/json'},
+                        timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        logger.debug("Successfully reported cluster metrics")
+                        return True
+                    else:
+                        logger.warning(f"Backend returned HTTP {response.status} for cluster metrics")
+                        return False
+
+        except asyncio.TimeoutError:
+            logger.warning("Timeout while reporting cluster metrics (10s)")
+            return False
+        except aiohttp.ClientError as e:
+            logger.warning(f"HTTP client error while reporting cluster metrics: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Error reporting cluster metrics: {e}")
+            return False
+

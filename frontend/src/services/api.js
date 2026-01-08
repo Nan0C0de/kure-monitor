@@ -105,5 +105,59 @@ export const api = {
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
+  },
+
+  // Notification Settings API
+  getNotificationSettings: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/notifications`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  saveNotificationSetting: async (setting) => {
+    const response = await fetch(`${API_BASE}/api/admin/notifications`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(setting)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  updateNotificationSetting: async (provider, setting) => {
+    const response = await fetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(setting)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  deleteNotificationSetting: async (provider) => {
+    const response = await fetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  testNotification: async (provider) => {
+    const response = await fetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}/test`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  // Cluster Metrics API
+  getClusterMetrics: async () => {
+    const response = await fetch(`${API_BASE}/api/metrics/cluster`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
   }
 };

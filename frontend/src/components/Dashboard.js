@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3 } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
+import MonitoringTab from './MonitoringTab';
 import { api } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -10,6 +11,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('monitoring');
   const [pods, setPods] = useState([]);
   const [securityFindings, setSecurityFindings] = useState([]);
+  const [clusterMetrics, setClusterMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [namespaceFilter, setNamespaceFilter] = useState('');
@@ -90,6 +92,9 @@ const Dashboard = () => {
           pod.id === message.data.id ? message.data : pod
         );
       });
+    } else if (message.type === 'cluster_metrics') {
+      // Update cluster metrics
+      setClusterMetrics(message.data);
     }
   }, []);
 
@@ -261,6 +266,17 @@ const Dashboard = () => {
                     </span>
                   )}
                 </button>
+                <button
+                  onClick={() => setActiveTab('cluster')}
+                  className={`${
+                    activeTab === 'cluster'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } ml-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                >
+                  <BarChart3 className="w-5 h-5" />
+                  <span>Cluster Metrics</span>
+                </button>
               </div>
               <button
                 onClick={() => setActiveTab('admin')}
@@ -277,8 +293,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Filters - hide on admin tab */}
-        {activeTab !== 'admin' && (
+        {/* Filters - hide on admin and cluster tabs */}
+        {activeTab !== 'admin' && activeTab !== 'cluster' && (
         <div className="flex justify-end mb-4 gap-4">
           {/* Severity Filter - only show on security tab */}
           {activeTab === 'security' && (
@@ -389,6 +405,10 @@ const Dashboard = () => {
                 <SecurityTable findings={sortedSecurityFindings} />
               )}
             </>
+          )}
+
+          {activeTab === 'cluster' && (
+            <MonitoringTab metrics={clusterMetrics} />
           )}
 
           {activeTab === 'admin' && (

@@ -9,3 +9,5 @@ pydantic==2.11.7
 aiohttp>=3.12.14
 # CVE-2024-6345, CVE-2025-47273 - setuptools vulnerabilities fixed in 78.1.1+
 setuptools>=78.1.1
+# Email notifications
+aiosmtplib>=3.0.0

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle, CheckCircle, Shield, Activity } from 'lucide-react';
 import { api } from '../services/api';
+import NotificationSettings from './NotificationSettings';
 
 const AdminPanel = () => {
   // Security Scan Namespace Exclusions state
@@ -186,6 +187,9 @@ const AdminPanel = () => {
           </div>
         </div>
       )}
+
+      {/* Notification Settings */}
+      <NotificationSettings />
 
       {/* Security Scan Namespace Exclusions */}
       <div>

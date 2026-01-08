@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from enum import Enum
 
 class ContainerStatus(BaseModel):
     name: str
@@ -73,3 +74,79 @@ class ExcludedPod(BaseModel):
 
 class ExcludedPodResponse(ExcludedPod):
     id: Optional[int] = None
+
+
+# Notification models
+class NotificationProvider(str, Enum):
+    EMAIL = "email"
+    SLACK = "slack"
+    DISCORD = "discord"
+    TEAMS = "teams"
+
+
+class EmailConfig(BaseModel):
+    smtp_host: str
+    smtp_port: int = 587
+    smtp_user: str
+    smtp_password: str
+    from_email: str
+    to_emails: List[str]
+    use_tls: bool = True
+
+
+class SlackConfig(BaseModel):
+    webhook_url: str
+    channel: Optional[str] = None
+
+
+class DiscordConfig(BaseModel):
+    webhook_url: str
+
+
+class TeamsConfig(BaseModel):
+    webhook_url: str
+
+
+class NotificationSettingCreate(BaseModel):
+    provider: str
+    enabled: bool = False
+    config: Dict[str, Any]
+
+
+class NotificationSettingResponse(BaseModel):
+    id: Optional[int] = None
+    provider: str
+    enabled: bool = False
+    config: Dict[str, Any]
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+# Cluster Metrics models
+class NodeMetrics(BaseModel):
+    name: str
+    cpu_capacity: str
+    cpu_allocatable: str
+    cpu_usage: Optional[str] = None
+    memory_capacity: str
+    memory_allocatable: str
+    memory_usage: Optional[str] = None
+    storage_capacity: Optional[str] = None
+    conditions: List[Dict[str, Any]] = []
+    pods_count: Optional[int] = None
+
+
+class ClusterMetrics(BaseModel):
+    node_count: int
+    nodes: List[NodeMetrics]
+    total_cpu_capacity: str
+    total_cpu_allocatable: str
+    total_cpu_usage: Optional[str] = None
+    cpu_usage_percent: Optional[float] = None
+    total_memory_capacity: str
+    total_memory_allocatable: str
+    total_memory_usage: Optional[str] = None
+    memory_usage_percent: Optional[float] = None
+    total_pods: Optional[int] = None
+    metrics_available: bool = False
+    timestamp: str

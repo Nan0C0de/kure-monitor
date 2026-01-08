@@ -5,6 +5,7 @@ import logging
 from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
+from services.notification_service import NotificationService
 from api.routes import create_api_router
 from api.middleware import configure_cors, configure_exception_handlers
 
@@ -17,6 +18,7 @@ def create_app() -> FastAPI:
     db = Database()
     solution_engine = SolutionEngine()
     websocket_manager = WebSocketManager()
+    notification_service = NotificationService(db)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -28,12 +30,12 @@ def create_app() -> FastAPI:
         await db.close()
 
     # Create FastAPI app
-    app = FastAPI(title="Kure Backend", version="1.2.0", lifespan=lifespan)
-    
+    app = FastAPI(title="Kure Backend", version="1.3.0", lifespan=lifespan)
+
     # Configure middleware and exception handlers
     configure_cors(app)
     configure_exception_handlers(app)
-    
+
     # Health check endpoint (outside of API router for compatibility)
     @app.get("/health")
     async def health_check():
@@ -41,8 +43,8 @@ def create_app() -> FastAPI:
         return {"status": "healthy"}
 
     # Include routers
-    api_router = create_api_router(db, solution_engine, websocket_manager)
+    api_router = create_api_router(db, solution_engine, websocket_manager, notification_service)
     app.include_router(api_router)
     app.include_router(websocket_manager.router)
-    
+
     return app

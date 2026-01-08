@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 import logging
 from typing import List
-from models.models import PodFailureResponse, SecurityFindingResponse
+from models.models import PodFailureResponse, SecurityFindingResponse, ClusterMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +162,27 @@ class WebSocketManager:
                     await connection.send_text(json.dumps(message, default=str))
                 except Exception as e:
                     logger.warning(f"Failed to send pod exclusion change to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            # Remove disconnected connections
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
+    async def broadcast_cluster_metrics(self, metrics: ClusterMetrics):
+        """Broadcast cluster metrics to all connected clients"""
+        if self.active_connections:
+            message = {
+                "type": "cluster_metrics",
+                "data": metrics.dict()
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send cluster metrics to WebSocket: {e}")
                     disconnected.append(connection)
 
             # Remove disconnected connections

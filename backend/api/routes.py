@@ -1,12 +1,15 @@
 from fastapi import APIRouter, HTTPException
 import logging
 import traceback
+from typing import Optional
 
 from models.models import (
     PodFailureReport, PodFailureResponse,
     SecurityFindingReport, SecurityFindingResponse,
     ExcludedNamespace, ExcludedNamespaceResponse,
-    ExcludedPod, ExcludedPodResponse
+    ExcludedPod, ExcludedPodResponse,
+    NotificationSettingCreate, NotificationSettingResponse,
+    ClusterMetrics
 )
 from database.database import Database
 from services.solution_engine import SolutionEngine
@@ -14,7 +17,10 @@ from services.websocket import WebSocketManager
 
 logger = logging.getLogger(__name__)
 
-def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager) -> APIRouter:
+# Store latest cluster metrics in memory (no database needed for current values)
+latest_cluster_metrics: Optional[dict] = None
+
+def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager, notification_service=None) -> APIRouter:
     """Create and configure the API router"""
     router = APIRouter(prefix="/api")
 
@@ -61,6 +67,14 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             # Notify frontend via WebSocket
             logger.info(f"Broadcasting pod failure via WebSocket: {report.namespace}/{report.pod_name}")
             await websocket_manager.broadcast_pod_failure(response)
+
+            # Send notifications to configured providers
+            if notification_service:
+                try:
+                    await notification_service.send_pod_failure_notification(response)
+                except Exception as notif_error:
+                    logger.error(f"Error sending notifications: {notif_error}")
+                    # Don't fail the request if notifications fail
 
             logger.info(f"Successfully processed failed pod: {report.namespace}/{report.pod_name}")
             return response
@@ -422,5 +436,103 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
         except Exception as e:
             logger.error(f"Error removing excluded pod: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+
+    # Notification settings endpoints
+    @router.get("/admin/notifications", response_model=list[NotificationSettingResponse])
+    async def get_notification_settings():
+        """Get all notification settings"""
+        try:
+            return await db.get_notification_settings()
+        except Exception as e:
+            logger.error(f"Error getting notification settings: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/notifications", response_model=NotificationSettingResponse)
+    async def create_notification_setting(setting: NotificationSettingCreate):
+        """Create or update a notification setting"""
+        try:
+            result = await db.save_notification_setting(setting)
+            logger.info(f"Saved notification setting for provider: {setting.provider}")
+            return result
+        except Exception as e:
+            logger.error(f"Error saving notification setting: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.put("/admin/notifications/{provider}", response_model=NotificationSettingResponse)
+    async def update_notification_setting(provider: str, setting: NotificationSettingCreate):
+        """Update a notification setting"""
+        try:
+            result = await db.update_notification_setting(provider, setting)
+            if result:
+                logger.info(f"Updated notification setting for provider: {provider}")
+                return result
+            else:
+                raise HTTPException(status_code=404, detail=f"Notification setting for '{provider}' not found")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating notification setting: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/admin/notifications/{provider}")
+    async def delete_notification_setting(provider: str):
+        """Delete a notification setting"""
+        try:
+            deleted = await db.delete_notification_setting(provider)
+            if deleted:
+                logger.info(f"Deleted notification setting for provider: {provider}")
+                return {"message": f"Notification setting for '{provider}' deleted"}
+            else:
+                raise HTTPException(status_code=404, detail=f"Notification setting for '{provider}' not found")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting notification setting: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/notifications/{provider}/test")
+    async def test_notification(provider: str):
+        """Send a test notification"""
+        try:
+            if not notification_service:
+                raise HTTPException(status_code=500, detail="Notification service not configured")
+
+            setting = await db.get_notification_setting(provider)
+            if not setting:
+                raise HTTPException(status_code=404, detail=f"Notification setting for '{provider}' not found")
+
+            await notification_service.test_notification(provider, setting.config)
+            logger.info(f"Test notification sent for provider: {provider}")
+            return {"message": f"Test notification sent successfully via {provider}"}
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error sending test notification: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Cluster metrics endpoints
+    @router.post("/metrics/cluster")
+    async def report_cluster_metrics(metrics: ClusterMetrics):
+        """Receive cluster metrics from agent"""
+        global latest_cluster_metrics
+        try:
+            latest_cluster_metrics = metrics.dict()
+            logger.debug(f"Received cluster metrics: {metrics.node_count} nodes")
+
+            # Broadcast metrics to connected clients via WebSocket
+            await websocket_manager.broadcast_cluster_metrics(metrics)
+
+            return {"message": "Metrics received"}
+        except Exception as e:
+            logger.error(f"Error processing cluster metrics: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/metrics/cluster")
+    async def get_cluster_metrics():
+        """Get latest cluster metrics"""
+        if latest_cluster_metrics:
+            return latest_cluster_metrics
+        else:
+            return {"message": "No metrics available yet", "metrics_available": False}
 
     return router
