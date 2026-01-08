@@ -111,3 +111,45 @@ subjects:
   name: {{ .Values.securityScanner.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
 {{- end }}
+---
+{{- if .Values.backend.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.backend.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kure.fullname" . }}-backend
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kure.fullname" . }}-backend
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kure.fullname" . }}-backend
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.backend.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

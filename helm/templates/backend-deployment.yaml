@@ -17,6 +17,9 @@ spec:
         {{- include "kure.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: backend
     spec:
+      {{- if .Values.backend.serviceAccount.create }}
+      serviceAccountName: {{ .Values.backend.serviceAccount.name }}
+      {{- end }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

@@ -3,7 +3,7 @@ import { Plus, Trash2, AlertCircle, CheckCircle, Shield, Activity } from 'lucide
 import { api } from '../services/api';
 import NotificationSettings from './NotificationSettings';
 
-const AdminPanel = () => {
+const AdminPanel = ({ isDark = false }) => {
   // Security Scan Namespace Exclusions state
   const [excludedNamespaces, setExcludedNamespaces] = useState([]);
   const [availableNamespaces, setAvailableNamespaces] = useState([]);
@@ -162,7 +162,7 @@ const AdminPanel = () => {
       <div className="p-6">
         <div className="flex items-center justify-center py-8">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="ml-2">Loading...</span>
+          <span className={`ml-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Loading...</span>
         </div>
       </div>
     );
@@ -171,33 +171,33 @@ const AdminPanel = () => {
   return (
     <div className="p-6 space-y-8">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3">
+        <div className={`border rounded-md p-3 ${isDark ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200'}`}>
           <div className="flex items-center">
             <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
-            <span className="text-sm text-red-800">{error}</span>
+            <span className={`text-sm ${isDark ? 'text-red-300' : 'text-red-800'}`}>{error}</span>
           </div>
         </div>
       )}
 
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-3">
+        <div className={`border rounded-md p-3 ${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'}`}>
           <div className="flex items-center">
             <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-            <span className="text-sm text-green-800">{successMessage}</span>
+            <span className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>{successMessage}</span>
           </div>
         </div>
       )}
 
       {/* Notification Settings */}
-      <NotificationSettings />
+      <NotificationSettings isDark={isDark} />
 
       {/* Security Scan Namespace Exclusions */}
       <div>
         <div className="mb-4 flex items-center">
           <Shield className="w-5 h-5 text-orange-500 mr-2" />
-          <h2 className="text-lg font-semibold text-gray-900">Security Scan Namespace Exclusions</h2>
+          <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Security Scan Namespace Exclusions</h2>
         </div>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           Namespaces added here will be excluded from security scanning only.
           System namespaces (kube-system, kube-public, etc.) are always excluded by default.
         </p>
@@ -215,11 +215,11 @@ const AdminPanel = () => {
                 onFocus={() => setShowNamespaceSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowNamespaceSuggestions(false), 200)}
                 placeholder="Enter or select namespace"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
               />
               {showNamespaceSuggestions && filteredNamespaceSuggestions.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                <div className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className={`px-3 py-2 text-xs border-b ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
                     Available namespaces
                   </div>
                   {filteredNamespaceSuggestions.map(ns => (
@@ -227,7 +227,7 @@ const AdminPanel = () => {
                       key={ns}
                       type="button"
                       onClick={() => handleAddNamespace(ns)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50"
+                      className={`w-full px-3 py-2 text-left text-sm focus:outline-none ${isDark ? 'hover:bg-gray-700 hover:text-blue-400 focus:bg-gray-700' : 'hover:bg-blue-50 hover:text-blue-700 focus:bg-blue-50'}`}
                     >
                       {ns}
                     </button>
@@ -245,25 +245,25 @@ const AdminPanel = () => {
           </div>
         </form>
 
-        <div className="border border-gray-200 rounded-md">
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-700">
+        <div className={`border rounded-md ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div className={`px-4 py-3 border-b ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+            <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
               Excluded Namespaces ({excludedNamespaces.length})
             </h3>
           </div>
 
           {excludedNamespaces.length === 0 ? (
-            <div className="px-4 py-6 text-center text-gray-500">
+            <div className={`px-4 py-6 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               <p className="text-sm">No namespaces excluded from security scan.</p>
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
+            <ul className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
               {excludedNamespaces.map((ns) => (
-                <li key={ns.namespace} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
+                <li key={ns.namespace} className={`px-4 py-3 flex items-center justify-between ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}>
                   <div>
-                    <span className="text-sm font-medium text-gray-900">{ns.namespace}</span>
+                    <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{ns.namespace}</span>
                     {ns.created_at && (
-                      <span className="ml-2 text-xs text-gray-500">
+                      <span className={`ml-2 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                         Added {new Date(ns.created_at).toLocaleDateString()}
                       </span>
                     )}
@@ -286,9 +286,9 @@ const AdminPanel = () => {
       <div>
         <div className="mb-4 flex items-center">
           <Activity className="w-5 h-5 text-blue-500 mr-2" />
-          <h2 className="text-lg font-semibold text-gray-900">Pod Monitoring Exclusions</h2>
+          <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Pod Monitoring Exclusions</h2>
         </div>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           Pods added here (by name) will be excluded from pod failure monitoring across all namespaces.
           Use this to ignore known pods that you don't want to receive alerts for.
         </p>
@@ -306,11 +306,11 @@ const AdminPanel = () => {
                 onFocus={() => setShowPodSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowPodSuggestions(false), 200)}
                 placeholder="Enter or select pod name"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
               />
               {showPodSuggestions && filteredPodSuggestions.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                <div className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className={`px-3 py-2 text-xs border-b ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
                     Monitored pods with issues
                   </div>
                   {filteredPodSuggestions.map(pod => (
@@ -318,10 +318,10 @@ const AdminPanel = () => {
                       key={pod.pod_name}
                       type="button"
                       onClick={() => handleAddPod(pod)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50"
+                      className={`w-full px-3 py-2 text-left text-sm focus:outline-none ${isDark ? 'hover:bg-gray-700 hover:text-blue-400 focus:bg-gray-700' : 'hover:bg-blue-50 hover:text-blue-700 focus:bg-blue-50'}`}
                     >
                       <span className="font-medium">{pod.pod_name}</span>
-                      <span className="text-gray-400 text-xs ml-2">({pod.namespace})</span>
+                      <span className={`text-xs ml-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({pod.namespace})</span>
                     </button>
                   ))}
                 </div>
@@ -337,25 +337,25 @@ const AdminPanel = () => {
           </div>
         </form>
 
-        <div className="border border-gray-200 rounded-md">
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-700">
+        <div className={`border rounded-md ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div className={`px-4 py-3 border-b ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+            <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
               Excluded Pods ({excludedPods.length})
             </h3>
           </div>
 
           {excludedPods.length === 0 ? (
-            <div className="px-4 py-6 text-center text-gray-500">
+            <div className={`px-4 py-6 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               <p className="text-sm">No pods excluded from monitoring.</p>
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
+            <ul className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
               {excludedPods.map((pod) => (
-                <li key={pod.pod_name} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
+                <li key={pod.pod_name} className={`px-4 py-3 flex items-center justify-between ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}>
                   <div>
-                    <span className="text-sm font-medium text-gray-900">{pod.pod_name}</span>
+                    <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{pod.pod_name}</span>
                     {pod.created_at && (
-                      <span className="ml-2 text-xs text-gray-500">
+                      <span className={`ml-2 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                         Added {new Date(pod.created_at).toLocaleDateString()}
                       </span>
                     )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
@@ -17,6 +17,30 @@ const Dashboard = () => {
   const [namespaceFilter, setNamespaceFilter] = useState('');
   const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
+
+  // Theme state - load from localStorage or default to 'light'
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('kure-theme') || 'light';
+    }
+    return 'light';
+  });
+
+  // Apply theme to document and save to localStorage
+  useEffect(() => {
+    localStorage.setItem('kure-theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  const isDark = theme === 'dark';
 
   // Handle WebSocket messages - wrapped in useCallback for stability
   const handleWebSocketMessage = useCallback((message) => {
@@ -110,8 +134,8 @@ const Dashboard = () => {
   const { connected } = useWebSocket(handleWebSocketMessage);
 
   // Filter pods based on namespace input
-  const filteredPods = namespaceFilter.trim() === '' 
-    ? pods 
+  const filteredPods = namespaceFilter.trim() === ''
+    ? pods
     : pods.filter(pod => pod.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim()));
 
   // Severity order for sorting (Critical > High > Medium > Low)
@@ -153,11 +177,11 @@ const Dashboard = () => {
   // Get severity badge color
   const getSeverityBadgeColor = (severity) => {
     switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-300';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'low': return 'bg-blue-100 text-blue-800 border-blue-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+      case 'critical': return isDark ? 'bg-red-900 text-red-200 border-red-700' : 'bg-red-100 text-red-800 border-red-300';
+      case 'high': return isDark ? 'bg-orange-900 text-orange-200 border-orange-700' : 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'medium': return isDark ? 'bg-yellow-900 text-yellow-200 border-yellow-700' : 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'low': return isDark ? 'bg-blue-900 text-blue-200 border-blue-700' : 'bg-blue-100 text-blue-800 border-blue-300';
+      default: return isDark ? 'bg-gray-700 text-gray-200 border-gray-600' : 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
@@ -188,7 +212,7 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'}`}>
         <div className="flex items-center space-x-2">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           <span>Loading pod failures...</span>
@@ -198,20 +222,40 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
+    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <Server className="w-8 h-8 text-blue-500" />
-              <h1 className="text-2xl font-bold text-gray-900">Kure Dashboard</h1>
+              <Server className={`w-8 h-8 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+              <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Kure Dashboard</h1>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-              <span className="text-sm text-gray-600 font-bold">
-                {connected ? 'Connected' : 'Disconnected'}
-              </span>
+            <div className="flex items-center space-x-4">
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-lg transition-colors ${
+                  isDark
+                    ? 'hover:bg-gray-700 text-gray-300 hover:text-gray-100'
+                    : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                }`}
+                title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+              >
+                {isDark ? (
+                  <Sun className="w-5 h-5" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
+              </button>
+
+              {/* Connection Status */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                <span className={`text-sm font-bold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                  {connected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -219,11 +263,11 @@ const Dashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+          <div className={`mb-6 ${isDark ? 'bg-red-900/50 border-red-700' : 'bg-red-50 border-red-200'} border rounded-md p-4`}>
             <div className="flex">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
+              <AlertTriangle className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-400'}`} />
               <div className="ml-3">
-                <p className="text-sm text-red-800">{error}</p>
+                <p className={`text-sm ${isDark ? 'text-red-200' : 'text-red-800'}`}>{error}</p>
               </div>
             </div>
           </div>
@@ -231,21 +275,21 @@ const Dashboard = () => {
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="border-b border-gray-200">
+          <div className={`border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
             <nav className="-mb-px flex justify-between">
               <div className="flex">
                 <button
                   onClick={() => setActiveTab('monitoring')}
                   className={`${
                     activeTab === 'monitoring'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   } mr-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                 >
                   <Activity className="w-5 h-5" />
                   <span>Pod Monitoring</span>
                   {pods.length > 0 && (
-                    <span className="ml-2 bg-red-100 text-red-800 py-0.5 px-2.5 rounded-full text-xs font-medium">
+                    <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
                       {pods.length}
                     </span>
                   )}
@@ -254,14 +298,14 @@ const Dashboard = () => {
                   onClick={() => setActiveTab('security')}
                   className={`${
                     activeTab === 'security'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                 >
                   <Shield className="w-5 h-5" />
                   <span>Security Scan</span>
                   {securityFindings.length > 0 && (
-                    <span className="ml-2 bg-orange-100 text-orange-800 py-0.5 px-2.5 rounded-full text-xs font-medium">
+                    <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${isDark ? 'bg-orange-900 text-orange-200' : 'bg-orange-100 text-orange-800'}`}>
                       {securityFindings.length}
                     </span>
                   )}
@@ -270,8 +314,8 @@ const Dashboard = () => {
                   onClick={() => setActiveTab('cluster')}
                   className={`${
                     activeTab === 'cluster'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   } ml-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                 >
                   <BarChart3 className="w-5 h-5" />
@@ -282,8 +326,8 @@ const Dashboard = () => {
                 onClick={() => setActiveTab('admin')}
                 className={`${
                   activeTab === 'admin'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                    : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
               >
                 <Settings className="w-5 h-5" />
@@ -301,21 +345,27 @@ const Dashboard = () => {
             <div className="relative">
               <button
                 onClick={() => setShowSeverityDropdown(!showSeverityDropdown)}
-                className="flex items-center space-x-2 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isDark
+                    ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200'
+                    : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
               >
-                <Filter className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700">Severity</span>
-                <span className="text-xs text-gray-500">({selectedSeverities.length}/{allSeverities.length})</span>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showSeverityDropdown ? 'rotate-180' : ''}`} />
+                <Filter className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                <span>Severity</span>
+                <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>({selectedSeverities.length}/{allSeverities.length})</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isDark ? 'text-gray-400' : 'text-gray-500'} ${showSeverityDropdown ? 'rotate-180' : ''}`} />
               </button>
 
               {showSeverityDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg border z-10 ${
+                  isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}>
                   <div className="py-1">
                     {allSeverities.map(severity => (
                       <label
                         key={severity}
-                        className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                        className={`flex items-center px-4 py-2 cursor-pointer ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
                       >
                         <input
                           type="checkbox"
@@ -329,7 +379,7 @@ const Dashboard = () => {
                       </label>
                     ))}
                   </div>
-                  <div className="border-t border-gray-100 px-4 py-2">
+                  <div className={`border-t px-4 py-2 ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
                     <button
                       onClick={() => setSelectedSeverities([...allSeverities])}
                       className="text-xs text-blue-600 hover:text-blue-800"
@@ -344,7 +394,7 @@ const Dashboard = () => {
 
           {/* Namespace Filter */}
           <div className="flex items-center space-x-2">
-            <label htmlFor="namespace-filter" className="text-sm font-medium text-gray-700">
+            <label htmlFor="namespace-filter" className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Filter by namespace:
             </label>
             <input
@@ -353,23 +403,27 @@ const Dashboard = () => {
               value={namespaceFilter}
               onChange={(e) => setNamespaceFilter(e.target.value)}
               placeholder="Enter namespace"
-              className="block w-40 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className={`block w-40 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                isDark
+                  ? 'bg-gray-800 border-gray-600 text-gray-200 placeholder-gray-500'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+              }`}
             />
           </div>
         </div>
         )}
 
         {/* Tab Content */}
-        <div className="bg-white shadow rounded-lg">
+        <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg`}>
           {activeTab === 'monitoring' && (
             <>
               {filteredPods.length === 0 ? (
                 <div className="text-center py-12">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <CheckCircle className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-green-400' : 'text-green-500'}`} />
+                  <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
                     {pods.length === 0 ? 'All Good!' : 'No Failures Found'}
                   </h3>
-                  <p className="text-gray-600">
+                  <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
                     {pods.length === 0
                       ? 'No pod failures detected in your cluster.'
                       : namespaceFilter.trim() === ''
@@ -379,7 +433,7 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} />
+                <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} isDark={isDark} />
               )}
             </>
           )}
@@ -388,11 +442,11 @@ const Dashboard = () => {
             <>
               {sortedSecurityFindings.length === 0 ? (
                 <div className="text-center py-12">
-                  <Shield className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <Shield className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-green-400' : 'text-green-500'}`} />
+                  <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
                     {securityFindings.length === 0 ? 'No Security Issues!' : 'No Issues Found'}
                   </h3>
-                  <p className="text-gray-600">
+                  <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
                     {securityFindings.length === 0
                       ? 'No security issues detected in your cluster.'
                       : namespaceFilter.trim() === ''
@@ -402,17 +456,17 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <SecurityTable findings={sortedSecurityFindings} />
+                <SecurityTable findings={sortedSecurityFindings} isDark={isDark} />
               )}
             </>
           )}
 
           {activeTab === 'cluster' && (
-            <MonitoringTab metrics={clusterMetrics} />
+            <MonitoringTab metrics={clusterMetrics} isDark={isDark} />
           )}
 
           {activeTab === 'admin' && (
-            <AdminPanel />
+            <AdminPanel isDark={isDark} />
           )}
 
         </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 
-const SecurityTable = ({ findings }) => {
+const SecurityTable = ({ findings, isDark = false }) => {
   const [expandedFinding, setExpandedFinding] = useState(null);
 
   // Create a stable key for each finding
@@ -43,42 +43,42 @@ const SecurityTable = ({ findings }) => {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+        <thead className={isDark ? 'bg-gray-900' : 'bg-gray-50'}>
           <tr>
-            <th className="w-10 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`w-10 px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
 
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Severity
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Resource
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Namespace
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Category
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Issue
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className={`divide-y ${isDark ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
           {findings.map((finding) => {
             const findingKey = getFindingKey(finding);
             const isExpanded = expandedFinding === findingKey;
 
             return (
               <React.Fragment key={findingKey}>
-                <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedFinding(isExpanded ? null : findingKey)}>
+                <tr className={`cursor-pointer ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`} onClick={() => setExpandedFinding(isExpanded ? null : findingKey)}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {isExpanded ? (
-                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                      <ChevronDown className={`w-5 h-5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                     ) : (
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                      <ChevronRight className={`w-5 h-5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -89,40 +89,40 @@ const SecurityTable = ({ findings }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <Shield className="w-4 h-4 text-gray-400 mr-2" />
+                      <Shield className={`w-4 h-4 mr-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{finding.resource_name}</div>
-                        <div className="text-xs text-gray-500">{finding.resource_type}</div>
+                        <div className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{finding.resource_name}</div>
+                        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{finding.resource_type}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDark ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-800'}`}>
                       {finding.namespace}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                     {finding.category}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{finding.title}</div>
+                    <div className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{finding.title}</div>
                   </td>
                 </tr>
                 {isExpanded && (
                   <tr>
-                    <td colSpan="6" className="px-6 py-4 bg-gray-50">
+                    <td colSpan="6" className={`px-6 py-4 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
                       <div className="space-y-4">
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">Description</h4>
-                          <p className="text-sm text-gray-600">{finding.description}</p>
+                          <h4 className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Description</h4>
+                          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{finding.description}</p>
                         </div>
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">Remediation</h4>
-                          <p className="text-sm text-gray-600">{finding.remediation}</p>
+                          <h4 className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Remediation</h4>
+                          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{finding.remediation}</p>
                         </div>
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">Detected At</h4>
-                          <p className="text-sm text-gray-600">{new Date(finding.timestamp).toLocaleString()}</p>
+                          <h4 className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Detected At</h4>
+                          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{new Date(finding.timestamp).toLocaleString()}</p>
                         </div>
                       </div>
                     </td>

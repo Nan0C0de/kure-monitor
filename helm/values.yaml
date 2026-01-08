@@ -106,6 +106,14 @@ backend:
   tolerations: []
   affinity: {}
 
+  # RBAC settings for pod logs access
+  rbac:
+    create: true
+
+  serviceAccount:
+    create: true
+    name: kure-backend
+
 # Frontend configuration
 frontend:
   replicaCount: 1

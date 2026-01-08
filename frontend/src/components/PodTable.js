@@ -1,32 +1,33 @@
 import React from 'react';
 import PodTableRow from './PodTableRow';
 
-const PodTable = ({ pods, onSolutionUpdated }) => {
+const PodTable = ({ pods, onSolutionUpdated, isDark = false }) => {
   return (
     <div className="overflow-hidden w-full">
-      <table className="min-w-full divide-y divide-gray-200 table-fixed">
-        <thead className="bg-gray-50">
+      <table className={`min-w-full divide-y table-fixed ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+        <thead className={isDark ? 'bg-gray-900' : 'bg-gray-50'}>
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Pod Name
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Solution
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Detected
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className={`divide-y ${isDark ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
           {pods.map((pod) => (
             <PodTableRow
               key={pod.id}
               pod={pod}
               onSolutionUpdated={onSolutionUpdated}
+              isDark={isDark}
             />
           ))}
         </tbody>

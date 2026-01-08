@@ -65,11 +65,9 @@ class PostgreSQLDatabase(DatabaseInterface):
             
             # Create tables
             async with self.pool.acquire() as conn:
-                # Drop existing table to ensure clean schema
-                await conn.execute("DROP TABLE IF EXISTS pod_failures")
-                
+                # Create pod_failures table if it doesn't exist
                 await conn.execute("""
-                    CREATE TABLE pod_failures (
+                    CREATE TABLE IF NOT EXISTS pod_failures (
                         id SERIAL PRIMARY KEY,
                         pod_name VARCHAR(255) NOT NULL,
                         namespace VARCHAR(255) NOT NULL,

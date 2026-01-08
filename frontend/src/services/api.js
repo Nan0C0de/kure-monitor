@@ -159,5 +159,27 @@ export const api = {
     const response = await fetch(`${API_BASE}/api/metrics/cluster`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
+  },
+
+  // Pod Logs API
+  getPodLogs: async (namespace, podName, options = {}) => {
+    const params = new URLSearchParams();
+    if (options.container) params.append('container', options.container);
+    if (options.tailLines) params.append('tail_lines', options.tailLines);
+    if (options.previous) params.append('previous', 'true');
+
+    const url = `${API_BASE}/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/logs?${params}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  // Streaming Pod Logs API (returns EventSource URL)
+  getStreamingLogsUrl: (namespace, podName, options = {}) => {
+    const params = new URLSearchParams();
+    if (options.container) params.append('container', options.container);
+    if (options.tailLines) params.append('tail_lines', options.tailLines);
+
+    return `${API_BASE}/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/logs/stream?${params}`;
   }
 };
