@@ -1,4 +1,6 @@
 import logging
+import json
+import ast
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from kubernetes import client
@@ -94,6 +96,41 @@ class MetricsCollector:
             self.metrics_available = False
             return False
 
+    def _get_node_storage_stats(self, node_name: str) -> Optional[Dict[str, int]]:
+        """Get storage stats from kubelet stats/summary endpoint"""
+        try:
+            # Use the API server proxy to access kubelet stats
+            response = self.v1.connect_get_node_proxy_with_path(
+                name=node_name,
+                path="stats/summary"
+            )
+            # The kubernetes client returns Python dict format (single quotes)
+            # instead of JSON (double quotes), so use ast.literal_eval
+            try:
+                stats = json.loads(response)
+            except json.JSONDecodeError:
+                stats = ast.literal_eval(response)
+
+            # Get node filesystem stats
+            node_stats = stats.get('node', {})
+            fs = node_stats.get('fs', {})
+
+            capacity = fs.get('capacityBytes', 0)
+            used = fs.get('usedBytes', 0)
+            available = fs.get('availableBytes', 0)
+
+            return {
+                'capacity': capacity,
+                'used': used,
+                'available': available
+            }
+        except ApiException as e:
+            logger.debug(f"Could not get storage stats for node {node_name}: {e.status}")
+            return None
+        except Exception as e:
+            logger.debug(f"Error getting storage stats for node {node_name}: {e}")
+            return None
+
     async def collect_cluster_metrics(self) -> Dict[str, Any]:
         """Collect cluster metrics from Kubernetes API"""
         try:
@@ -107,6 +144,8 @@ class MetricsCollector:
             total_memory_capacity = 0
             total_memory_allocatable = 0
             total_memory_usage = 0
+            total_storage_capacity = 0
+            total_storage_used = 0
             total_pods = 0
 
             # Get node metrics if available
@@ -129,14 +168,32 @@ class MetricsCollector:
                     logger.warning(f"Failed to get node metrics: {e}")
                     self.metrics_available = False
 
-            # Count pods per node
+            # Count pods per node and collect pod list
             pods = self.v1.list_pod_for_all_namespaces()
             pods_per_node = {}
+            pods_list = []
             for pod in pods.items:
                 node_name = pod.spec.node_name
                 if node_name:
                     pods_per_node[node_name] = pods_per_node.get(node_name, 0) + 1
-                    total_pods += 1
+                total_pods += 1  # Count all pods, including Pending
+
+                # Get pod status
+                phase = pod.status.phase
+                ready = False
+                restarts = 0
+                if pod.status.container_statuses:
+                    ready = all(cs.ready for cs in pod.status.container_statuses)
+                    restarts = sum(cs.restart_count for cs in pod.status.container_statuses)
+
+                pods_list.append({
+                    'name': pod.metadata.name,
+                    'namespace': pod.metadata.namespace,
+                    'node': node_name or 'Pending',
+                    'status': phase,
+                    'ready': ready,
+                    'restarts': restarts
+                })
 
             # Process each node
             for node in nodes.items:
@@ -150,12 +207,16 @@ class MetricsCollector:
                 cpu_allocatable = self._parse_resource(allocatable.get('cpu', '0'))
                 memory_capacity = self._parse_resource(capacity.get('memory', '0'))
                 memory_allocatable = self._parse_resource(allocatable.get('memory', '0'))
-                storage_capacity = self._parse_resource(capacity.get('ephemeral-storage', '0'))
 
                 # Get usage from metrics if available
                 usage = node_usage_map.get(node_name, {})
                 cpu_usage = usage.get('cpu')
                 memory_usage = usage.get('memory')
+
+                # Get storage stats from kubelet
+                storage_stats = self._get_node_storage_stats(node_name)
+                storage_capacity = storage_stats['capacity'] if storage_stats else 0
+                storage_used = storage_stats['used'] if storage_stats else None
 
                 # Update totals
                 total_cpu_capacity += cpu_capacity
@@ -166,6 +227,10 @@ class MetricsCollector:
                     total_cpu_usage += cpu_usage
                 if memory_usage is not None:
                     total_memory_usage += memory_usage
+                if storage_capacity:
+                    total_storage_capacity += storage_capacity
+                if storage_used is not None:
+                    total_storage_used += storage_used
 
                 # Get node conditions
                 conditions = []
@@ -187,6 +252,7 @@ class MetricsCollector:
                     'memory_allocatable': self._format_memory(memory_allocatable),
                     'memory_usage': self._format_memory(memory_usage) if memory_usage is not None else None,
                     'storage_capacity': self._format_memory(storage_capacity) if storage_capacity else None,
+                    'storage_used': self._format_memory(storage_used) if storage_used is not None else None,
                     'conditions': conditions,
                     'pods_count': pods_per_node.get(node_name, 0)
                 }
@@ -195,10 +261,13 @@ class MetricsCollector:
             # Calculate usage percentages
             cpu_usage_percent = None
             memory_usage_percent = None
+            storage_usage_percent = None
             if self.metrics_available and total_cpu_allocatable > 0:
                 cpu_usage_percent = round((total_cpu_usage / total_cpu_allocatable) * 100, 1)
             if self.metrics_available and total_memory_allocatable > 0:
                 memory_usage_percent = round((total_memory_usage / total_memory_allocatable) * 100, 1)
+            if total_storage_capacity > 0 and total_storage_used > 0:
+                storage_usage_percent = round((total_storage_used / total_storage_capacity) * 100, 1)
 
             return {
                 'node_count': len(nodes.items),
@@ -211,7 +280,11 @@ class MetricsCollector:
                 'total_memory_allocatable': self._format_memory(total_memory_allocatable),
                 'total_memory_usage': self._format_memory(total_memory_usage) if self.metrics_available else None,
                 'memory_usage_percent': memory_usage_percent,
+                'total_storage_capacity': self._format_memory(total_storage_capacity) if total_storage_capacity else None,
+                'total_storage_used': self._format_memory(total_storage_used) if total_storage_used else None,
+                'storage_usage_percent': storage_usage_percent,
                 'total_pods': total_pods,
+                'pods': pods_list,
                 'metrics_available': self.metrics_available,
                 'timestamp': datetime.utcnow().isoformat() + 'Z'
             }
@@ -229,7 +302,11 @@ class MetricsCollector:
                 'total_memory_allocatable': '0',
                 'total_memory_usage': None,
                 'memory_usage_percent': None,
+                'total_storage_capacity': None,
+                'total_storage_used': None,
+                'storage_usage_percent': None,
                 'total_pods': 0,
+                'pods': [],
                 'metrics_available': False,
                 'timestamp': datetime.utcnow().isoformat() + 'Z'
             }

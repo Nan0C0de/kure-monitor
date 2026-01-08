@@ -132,8 +132,18 @@ class NodeMetrics(BaseModel):
     memory_allocatable: str
     memory_usage: Optional[str] = None
     storage_capacity: Optional[str] = None
+    storage_used: Optional[str] = None
     conditions: List[Dict[str, Any]] = []
     pods_count: Optional[int] = None
+
+
+class PodInfo(BaseModel):
+    name: str
+    namespace: str
+    node: str
+    status: str
+    ready: bool
+    restarts: int
 
 
 class ClusterMetrics(BaseModel):
@@ -147,6 +157,10 @@ class ClusterMetrics(BaseModel):
     total_memory_allocatable: str
     total_memory_usage: Optional[str] = None
     memory_usage_percent: Optional[float] = None
+    total_storage_capacity: Optional[str] = None
+    total_storage_used: Optional[str] = None
+    storage_usage_percent: Optional[float] = None
     total_pods: Optional[int] = None
+    pods: List[PodInfo] = []
     metrics_available: bool = False
     timestamp: str

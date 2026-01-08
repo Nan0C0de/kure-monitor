@@ -113,3 +113,22 @@ class Database:
     async def delete_pod_failure_by_pod(self, pod_name):
         return await self._db.delete_pod_failure_by_pod(pod_name)
 
+    # Notification settings methods
+    async def save_notification_setting(self, setting):
+        return await self._db.save_notification_setting(setting)
+
+    async def get_notification_settings(self):
+        return await self._db.get_notification_settings()
+
+    async def get_notification_setting(self, provider):
+        return await self._db.get_notification_setting(provider)
+
+    async def get_enabled_notification_settings(self):
+        return await self._db.get_enabled_notification_settings()
+
+    async def update_notification_setting(self, provider, setting):
+        return await self._db.update_notification_setting(provider, setting)
+
+    async def delete_notification_setting(self, provider):
+        return await self._db.delete_notification_setting(provider)
+
