@@ -1,13 +1,12 @@
 {{- if .Values.agent.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: {{ include "kure.fullname" . }}-agent
   labels:
     {{- include "kure.labels" . | nindent 4 }}
     app.kubernetes.io/component: agent
 spec:
-  replicas: 1
   selector:
     matchLabels:
       {{- include "kure.selectorLabels" . | nindent 6 }}
@@ -71,8 +70,15 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.agent.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+      # Allow running on control plane nodes
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      {{- with .Values.agent.tolerations }}
+        {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end }}
