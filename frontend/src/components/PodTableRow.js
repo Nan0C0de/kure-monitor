@@ -3,10 +3,12 @@ import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import PodDetails from './PodDetails';
 import ManifestModal from './ManifestModal';
+import { api } from '../services/api';
 
 const PodTableRow = ({ pod, onSolutionUpdated }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const formatTimestamp = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
@@ -23,6 +25,21 @@ const PodTableRow = ({ pod, onSolutionUpdated }) => {
     pod.solution.includes('Failed to generate AI solution') ||
     pod.solution.includes('Basic troubleshooting')
   );
+
+  // Shared retry handler for both PodDetails and ManifestModal
+  const handleRetrySolution = async () => {
+    setIsRetrying(true);
+    try {
+      const updatedPod = await api.retrySolution(pod.id);
+      if (onSolutionUpdated) {
+        onSolutionUpdated(updatedPod);
+      }
+    } catch (error) {
+      console.error('Failed to retry solution:', error);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   return (
     <>
@@ -95,17 +112,23 @@ const PodTableRow = ({ pod, onSolutionUpdated }) => {
             <PodDetails
               pod={pod}
               onViewManifest={() => setShowManifest(true)}
-              onSolutionUpdated={onSolutionUpdated}
+              onRetrySolution={handleRetrySolution}
+              isRetrying={isRetrying}
+              isFallbackSolution={isFallbackSolution}
             />
           </td>
         </tr>
       )}
-      <ManifestModal 
+      <ManifestModal
         isOpen={showManifest}
         onClose={() => setShowManifest(false)}
         podName={pod.pod_name}
         namespace={pod.namespace}
         manifest={pod.manifest}
+        solution={pod.solution}
+        isFallbackSolution={isFallbackSolution}
+        onRetrySolution={handleRetrySolution}
+        isRetrying={isRetrying}
       />
     </>
   );

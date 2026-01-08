@@ -1,31 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { FileText, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { api } from '../services/api';
 
-const PodDetails = ({ pod, onViewManifest, onSolutionUpdated }) => {
-  const [isRetrying, setIsRetrying] = useState(false);
-
-  // Check if solution is a fallback (AI unavailable)
-  const isFallbackSolution = pod.solution && (
-    pod.solution.includes('AI solution temporarily unavailable') ||
-    pod.solution.includes('Failed to generate AI solution') ||
-    pod.solution.includes('Basic troubleshooting')
-  );
-
-  const handleRetrySolution = async () => {
-    setIsRetrying(true);
-    try {
-      const updatedPod = await api.retrySolution(pod.id);
-      if (onSolutionUpdated) {
-        onSolutionUpdated(updatedPod);
-      }
-    } catch (error) {
-      console.error('Failed to retry solution:', error);
-    } finally {
-      setIsRetrying(false);
-    }
-  };
+const PodDetails = ({ pod, onViewManifest, onRetrySolution, isRetrying, isFallbackSolution }) => {
   const formatTimestamp = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -166,9 +143,9 @@ const PodDetails = ({ pod, onViewManifest, onSolutionUpdated }) => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <h4 className="font-medium text-gray-900">AI-Generated Solution</h4>
-            {isFallbackSolution && (
+            {isFallbackSolution && onRetrySolution && (
               <button
-                onClick={handleRetrySolution}
+                onClick={onRetrySolution}
                 disabled={isRetrying}
                 className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Retry AI Solution"
