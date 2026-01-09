@@ -43,15 +43,6 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     }
   }, [expandedPod]);
 
-  // Auto-refresh logs when tailLines changes (only if pod is expanded and not in live mode)
-  const prevTailLinesRef = useRef(tailLines);
-  useEffect(() => {
-    if (expandedPod && !isLiveMode && prevTailLinesRef.current !== tailLines) {
-      fetchPodLogs(expandedPod.namespace, expandedPod.name, selectedContainer);
-    }
-    prevTailLinesRef.current = tailLines;
-  }, [tailLines, expandedPod, isLiveMode, selectedContainer, fetchPodLogs]);
-
   // Get unique namespaces for filter suggestions
   const namespaces = useMemo(() => {
     if (!metrics?.pods) return [];
@@ -68,7 +59,7 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     );
   }, [metrics?.pods, namespaceFilter]);
 
-  // Fetch pod logs
+  // Fetch pod logs - must be defined before the useEffect that uses it
   const fetchPodLogs = useCallback(async (namespace, podName, container = null) => {
     setLogsLoading(true);
     setLogsError(null);
@@ -88,6 +79,15 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
       setLogsLoading(false);
     }
   }, [tailLines, selectedContainer]);
+
+  // Auto-refresh logs when tailLines changes (only if pod is expanded and not in live mode)
+  const prevTailLinesRef = useRef(tailLines);
+  useEffect(() => {
+    if (expandedPod && !isLiveMode && prevTailLinesRef.current !== tailLines) {
+      fetchPodLogs(expandedPod.namespace, expandedPod.name, selectedContainer);
+    }
+    prevTailLinesRef.current = tailLines;
+  }, [tailLines, expandedPod, isLiveMode, selectedContainer, fetchPodLogs]);
 
   // Toggle pod expansion
   const togglePodExpansion = useCallback((pod) => {
