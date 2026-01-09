@@ -38,23 +38,23 @@ class TestDataCollector:
     def mock_v1_client(self):
         """Create mock Kubernetes v1 client"""
         client = Mock()
-        
-        # Mock events
+
+        # Mock events - use ImagePullBackOff to match expected test results
         events = Mock()
         events.items = [Mock()]
         event = events.items[0]
         event.type = "Warning"
-        event.reason = "Failed"
+        event.reason = "ImagePullBackOff"
         event.message = "Failed to pull image"
         event.first_timestamp = Mock()
         event.first_timestamp.isoformat.return_value = "2025-01-01T00:00:00Z"
-        
+
         client.list_namespaced_event.return_value = events
-        
+
         # Mock logs (will fail with 403)
         from kubernetes.client.rest import ApiException
         client.read_namespaced_pod_log.side_effect = ApiException(status=403, reason="Forbidden")
-        
+
         return client
 
     @pytest.mark.asyncio
@@ -85,7 +85,7 @@ class TestDataCollector:
         assert len(result["events"]) == 1
         event = result["events"][0]
         assert event["type"] == "Warning"
-        assert event["reason"] == "Failed"
+        assert event["reason"] == "ImagePullBackOff"
         
         # Verify logs are empty (due to 403 error)
         assert result["logs"] == ""
@@ -93,9 +93,18 @@ class TestDataCollector:
         # Verify manifest was generated
         assert result["manifest"] is not None
 
-    def test_get_failure_reason_from_container_status(self, data_collector, mock_pod):
+    def test_get_failure_reason_from_container_status(self, data_collector):
         """Test extracting failure reason from container status"""
-        result = data_collector._get_failure_reason(mock_pod)
+        # Create a pod with Running phase so it falls through to check container statuses
+        pod = Mock()
+        pod.status.phase = "Running"  # Not Pending, so it checks container statuses
+        pod.status.container_statuses = [Mock()]
+
+        container_status = pod.status.container_statuses[0]
+        container_status.state.waiting = Mock()
+        container_status.state.waiting.reason = "ImagePullBackOff"
+
+        result = data_collector._get_failure_reason(pod)
         assert result == "ImagePullBackOff"
 
     def test_get_failure_reason_pending_phase(self, data_collector):

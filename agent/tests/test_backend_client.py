@@ -24,20 +24,28 @@ class TestBackendClient:
     @pytest.mark.asyncio
     async def test_report_failed_pod_success(self, backend_client, mock_pod_data):
         """Test successful pod failure reporting"""
-        with patch('aiohttp.ClientSession') as mock_session_class:
+        with patch('clients.backend_client.aiohttp.ClientSession') as mock_session_class:
             # Mock successful response
             mock_response = AsyncMock()
             mock_response.status = 200
-            
-            # Mock the session and post context managers
+
+            # Create proper async context manager for post
+            mock_post_cm = AsyncMock()
+            mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+
+            # Create session instance
             mock_session = AsyncMock()
-            mock_post = AsyncMock()
-            mock_post.__aenter__.return_value = mock_response
-            mock_session.post.return_value = mock_post
-            mock_session_class.return_value.__aenter__.return_value = mock_session
-            
+            mock_session.post = Mock(return_value=mock_post_cm)
+
+            # Create proper async context manager for session
+            mock_session_cm = AsyncMock()
+            mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session_cm
+
             result = await backend_client.report_failed_pod(mock_pod_data)
-            
+
             assert result == True
 
     @pytest.mark.asyncio
@@ -82,14 +90,28 @@ class TestBackendClient:
     @pytest.mark.asyncio
     async def test_dismiss_deleted_pod_success(self, backend_client):
         """Test successful pod dismissal"""
-        with patch('aiohttp.ClientSession') as mock_session:
+        with patch('clients.backend_client.aiohttp.ClientSession') as mock_session_class:
             # Mock successful response
-            mock_response = Mock()
+            mock_response = AsyncMock()
             mock_response.status = 200
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
-            
+
+            # Create proper async context manager for post
+            mock_post_cm = AsyncMock()
+            mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+
+            # Create session instance
+            mock_session = AsyncMock()
+            mock_session.post = Mock(return_value=mock_post_cm)
+
+            # Create proper async context manager for session
+            mock_session_cm = AsyncMock()
+            mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session_cm
+
             result = await backend_client.dismiss_deleted_pod("default", "deleted-pod")
-            
+
             assert result == True
 
     @pytest.mark.asyncio

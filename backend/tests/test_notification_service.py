@@ -7,9 +7,16 @@ from models.models import PodFailureResponse
 class TestNotificationService:
 
     @pytest.fixture
-    def notification_service(self):
-        """Create NotificationService instance"""
-        return NotificationService()
+    def mock_db(self):
+        """Create mock database"""
+        db = AsyncMock()
+        db.get_enabled_notification_settings = AsyncMock(return_value=[])
+        return db
+
+    @pytest.fixture
+    def notification_service(self, mock_db):
+        """Create NotificationService instance with mocked db"""
+        return NotificationService(mock_db)
 
     @pytest.fixture
     def mock_failure(self):
@@ -32,23 +39,16 @@ class TestNotificationService:
             dismissed=False
         )
 
-    def test_supported_providers(self, notification_service):
-        """Test that only email, slack, and teams are supported providers"""
-        # These should be the only supported providers after removing Discord
-        supported = ['email', 'slack', 'teams']
+    @pytest.mark.asyncio
+    async def test_discord_not_supported(self, notification_service, mock_failure):
+        """Test that Discord provider logs a warning (not supported)"""
+        config = {'webhook_url': 'https://discord.com/api/webhooks/test'}
 
-        # Verify Discord is NOT in the handlers
-        assert 'discord' not in notification_service._get_handlers()
-
-        # Verify supported providers are in handlers
-        handlers = notification_service._get_handlers()
-        for provider in supported:
-            assert provider in handlers
-
-    def test_discord_not_supported(self, notification_service):
-        """Test that Discord provider is not supported"""
-        handlers = notification_service._get_handlers()
-        assert 'discord' not in handlers
+        with patch('services.notification_service.logger') as mock_logger:
+            await notification_service._send_notification('discord', config, mock_failure)
+            mock_logger.warning.assert_called_once()
+            call_args = str(mock_logger.warning.call_args)
+            assert 'discord' in call_args.lower()
 
     @pytest.mark.asyncio
     async def test_unknown_provider_logged(self, notification_service, mock_failure):
@@ -56,9 +56,9 @@ class TestNotificationService:
         config = {'webhook_url': 'https://example.com'}
 
         with patch('services.notification_service.logger') as mock_logger:
-            await notification_service._send_notification('discord', config, mock_failure)
+            await notification_service._send_notification('unknown_provider', config, mock_failure)
             mock_logger.warning.assert_called_once()
-            assert 'discord' in str(mock_logger.warning.call_args)
+            assert 'unknown_provider' in str(mock_logger.warning.call_args)
 
     @pytest.mark.asyncio
     async def test_send_slack_notification(self, notification_service, mock_failure):
@@ -68,10 +68,22 @@ class TestNotificationService:
             'channel': '#alerts'
         }
 
-        with patch('aiohttp.ClientSession') as mock_session:
+        with patch('services.notification_service.aiohttp.ClientSession') as mock_session:
+            # Create proper async context manager mocks
             mock_response = AsyncMock()
             mock_response.status = 200
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
+
+            mock_post_cm = AsyncMock()
+            mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session_instance = AsyncMock()
+            mock_session_instance.post = Mock(return_value=mock_post_cm)
+
+            mock_session_cm = AsyncMock()
+            mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session_instance)
+            mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_session.return_value = mock_session_cm
 
             # Should not raise
             await notification_service._send_slack(config, mock_failure)
@@ -83,29 +95,54 @@ class TestNotificationService:
             'webhook_url': 'https://outlook.office.com/webhook/test'
         }
 
-        with patch('aiohttp.ClientSession') as mock_session:
+        with patch('services.notification_service.aiohttp.ClientSession') as mock_session:
+            # Create proper async context manager mocks
             mock_response = AsyncMock()
             mock_response.status = 200
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
+
+            mock_post_cm = AsyncMock()
+            mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session_instance = AsyncMock()
+            mock_session_instance.post = Mock(return_value=mock_post_cm)
+
+            mock_session_cm = AsyncMock()
+            mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session_instance)
+            mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_session.return_value = mock_session_cm
 
             # Should not raise
             await notification_service._send_teams(config, mock_failure)
 
-    def _get_handlers(self):
-        """Helper to get notification handlers"""
-        return {
-            'email': self._send_email,
-            'slack': self._send_slack,
-            'teams': self._send_teams
-        }
+    @pytest.mark.asyncio
+    async def test_send_pod_failure_notification(self, notification_service, mock_failure, mock_db):
+        """Test sending pod failure notification to all enabled providers"""
+        # Setup mock settings
+        mock_setting = Mock()
+        mock_setting.provider = 'slack'
+        mock_setting.config = {'webhook_url': 'https://hooks.slack.com/test'}
+        mock_db.get_enabled_notification_settings.return_value = [mock_setting]
 
+        with patch.object(notification_service, '_send_notification', new_callable=AsyncMock) as mock_send:
+            await notification_service.send_pod_failure_notification(mock_failure)
+            mock_send.assert_called_once_with(
+                provider='slack',
+                config={'webhook_url': 'https://hooks.slack.com/test'},
+                failure=mock_failure
+            )
 
-# Add _get_handlers method to NotificationService for testing
-def _get_handlers_patch(self):
-    return {
-        'email': self._send_email,
-        'slack': self._send_slack,
-        'teams': self._send_teams
-    }
+    def test_format_text_body(self, notification_service, mock_failure):
+        """Test plain text email body formatting"""
+        body = notification_service._format_text_body(mock_failure)
+        assert 'test-pod' in body
+        assert 'default' in body
+        assert 'ImagePullBackOff' in body
 
-NotificationService._get_handlers = _get_handlers_patch
+    def test_format_email_body(self, notification_service, mock_failure):
+        """Test HTML email body formatting"""
+        body = notification_service._format_email_body(mock_failure)
+        assert 'test-pod' in body
+        assert 'default' in body
+        assert 'ImagePullBackOff' in body
+        assert '<html>' in body
