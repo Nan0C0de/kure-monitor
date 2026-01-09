@@ -51,9 +51,9 @@ const PodTableRow = ({ pod, onSolutionUpdated, isDark = false }) => {
               className={`mr-2 mt-0.5 ${isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}
             >
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="w-4 h-4" data-testid="chevron-down" />
               ) : (
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4" data-testid="chevron-right" />
               )}
             </button>
             <div className="flex-1">

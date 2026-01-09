@@ -9,6 +9,10 @@ global:
 agent:
   enabled: true  # Set to false to disable pod monitoring
 
+  # Cluster metrics collection (CPU, memory, pod counts, etc.)
+  clusterMetrics:
+    enabled: true  # Set to false to disable cluster metrics collection
+
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/agent
     tag: "1.2.0"

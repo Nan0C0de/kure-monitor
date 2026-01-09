@@ -161,12 +161,18 @@ class PodMonitor:
         self.websocket_client.set_namespace_change_handler(self._handle_namespace_change)
         self.websocket_client.set_pod_exclusion_change_handler(self._handle_pod_exclusion_change)
 
-        # Run monitoring loop, metrics loop, and WebSocket client concurrently
+        # Run monitoring loop, metrics loop (if enabled), and WebSocket client concurrently
         tasks = [
             asyncio.create_task(self._monitoring_loop()),
-            asyncio.create_task(self._metrics_loop()),
             asyncio.create_task(self.websocket_client.connect()),
         ]
+
+        # Only start metrics collection if enabled
+        if self.config.cluster_metrics_enabled:
+            logger.info("Cluster metrics collection enabled")
+            tasks.append(asyncio.create_task(self._metrics_loop()))
+        else:
+            logger.info("Cluster metrics collection disabled")
 
         try:
             await asyncio.gather(*tasks)

@@ -80,7 +80,6 @@ class ExcludedPodResponse(ExcludedPod):
 class NotificationProvider(str, Enum):
     EMAIL = "email"
     SLACK = "slack"
-    DISCORD = "discord"
     TEAMS = "teams"
 
 
@@ -97,10 +96,6 @@ class EmailConfig(BaseModel):
 class SlackConfig(BaseModel):
     webhook_url: str
     channel: Optional[str] = None
-
-
-class DiscordConfig(BaseModel):
-    webhook_url: str
 
 
 class TeamsConfig(BaseModel):

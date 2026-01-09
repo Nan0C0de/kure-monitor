@@ -48,6 +48,8 @@ spec:
           value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: CLUSTER_METRICS_ENABLED
+          value: "{{ .Values.agent.clusterMetrics.enabled }}"
         volumeMounts:
         - name: tmp
           mountPath: /tmp

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Mail, MessageSquare, Hash, Users, ChevronDown, ChevronRight, Save, TestTube, Trash2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { Bell, Mail, Hash, Users, ChevronDown, ChevronRight, Save, TestTube, Trash2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { api } from '../services/api';
 
 const NotificationSettings = ({ isDark = false }) => {
@@ -36,15 +36,6 @@ const NotificationSettings = ({ isDark = false }) => {
       fields: [
         { key: 'webhook_url', label: 'Webhook URL', type: 'text', placeholder: 'https://hooks.slack.com/services/...' },
         { key: 'channel', label: 'Channel (optional)', type: 'text', placeholder: '#alerts' }
-      ]
-    },
-    {
-      id: 'discord',
-      name: 'Discord',
-      icon: MessageSquare,
-      color: 'indigo',
-      fields: [
-        { key: 'webhook_url', label: 'Webhook URL', type: 'text', placeholder: 'https://discord.com/api/webhooks/...' }
       ]
     },
     {
@@ -224,7 +215,6 @@ const NotificationSettings = ({ isDark = false }) => {
   const colorClasses = {
     blue: 'bg-blue-100 text-blue-700 border-blue-200',
     purple: 'bg-purple-100 text-purple-700 border-purple-200',
-    indigo: 'bg-indigo-100 text-indigo-700 border-indigo-200',
     violet: 'bg-violet-100 text-violet-700 border-violet-200'
   };
 

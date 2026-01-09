@@ -37,7 +37,6 @@ class NotificationService:
         handlers = {
             'email': self._send_email,
             'slack': self._send_slack,
-            'discord': self._send_discord,
             'teams': self._send_teams
         }
 
@@ -111,33 +110,6 @@ class NotificationService:
                 if response.status != 200:
                     text = await response.text()
                     raise Exception(f"Slack webhook returned {response.status}: {text}")
-
-    async def _send_discord(self, config: Dict[str, Any], failure: PodFailureResponse):
-        """Send Discord notification via webhook"""
-        payload = {
-            "embeds": [{
-                "title": f"Pod Failure: {failure.namespace}/{failure.pod_name}",
-                "color": 15158332,  # Red color
-                "fields": [
-                    {"name": "Namespace", "value": failure.namespace, "inline": True},
-                    {"name": "Pod", "value": failure.pod_name, "inline": True},
-                    {"name": "Reason", "value": failure.failure_reason, "inline": True},
-                    {"name": "Node", "value": failure.node_name or "N/A", "inline": True},
-                    {"name": "Message", "value": (failure.failure_message or "N/A")[:1024], "inline": False}
-                ],
-                "footer": {"text": "Kure Monitor"}
-            }]
-        }
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                config['webhook_url'],
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                if response.status not in [200, 204]:
-                    text = await response.text()
-                    raise Exception(f"Discord webhook returned {response.status}: {text}")
 
     async def _send_teams(self, config: Dict[str, Any], failure: PodFailureResponse):
         """Send Microsoft Teams notification via webhook"""

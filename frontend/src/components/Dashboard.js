@@ -14,7 +14,9 @@ const Dashboard = () => {
   const [clusterMetrics, setClusterMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [namespaceFilter, setNamespaceFilter] = useState('');
+  // Separate namespace filters for each tab
+  const [podNamespaceFilter, setPodNamespaceFilter] = useState('');
+  const [securityNamespaceFilter, setSecurityNamespaceFilter] = useState('');
   const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
 
@@ -133,19 +135,19 @@ const Dashboard = () => {
 
   const { connected } = useWebSocket(handleWebSocketMessage);
 
-  // Filter pods based on namespace input
-  const filteredPods = namespaceFilter.trim() === ''
+  // Filter pods based on pod-specific namespace filter
+  const filteredPods = podNamespaceFilter.trim() === ''
     ? pods
-    : pods.filter(pod => pod.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim()));
+    : pods.filter(pod => pod.namespace.toLowerCase().includes(podNamespaceFilter.toLowerCase().trim()));
 
   // Severity order for sorting (Critical > High > Medium > Low)
   const severityOrder = { 'critical': 1, 'high': 2, 'medium': 3, 'low': 4 };
   const allSeverities = ['critical', 'high', 'medium', 'low'];
 
-  // Filter security findings based on namespace and severity
+  // Filter security findings based on security-specific namespace filter and severity
   const filteredSecurityFindings = securityFindings.filter(finding => {
-    const matchesNamespace = namespaceFilter.trim() === '' ||
-      finding.namespace.toLowerCase().includes(namespaceFilter.toLowerCase().trim());
+    const matchesNamespace = securityNamespaceFilter.trim() === '' ||
+      finding.namespace.toLowerCase().includes(securityNamespaceFilter.toLowerCase().trim());
     const matchesSeverity = selectedSeverities.includes(finding.severity.toLowerCase());
     return matchesNamespace && matchesSeverity;
   });
@@ -392,7 +394,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Namespace Filter */}
+          {/* Namespace Filter - uses separate state per tab */}
           <div className="flex items-center space-x-2">
             <label htmlFor="namespace-filter" className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Filter by namespace:
@@ -400,8 +402,11 @@ const Dashboard = () => {
             <input
               id="namespace-filter"
               type="text"
-              value={namespaceFilter}
-              onChange={(e) => setNamespaceFilter(e.target.value)}
+              value={activeTab === 'monitoring' ? podNamespaceFilter : securityNamespaceFilter}
+              onChange={(e) => activeTab === 'monitoring'
+                ? setPodNamespaceFilter(e.target.value)
+                : setSecurityNamespaceFilter(e.target.value)
+              }
               placeholder="Enter namespace"
               className={`block w-40 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
                 isDark
@@ -426,9 +431,9 @@ const Dashboard = () => {
                   <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
                     {pods.length === 0
                       ? 'No pod failures detected in your cluster.'
-                      : namespaceFilter.trim() === ''
+                      : podNamespaceFilter.trim() === ''
                         ? 'No pod failures found in your cluster.'
-                        : `No pod failures found matching namespace '${namespaceFilter}'.`
+                        : `No pod failures found matching namespace '${podNamespaceFilter}'.`
                     }
                   </p>
                 </div>
@@ -449,9 +454,9 @@ const Dashboard = () => {
                   <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
                     {securityFindings.length === 0
                       ? 'No security issues detected in your cluster.'
-                      : namespaceFilter.trim() === ''
+                      : securityNamespaceFilter.trim() === ''
                         ? 'No security issues found in your cluster.'
-                        : `No security issues found matching namespace '${namespaceFilter}'.`
+                        : `No security issues found matching namespace '${securityNamespaceFilter}'.`
                     }
                   </p>
                 </div>

@@ -172,11 +172,14 @@ class MetricsCollector:
             pods = self.v1.list_pod_for_all_namespaces()
             pods_per_node = {}
             pods_list = []
+            unassigned_pods = 0
             for pod in pods.items:
                 node_name = pod.spec.node_name
                 if node_name:
                     pods_per_node[node_name] = pods_per_node.get(node_name, 0) + 1
-                total_pods += 1  # Count all pods, including Pending
+                else:
+                    unassigned_pods += 1
+                total_pods += 1
 
                 # Get pod status
                 phase = pod.status.phase
@@ -284,6 +287,7 @@ class MetricsCollector:
                 'total_storage_used': self._format_memory(total_storage_used) if total_storage_used else None,
                 'storage_usage_percent': storage_usage_percent,
                 'total_pods': total_pods,
+                'unassigned_pods': unassigned_pods,
                 'pods': pods_list,
                 'metrics_available': self.metrics_available,
                 'timestamp': datetime.utcnow().isoformat() + 'Z'
@@ -306,6 +310,7 @@ class MetricsCollector:
                 'total_storage_used': None,
                 'storage_usage_percent': None,
                 'total_pods': 0,
+                'unassigned_pods': 0,
                 'pods': [],
                 'metrics_available': False,
                 'timestamp': datetime.utcnow().isoformat() + 'Z'

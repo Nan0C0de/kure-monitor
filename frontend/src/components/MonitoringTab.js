@@ -26,7 +26,7 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     };
   }, []);
 
-  // Auto-scroll to bottom when new live logs arrive
+  // Auto-scroll to top when new live logs arrive (latest logs are at top)
   useEffect(() => {
     if (isLiveMode && logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -42,6 +42,15 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
       setLiveLogsBuffer([]);
     }
   }, [expandedPod]);
+
+  // Auto-refresh logs when tailLines changes (only if pod is expanded and not in live mode)
+  const prevTailLinesRef = useRef(tailLines);
+  useEffect(() => {
+    if (expandedPod && !isLiveMode && prevTailLinesRef.current !== tailLines) {
+      fetchPodLogs(expandedPod.namespace, expandedPod.name, selectedContainer);
+    }
+    prevTailLinesRef.current = tailLines;
+  }, [tailLines, expandedPod, isLiveMode, selectedContainer, fetchPodLogs]);
 
   // Get unique namespaces for filter suggestions
   const namespaces = useMemo(() => {
@@ -619,14 +628,14 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                                 </div>
                               ) : isLiveMode ? (
                                 <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                                  {liveLogsBuffer.length > 0
-                                    ? liveLogsBuffer.join('\n')
-                                    : '[Waiting for logs...]'}
                                   <div ref={logsEndRef} />
+                                  {liveLogsBuffer.length > 0
+                                    ? [...liveLogsBuffer].reverse().join('\n')
+                                    : '[Waiting for logs...]'}
                                 </pre>
                               ) : podLogs?.logs ? (
                                 <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                                  {podLogs.logs || '[No logs available]'}
+                                  {podLogs.logs.split('\n').reverse().join('\n') || '[No logs available]'}
                                 </pre>
                               ) : (
                                 <p className="text-center py-4 text-gray-500">No logs available</p>
@@ -734,6 +743,29 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                   </tr>
                 );
               })}
+              {/* Show unassigned/pending pods if any */}
+              {metrics.unassigned_pods > 0 && (
+                <tr className={isDark ? 'bg-gray-900' : 'bg-gray-50'}>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Box className={`w-4 h-4 mr-2 ${isDark ? 'text-yellow-500' : 'text-yellow-600'}`} />
+                      <span className={`text-sm font-medium italic ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Unassigned (Pending)</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Pending
+                    </span>
+                  </td>
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>-</td>
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>-</td>
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>-</td>
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                    {metrics.unassigned_pods}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

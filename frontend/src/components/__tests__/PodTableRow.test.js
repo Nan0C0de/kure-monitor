@@ -1,6 +1,24 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import PodTableRow from '../PodTableRow';
 
+// Mock child components that have complex dependencies
+jest.mock('../PodDetails', () => {
+  return function MockPodDetails({ pod }) {
+    return (
+      <div data-testid="pod-details">
+        <h3>Error Details</h3>
+        <p>{pod.solution}</p>
+      </div>
+    );
+  };
+});
+
+jest.mock('../ManifestModal', () => {
+  return function MockManifestModal() {
+    return null;
+  };
+});
+
 const mockPod = {
   id: 1,
   pod_name: 'test-pod',
