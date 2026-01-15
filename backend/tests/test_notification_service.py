@@ -90,15 +90,16 @@ class TestNotificationService:
 
     @pytest.mark.asyncio
     async def test_send_teams_notification(self, notification_service, mock_failure):
-        """Test sending Microsoft Teams notification"""
+        """Test sending Microsoft Teams notification via Power Automate Workflows"""
         config = {
-            'webhook_url': 'https://outlook.office.com/webhook/test'
+            'webhook_url': 'https://prod-00.westus.logic.azure.com:443/workflows/test'
         }
 
         with patch('services.notification_service.aiohttp.ClientSession') as mock_session:
             # Create proper async context manager mocks
+            # Workflows webhooks return 202 Accepted on success
             mock_response = AsyncMock()
-            mock_response.status = 200
+            mock_response.status = 202
 
             mock_post_cm = AsyncMock()
             mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
@@ -131,18 +132,3 @@ class TestNotificationService:
                 config={'webhook_url': 'https://hooks.slack.com/test'},
                 failure=mock_failure
             )
-
-    def test_format_text_body(self, notification_service, mock_failure):
-        """Test plain text email body formatting"""
-        body = notification_service._format_text_body(mock_failure)
-        assert 'test-pod' in body
-        assert 'default' in body
-        assert 'ImagePullBackOff' in body
-
-    def test_format_email_body(self, notification_service, mock_failure):
-        """Test HTML email body formatting"""
-        body = notification_service._format_email_body(mock_failure)
-        assert 'test-pod' in body
-        assert 'default' in body
-        assert 'ImagePullBackOff' in body
-        assert '<html>' in body

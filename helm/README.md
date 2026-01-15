@@ -1,13 +1,30 @@
 # Kure Helm Chart
 
-A Kubernetes health monitoring system with intelligent failure detection and solution recommendations.
+A Kubernetes health monitoring system with AI-powered diagnostics, real-time cluster metrics, and security scanning.
+
+## Features
+
+- Real-time pod failure detection and monitoring
+- AI-powered troubleshooting solutions (OpenAI, Anthropic, Groq)
+- Cluster metrics dashboard (CPU, memory, storage)
+- Live pod log streaming
+- Security misconfiguration scanning
+- Slack notification integration
+- Admin panel for namespace/pod exclusions
 
 ## Installation
 
 ```bash
+# Add the Helm repository
 helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+helm repo update
 
-helm install kure-monitor kure-monitor/kure --version 1.2.0 \
+# Install with default settings (rule-based solutions)
+helm install kure-monitor kure-monitor/kure --version 1.3.0 \
+  --create-namespace --namespace kure-system
+
+# OR install with AI-powered solutions
+helm install kure-monitor kure-monitor/kure --version 1.3.0 \
   --create-namespace --namespace kure-system \
   --set backend.env.KURE_LLM_PROVIDER=openai \
   --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
@@ -16,55 +33,108 @@ helm install kure-monitor kure-monitor/kure --version 1.2.0 \
 
 ## Configuration
 
-Key configuration options in `values.yaml`:
+### Core Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `global.imageRegistry` | Image registry override | `""` |
-| `agent.image.repository` | Agent image repository | `ghcr.io/nan0c0de/kure-monitor/agent` |
-| `agent.image.tag` | Agent image tag | `1.2.0` |
-| `agent.serviceAccount.name` | Service account name | `kure-agent` |
+| `agent.enabled` | Enable pod monitoring agent | `true` |
+| `agent.clusterMetrics.enabled` | Enable cluster metrics collection | `true` |
+| `agent.image.tag` | Agent image tag | `1.3.0` |
+| `securityScanner.enabled` | Enable security scanner | `true` |
+| `securityScanner.image.tag` | Security scanner image tag | `1.3.0` |
 | `backend.replicaCount` | Backend replica count | `1` |
-| `backend.image.repository` | Backend image repository | `ghcr.io/nan0c0de/kure-monitor/backend` |
-| `backend.image.tag` | Backend image tag | `1.2.0` |
-| `backend.service.type` | Backend service type | `ClusterIP` |
-| `backend.service.port` | Backend service port | `8000` |
-| `backend.env.KURE_LLM_PROVIDER` | LLM provider (openai/anthropic/groq) | `""` |
+| `backend.image.tag` | Backend image tag | `1.3.0` |
+| `frontend.image.tag` | Frontend image tag | `1.3.0` |
+
+### LLM Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `backend.env.KURE_LLM_PROVIDER` | LLM provider (`openai`, `anthropic`, `groq`) | `""` |
 | `backend.env.KURE_LLM_API_KEY` | LLM API key | `""` |
 | `backend.env.KURE_LLM_MODEL` | LLM model name | `""` |
-| `frontend.replicaCount` | Frontend replica count | `1` |
-| `frontend.image.repository` | Frontend image repository | `ghcr.io/nan0c0de/kure-monitor/frontend` |
-| `frontend.image.tag` | Frontend image tag | `1.2.0` |
+
+**Note:** All three LLM values must be provided together, or all empty to use rule-based solutions.
+
+### Service Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `backend.service.type` | Backend service type | `ClusterIP` |
+| `backend.service.port` | Backend service port | `8000` |
 | `frontend.service.type` | Frontend service type | `NodePort` |
 | `frontend.service.port` | Frontend service port | `8080` |
 | `frontend.service.nodePort` | Frontend NodePort | `30080` |
-| `ingress.enabled` | Enable ingress | `false` |
-| `ingress.className` | Ingress class name | `""` |
+
+### Database Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
 | `postgresql.external` | Use external PostgreSQL | `false` |
 | `postgresql.host` | PostgreSQL host (external only) | `""` |
 | `postgresql.port` | PostgreSQL port | `5432` |
-| `postgresql.database` | PostgreSQL database name | `kure` |
-| `postgresql.username` | PostgreSQL username | `kure` |
-| `postgresql.password` | PostgreSQL password | `kure-password-change-me` |
-| `postgresql.persistence.enabled` | Enable PostgreSQL persistence | `true` |
-| `postgresql.persistence.size` | PostgreSQL storage size | `10Gi` |
-| `securityContext.runAsNonRoot` | Run containers as non-root user | `true` |
-| `securityContext.runAsUser` | User ID to run containers | `1001` |
+| `postgresql.database` | Database name | `kure` |
+| `postgresql.username` | Database username | `kure` |
+| `postgresql.password` | Database password | `kure-password-change-me` |
+| `postgresql.persistence.enabled` | Enable persistence | `true` |
+| `postgresql.persistence.size` | Storage size | `10Gi` |
+
+### Ingress Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `ingress.enabled` | Enable ingress | `false` |
+| `ingress.className` | Ingress class name | `""` |
+| `ingress.hosts[0].host` | Ingress hostname | `kure.local` |
+
+### Security Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `securityContext.runAsNonRoot` | Run as non-root | `true` |
+| `securityContext.runAsUser` | User ID | `1001` |
+| `securityContext.allowPrivilegeEscalation` | Allow privilege escalation | `false` |
+| `securityContext.readOnlyRootFilesystem` | Read-only root filesystem | `true` |
 
 ## Components
 
-- **Agent**: Monitors Kubernetes pods for failures
-- **Backend**: FastAPI server with solution engine
-- **Frontend**: React dashboard for cluster health
-- **PostgreSQL**: Database for storing failure reports
+| Component | Description |
+|-----------|-------------|
+| **Agent** | DaemonSet that monitors pods and collects cluster metrics |
+| **Security Scanner** | Scans pods for security misconfigurations |
+| **Backend** | FastAPI server with solution engine and WebSocket support |
+| **Frontend** | React dashboard for cluster health visualization |
+| **PostgreSQL** | Database for persistent storage |
+
+## Access the Dashboard
+
+```bash
+# Via port-forward
+kubectl port-forward svc/kure-monitor-frontend 8080:8080 -n kure-system
+
+# Via NodePort (default)
+# Access http://<node-ip>:30080
+```
 
 ## Requirements
 
-- Kubernetes 1.19+
+- Kubernetes 1.20+
 - Helm 3.0+
+- (Optional) metrics-server for CPU/memory metrics
+
+## Upgrade
+
+```bash
+helm repo update
+helm upgrade kure-monitor kure-monitor/kure --version 1.3.0 -n kure-system
+```
 
 ## Uninstall
 
 ```bash
-helm uninstall kure-monitor
+helm uninstall kure-monitor -n kure-system
 ```
+
+## License
+
+Custom Non-Commercial License. See [LICENSE](https://github.com/Nan0C0de/kure-monitor/blob/main/LICENSE) for details.

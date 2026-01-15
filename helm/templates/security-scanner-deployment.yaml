@@ -47,8 +47,6 @@ spec:
         env:
         - name: BACKEND_URL
           value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
-        - name: CVE_SCAN_ENABLED
-          value: "{{ .Values.securityScanner.cve.enabled }}"
         - name: PYTHONUNBUFFERED
           value: "1"
         volumeMounts:

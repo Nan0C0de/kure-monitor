@@ -78,19 +78,8 @@ class ExcludedPodResponse(ExcludedPod):
 
 # Notification models
 class NotificationProvider(str, Enum):
-    EMAIL = "email"
     SLACK = "slack"
     TEAMS = "teams"
-
-
-class EmailConfig(BaseModel):
-    smtp_host: str
-    smtp_port: int = 587
-    smtp_user: str
-    smtp_password: str
-    from_email: str
-    to_emails: List[str]
-    use_tls: bool = True
 
 
 class SlackConfig(BaseModel):

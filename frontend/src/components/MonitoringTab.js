@@ -13,8 +13,28 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
   const [tailLines, setTailLines] = useState(100);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [liveLogsBuffer, setLiveLogsBuffer] = useState([]);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const eventSourceRef = useRef(null);
   const logsEndRef = useRef(null);
+
+  // Animate loading progress while waiting for metrics
+  useEffect(() => {
+    if (!metrics || !metrics.node_count) {
+      setLoadingProgress(0);
+      const interval = setInterval(() => {
+        setLoadingProgress(prev => {
+          // Slow down as we approach 95%
+          if (prev >= 95) return prev;
+          const increment = Math.max(0.5, (95 - prev) / 20);
+          return Math.min(95, prev + increment);
+        });
+      }, 100);
+      return () => clearInterval(interval);
+    } else {
+      // Complete the progress when metrics arrive
+      setLoadingProgress(100);
+    }
+  }, [metrics]);
 
   // Cleanup EventSource on unmount or when pod changes
   useEffect(() => {
@@ -193,12 +213,23 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
           ))}
         </div>
 
-        {/* Loading Spinner */}
+        {/* Loading Progress Bar */}
         <div className={`rounded-lg border p-8 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="flex flex-col items-center justify-center">
-            <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
-            <span className={`font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Waiting for cluster metrics...</span>
-            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>The agent will send metrics shortly</p>
+            <span className={`font-medium mb-4 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Waiting for cluster metrics...</span>
+            <div className="w-full max-w-md">
+              <div className="flex justify-between mb-2">
+                <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading</span>
+                <span className={`text-sm font-medium ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{Math.round(loadingProgress)}%</span>
+              </div>
+              <div className={`w-full h-3 rounded-full overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-100 ease-out"
+                  style={{ width: `${loadingProgress}%` }}
+                />
+              </div>
+            </div>
+            <p className={`text-sm mt-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>The agent will send metrics shortly</p>
           </div>
         </div>
 

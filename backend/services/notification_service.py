@@ -1,8 +1,6 @@
 import aiohttp
 import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import Dict, Any, List
+from typing import Dict, Any
 from models.models import PodFailureResponse
 
 logger = logging.getLogger(__name__)
@@ -35,7 +33,6 @@ class NotificationService:
     async def _send_notification(self, provider: str, config: Dict[str, Any], failure: PodFailureResponse):
         """Route to appropriate provider handler"""
         handlers = {
-            'email': self._send_email,
             'slack': self._send_slack,
             'teams': self._send_teams
         }
@@ -45,40 +42,6 @@ class NotificationService:
             await handler(config, failure)
         else:
             logger.warning(f"Unknown notification provider: {provider}")
-
-    async def _send_email(self, config: Dict[str, Any], failure: PodFailureResponse):
-        """Send email notification using aiosmtplib"""
-        try:
-            import aiosmtplib
-
-            message = MIMEMultipart('alternative')
-            message['From'] = config['from_email']
-            message['To'] = ', '.join(config['to_emails'])
-            message['Subject'] = f"[Kure Alert] Pod Failure: {failure.namespace}/{failure.pod_name}"
-
-            # Plain text version
-            text_body = self._format_text_body(failure)
-            message.attach(MIMEText(text_body, 'plain'))
-
-            # HTML version
-            html_body = self._format_email_body(failure)
-            message.attach(MIMEText(html_body, 'html'))
-
-            await aiosmtplib.send(
-                message,
-                hostname=config['smtp_host'],
-                port=config.get('smtp_port', 587),
-                username=config.get('smtp_user'),
-                password=config.get('smtp_password'),
-                use_tls=config.get('use_tls', True),
-                start_tls=config.get('use_tls', True)
-            )
-        except ImportError:
-            logger.error("aiosmtplib not installed. Install with: pip install aiosmtplib")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to send email: {e}")
-            raise
 
     async def _send_slack(self, config: Dict[str, Any], failure: PodFailureResponse):
         """Send Slack notification via webhook"""
@@ -112,24 +75,64 @@ class NotificationService:
                     raise Exception(f"Slack webhook returned {response.status}: {text}")
 
     async def _send_teams(self, config: Dict[str, Any], failure: PodFailureResponse):
-        """Send Microsoft Teams notification via webhook"""
+        """Send Microsoft Teams notification via Power Automate Workflows webhook"""
+        # Use Adaptive Card format for Power Automate Workflows
+        # (Office 365 Connectors with MessageCard format are deprecated)
         payload = {
-            "@type": "MessageCard",
-            "@context": "http://schema.org/extensions",
-            "themeColor": "FF0000",
-            "summary": f"Pod Failure: {failure.namespace}/{failure.pod_name}",
-            "sections": [{
-                "activityTitle": f"Pod Failure Alert",
-                "activitySubtitle": f"{failure.namespace}/{failure.pod_name}",
-                "facts": [
-                    {"name": "Namespace", "value": failure.namespace},
-                    {"name": "Pod", "value": failure.pod_name},
-                    {"name": "Reason", "value": failure.failure_reason},
-                    {"name": "Node", "value": failure.node_name or "N/A"},
-                    {"name": "Message", "value": (failure.failure_message or "N/A")[:500]}
-                ],
-                "markdown": True
-            }]
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "contentUrl": None,
+                    "content": {
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "body": [
+                            {
+                                "type": "TextBlock",
+                                "size": "Large",
+                                "weight": "Bolder",
+                                "color": "Attention",
+                                "text": "Pod Failure Alert"
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": f"{failure.namespace}/{failure.pod_name}",
+                                "wrap": True,
+                                "weight": "Bolder"
+                            },
+                            {
+                                "type": "FactSet",
+                                "facts": [
+                                    {"title": "Namespace", "value": failure.namespace},
+                                    {"title": "Pod", "value": failure.pod_name},
+                                    {"title": "Reason", "value": failure.failure_reason},
+                                    {"title": "Node", "value": failure.node_name or "N/A"}
+                                ]
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": "Message",
+                                "weight": "Bolder",
+                                "spacing": "Medium"
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": (failure.failure_message or "N/A")[:500],
+                                "wrap": True
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": "Kure Monitor",
+                                "size": "Small",
+                                "color": "Accent",
+                                "spacing": "Medium"
+                            }
+                        ]
+                    }
+                }
+            ]
         }
 
         async with aiohttp.ClientSession() as session:
@@ -138,7 +141,8 @@ class NotificationService:
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
-                if response.status != 200:
+                # Workflows webhooks return 202 Accepted on success
+                if response.status not in (200, 202):
                     text = await response.text()
                     raise Exception(f"Teams webhook returned {response.status}: {text}")
 
@@ -163,64 +167,3 @@ class NotificationService:
 
         await self._send_notification(provider, config, test_failure)
         return True
-
-    def _format_text_body(self, failure: PodFailureResponse) -> str:
-        """Format plain text email body"""
-        return f"""Kure Monitor - Pod Failure Alert
-
-Namespace: {failure.namespace}
-Pod: {failure.pod_name}
-Reason: {failure.failure_reason}
-Node: {failure.node_name or 'N/A'}
-Message: {failure.failure_message or 'N/A'}
-
-AI-Generated Solution:
-{failure.solution}
-
----
-This alert was sent by Kure Monitor
-"""
-
-    def _format_email_body(self, failure: PodFailureResponse) -> str:
-        """Format HTML email body"""
-        return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .header {{ background-color: #dc3545; color: white; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; }}
-        table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
-        th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
-        th {{ background-color: #f5f5f5; }}
-        .solution {{ background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 20px; }}
-        .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 30px; }}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Pod Failure Alert</h1>
-    </div>
-    <div class="content">
-        <h2>{failure.namespace}/{failure.pod_name}</h2>
-        <table>
-            <tr><th>Field</th><th>Value</th></tr>
-            <tr><td><strong>Namespace</strong></td><td>{failure.namespace}</td></tr>
-            <tr><td><strong>Pod</strong></td><td>{failure.pod_name}</td></tr>
-            <tr><td><strong>Reason</strong></td><td>{failure.failure_reason}</td></tr>
-            <tr><td><strong>Node</strong></td><td>{failure.node_name or 'N/A'}</td></tr>
-            <tr><td><strong>Message</strong></td><td>{failure.failure_message or 'N/A'}</td></tr>
-        </table>
-
-        <div class="solution">
-            <h3>AI-Generated Solution</h3>
-            <pre style="white-space: pre-wrap; word-wrap: break-word;">{failure.solution}</pre>
-        </div>
-    </div>
-    <div class="footer">
-        <p>This alert was sent by Kure Monitor</p>
-    </div>
-</body>
-</html>
-"""

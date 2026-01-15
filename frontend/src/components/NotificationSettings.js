@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Mail, Hash, Users, ChevronDown, ChevronRight, Save, TestTube, Trash2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { Bell, Hash, Users, ChevronDown, ChevronRight, Save, TestTube, Trash2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { api } from '../services/api';
 
 const NotificationSettings = ({ isDark = false }) => {
@@ -13,21 +13,6 @@ const NotificationSettings = ({ isDark = false }) => {
   const [showPasswords, setShowPasswords] = useState({});
 
   const providers = [
-    {
-      id: 'email',
-      name: 'Email (SMTP)',
-      icon: Mail,
-      color: 'blue',
-      fields: [
-        { key: 'smtp_host', label: 'SMTP Host', type: 'text', placeholder: 'smtp.gmail.com' },
-        { key: 'smtp_port', label: 'SMTP Port', type: 'number', placeholder: '587' },
-        { key: 'smtp_user', label: 'SMTP Username', type: 'text', placeholder: 'your-email@gmail.com' },
-        { key: 'smtp_password', label: 'SMTP Password', type: 'password', placeholder: 'App password' },
-        { key: 'from_email', label: 'From Email', type: 'text', placeholder: 'alerts@yourcompany.com' },
-        { key: 'to_emails', label: 'To Emails (comma-separated)', type: 'text', placeholder: 'admin@company.com, team@company.com' },
-        { key: 'use_tls', label: 'Use TLS', type: 'checkbox' }
-      ]
-    },
     {
       id: 'slack',
       name: 'Slack',
@@ -44,7 +29,7 @@ const NotificationSettings = ({ isDark = false }) => {
       icon: Users,
       color: 'violet',
       fields: [
-        { key: 'webhook_url', label: 'Webhook URL', type: 'text', placeholder: 'https://outlook.office.com/webhook/...' }
+        { key: 'webhook_url', label: 'Workflow Webhook URL', type: 'text', placeholder: 'https://prod-xx.region.logic.azure.com:443/workflows/...' }
       ]
     }
   ];
@@ -142,12 +127,7 @@ const NotificationSettings = ({ isDark = false }) => {
     setSaving(prev => ({ ...prev, [providerId]: true }));
     try {
       const setting = settings[providerId];
-
-      // Process to_emails if it's a string
       const config = { ...setting.config };
-      if (providerId === 'email' && typeof config.to_emails === 'string') {
-        config.to_emails = config.to_emails.split(',').map(e => e.trim()).filter(e => e);
-      }
 
       await api.saveNotificationSetting({
         provider: providerId,
@@ -203,17 +183,10 @@ const NotificationSettings = ({ isDark = false }) => {
   const getFieldValue = (providerId, fieldKey) => {
     const config = settings[providerId]?.config || {};
     const value = config[fieldKey];
-
-    // Handle to_emails array display
-    if (fieldKey === 'to_emails' && Array.isArray(value)) {
-      return value.join(', ');
-    }
-
-    return value !== undefined ? value : (fieldKey === 'use_tls' ? true : '');
+    return value !== undefined ? value : '';
   };
 
   const colorClasses = {
-    blue: 'bg-blue-100 text-blue-700 border-blue-200',
     purple: 'bg-purple-100 text-purple-700 border-purple-200',
     violet: 'bg-violet-100 text-violet-700 border-violet-200'
   };

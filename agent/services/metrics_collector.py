@@ -168,6 +168,9 @@ class MetricsCollector:
                     logger.warning(f"Failed to get node metrics: {e}")
                     self.metrics_available = False
 
+            # Get set of existing node names for validation
+            existing_nodes = {node.metadata.name for node in nodes.items}
+
             # Count pods per node and collect pod list
             pods = self.v1.list_pod_for_all_namespaces()
             pods_per_node = {}
@@ -175,9 +178,11 @@ class MetricsCollector:
             unassigned_pods = 0
             for pod in pods.items:
                 node_name = pod.spec.node_name
-                if node_name:
+                if node_name and node_name in existing_nodes:
+                    # Pod is assigned to an existing node
                     pods_per_node[node_name] = pods_per_node.get(node_name, 0) + 1
                 else:
+                    # Pod has no node or is assigned to a non-existent node
                     unassigned_pods += 1
                 total_pods += 1
 
@@ -189,10 +194,18 @@ class MetricsCollector:
                     ready = all(cs.ready for cs in pod.status.container_statuses)
                     restarts = sum(cs.restart_count for cs in pod.status.container_statuses)
 
+                # Determine display node name
+                if not node_name:
+                    display_node = 'Pending'
+                elif node_name not in existing_nodes:
+                    display_node = f'{node_name} (Unknown)'
+                else:
+                    display_node = node_name
+
                 pods_list.append({
                     'name': pod.metadata.name,
                     'namespace': pod.metadata.namespace,
-                    'node': node_name or 'Pending',
+                    'node': display_node,
                     'status': phase,
                     'ready': ready,
                     'restarts': restarts
