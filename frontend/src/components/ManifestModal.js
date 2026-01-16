@@ -92,7 +92,8 @@ const ManifestModal = ({
   manifest,
   solution,
   onRetrySolution,
-  isRetrying
+  isRetrying,
+  aiEnabled = false
 }) => {
   const textareaRef = useRef(null);
   const [localRetrying, setLocalRetrying] = useState(false);
@@ -270,9 +271,9 @@ const ManifestModal = ({
                 <button
                   type="button"
                   onClick={handleRetry}
-                  disabled={isCurrentlyRetrying}
+                  disabled={isCurrentlyRetrying || !aiEnabled}
                   className="inline-flex items-center px-4 py-2 border border-blue-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Retry AI to get better solution and manifest highlights"
+                  title={!aiEnabled ? 'AI provider not configured' : 'Retry AI to get better solution and manifest highlights'}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isCurrentlyRetrying ? 'animate-spin' : ''}`} />
                   {isCurrentlyRetrying ? 'Retrying AI...' : 'Retry AI'}

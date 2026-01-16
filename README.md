@@ -71,12 +71,7 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 helm repo update
 
-# Install with default settings (rule-based solutions)
-helm install kure-monitor kure-monitor/kure \
-  --namespace kure-system \
-  --create-namespace
-
-# OR install with AI-powered solutions
+# Install with AI-powered solutions
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
   --create-namespace \

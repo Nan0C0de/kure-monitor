@@ -15,7 +15,7 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
   const [liveLogsBuffer, setLiveLogsBuffer] = useState([]);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const eventSourceRef = useRef(null);
-  const logsEndRef = useRef(null);
+  const logsContainerRef = useRef(null);
 
   // Animate loading progress while waiting for metrics
   useEffect(() => {
@@ -48,8 +48,8 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
 
   // Auto-scroll to top when new live logs arrive (latest logs are at top)
   useEffect(() => {
-    if (isLiveMode && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (isLiveMode && logsContainerRef.current && liveLogsBuffer.length > 0) {
+      logsContainerRef.current.scrollTop = 0;
     }
   }, [liveLogsBuffer, isLiveMode]);
 
@@ -646,7 +646,7 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                               </div>
                             </div>
                             {/* Log Content */}
-                            <div className="p-4 max-h-80 overflow-auto">
+                            <div ref={logsContainerRef} className="p-4 max-h-80 overflow-auto">
                               {logsLoading && !isLiveMode ? (
                                 <div className="flex items-center justify-center py-8">
                                   <Loader2 className="w-6 h-6 animate-spin mr-2" />
@@ -659,7 +659,6 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                                 </div>
                               ) : isLiveMode ? (
                                 <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                                  <div ref={logsEndRef} />
                                   {liveLogsBuffer.length > 0
                                     ? [...liveLogsBuffer].reverse().join('\n')
                                     : '[Waiting for logs...]'}

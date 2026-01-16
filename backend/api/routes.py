@@ -33,6 +33,14 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
     """Create and configure the API router"""
     router = APIRouter(prefix="/api")
 
+    @router.get("/config")
+    async def get_config():
+        """Get application configuration status"""
+        return {
+            "ai_enabled": solution_engine.llm_provider is not None,
+            "ai_provider": solution_engine.llm_provider.provider_name if solution_engine.llm_provider else None
+        }
+
     @router.post("/pods/failed", response_model=PodFailureResponse)
     async def report_failed_pod(report: PodFailureReport):
         """Receive failed pod report from agent"""

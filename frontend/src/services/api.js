@@ -4,6 +4,12 @@ const API_BASE = window.location.hostname === 'localhost' && window.location.por
   : '';  // Production mode (same origin)
 
 export const api = {
+  getConfig: async () => {
+    const response = await fetch(`${API_BASE}/api/config`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   getFailedPods: async () => {
     const response = await fetch(`${API_BASE}/api/pods/failed`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);

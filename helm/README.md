@@ -2,6 +2,24 @@
 
 A Kubernetes health monitoring system with AI-powered diagnostics, real-time cluster metrics, and security scanning.
 
+## Quick Start
+
+> **Important:** Do not use the default install command from the modal. Use the command below to install with the required namespace and AI configuration.
+
+```bash
+# Add the Helm repository
+helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+helm repo update
+
+# Install Kure Monitor
+helm install kure-monitor kure-monitor/kure \
+  --namespace kure-system \
+  --create-namespace \
+  --set backend.env.KURE_LLM_PROVIDER=openai \
+  --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
+  --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
+```
+
 ## Features
 
 - Real-time pod failure detection and monitoring
@@ -9,26 +27,46 @@ A Kubernetes health monitoring system with AI-powered diagnostics, real-time clu
 - Cluster metrics dashboard (CPU, memory, storage)
 - Live pod log streaming
 - Security misconfiguration scanning
-- Slack notification integration
+- Slack and Microsoft Teams notifications
 - Admin panel for namespace/pod exclusions
 
-## Installation
+## Installation Options
 
+### With OpenAI (Recommended)
 ```bash
-# Add the Helm repository
-helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
-helm repo update
-
-# Install with default settings (rule-based solutions)
-helm install kure-monitor kure-monitor/kure --version 1.3.0 \
-  --create-namespace --namespace kure-system
-
-# OR install with AI-powered solutions
-helm install kure-monitor kure-monitor/kure --version 1.3.0 \
-  --create-namespace --namespace kure-system \
+helm install kure-monitor kure-monitor/kure \
+  --namespace kure-system \
+  --create-namespace \
   --set backend.env.KURE_LLM_PROVIDER=openai \
   --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
   --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
+```
+
+### With Anthropic Claude
+```bash
+helm install kure-monitor kure-monitor/kure \
+  --namespace kure-system \
+  --create-namespace \
+  --set backend.env.KURE_LLM_PROVIDER=anthropic \
+  --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
+  --set backend.env.KURE_LLM_MODEL=claude-3-haiku-20240307
+```
+
+### With Groq (Free Tier Available)
+```bash
+helm install kure-monitor kure-monitor/kure \
+  --namespace kure-system \
+  --create-namespace \
+  --set backend.env.KURE_LLM_PROVIDER=groq \
+  --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
+  --set backend.env.KURE_LLM_MODEL=llama-3.1-8b-instant
+```
+
+### Without AI (Rule-based Solutions)
+```bash
+helm install kure-monitor kure-monitor/kure \
+  --namespace kure-system \
+  --create-namespace
 ```
 
 ## Configuration
@@ -111,9 +149,6 @@ helm install kure-monitor kure-monitor/kure --version 1.3.0 \
 ```bash
 # Via port-forward
 kubectl port-forward svc/kure-monitor-frontend 8080:8080 -n kure-system
-
-# Via NodePort (default)
-# Access http://<node-ip>:30080
 ```
 
 ## Requirements

@@ -5,7 +5,7 @@ import PodDetails from './PodDetails';
 import ManifestModal from './ManifestModal';
 import { api } from '../services/api';
 
-const PodTableRow = ({ pod, onSolutionUpdated, isDark = false }) => {
+const PodTableRow = ({ pod, onSolutionUpdated, isDark = false, aiEnabled = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
   const [isRetryingFromModal, setIsRetryingFromModal] = useState(false);
@@ -114,6 +114,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, isDark = false }) => {
               onViewManifest={() => setShowManifest(true)}
               onSolutionUpdated={onSolutionUpdated}
               isDark={isDark}
+              aiEnabled={aiEnabled}
             />
           </td>
         </tr>
@@ -128,6 +129,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, isDark = false }) => {
         onRetrySolution={handleRetrySolutionFromModal}
         isRetrying={isRetryingFromModal}
         isDark={isDark}
+        aiEnabled={aiEnabled}
       />
     </>
   );

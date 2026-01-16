@@ -14,6 +14,7 @@ const Dashboard = () => {
   const [clusterMetrics, setClusterMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
   // Separate namespace filters for each tab
   const [podNamespaceFilter, setPodNamespaceFilter] = useState('');
   const [securityNamespaceFilter, setSecurityNamespaceFilter] = useState('');
@@ -195,12 +196,14 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [activePods, findings] = await Promise.all([
+      const [activePods, findings, config] = await Promise.all([
         api.getFailedPods(),
-        api.getSecurityFindings()
+        api.getSecurityFindings(),
+        api.getConfig()
       ]);
       setPods(activePods);
       setSecurityFindings(findings);
+      setAiEnabled(config.ai_enabled || false);
       setError(null);
     } catch (err) {
       setError('Failed to load data');
@@ -438,7 +441,7 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} isDark={isDark} />
+                <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} isDark={isDark} aiEnabled={aiEnabled} />
               )}
             </>
           )}

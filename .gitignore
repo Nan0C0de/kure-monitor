@@ -252,3 +252,6 @@ Thumbs.db
 # Ignore k8s
 k8s
 examples
+
+# KinD
+kind

@@ -38,7 +38,7 @@ const CodeBlock = ({ code, language }) => {
   );
 };
 
-const PodDetails = ({ pod, onViewManifest, onSolutionUpdated }) => {
+const PodDetails = ({ pod, onViewManifest, onSolutionUpdated, aiEnabled = false }) => {
   const [isRetrying, setIsRetrying] = useState(false);
 
   // Check if solution is a fallback (AI unavailable)
@@ -203,9 +203,9 @@ const PodDetails = ({ pod, onViewManifest, onSolutionUpdated }) => {
             <h4 className="font-medium text-gray-900">AI-Generated Solution</h4>
             <button
               onClick={handleRetrySolution}
-              disabled={isRetrying}
+              disabled={isRetrying || !aiEnabled}
               className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Retry AI Solution"
+              title={!aiEnabled ? 'AI provider not configured' : 'Retry AI Solution'}
             >
               <RefreshCw className={`w-3 h-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
               {isRetrying ? 'Retrying...' : 'Retry AI'}
