@@ -61,9 +61,6 @@ class NotificationService:
             }]
         }
 
-        if config.get('channel'):
-            payload['channel'] = config['channel']
-
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 config['webhook_url'],
@@ -142,6 +139,121 @@ class NotificationService:
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
                 # Workflows webhooks return 202 Accepted on success
+                if response.status not in (200, 202):
+                    text = await response.text()
+                    raise Exception(f"Teams webhook returned {response.status}: {text}")
+
+    async def send_pod_resolved_notification(self, namespace: str, pod_name: str):
+        """Send notification when a pod failure is resolved/dismissed"""
+        try:
+            settings = await self.db.get_enabled_notification_settings()
+
+            for setting in settings:
+                try:
+                    await self._send_resolved_notification(
+                        provider=setting.provider,
+                        config=setting.config,
+                        namespace=namespace,
+                        pod_name=pod_name
+                    )
+                    logger.info(f"Sent {setting.provider} resolved notification for pod {namespace}/{pod_name}")
+                except Exception as e:
+                    logger.error(f"Failed to send {setting.provider} resolved notification: {e}")
+        except Exception as e:
+            logger.error(f"Error getting notification settings: {e}")
+
+    async def _send_resolved_notification(self, provider: str, config: Dict[str, Any], namespace: str, pod_name: str):
+        """Route to appropriate provider handler for resolved notifications"""
+        handlers = {
+            'slack': self._send_slack_resolved,
+            'teams': self._send_teams_resolved
+        }
+
+        handler = handlers.get(provider)
+        if handler:
+            await handler(config, namespace, pod_name)
+        else:
+            logger.warning(f"Unknown notification provider: {provider}")
+
+    async def _send_slack_resolved(self, config: Dict[str, Any], namespace: str, pod_name: str):
+        """Send Slack resolved notification via webhook"""
+        payload = {
+            "attachments": [{
+                "color": "good",
+                "title": f"Pod Resolved: {namespace}/{pod_name}",
+                "fields": [
+                    {"title": "Namespace", "value": namespace, "short": True},
+                    {"title": "Pod", "value": pod_name, "short": True},
+                    {"title": "Status", "value": "Resolved", "short": True}
+                ],
+                "footer": "Kure Monitor",
+                "ts": int(__import__('time').time())
+            }]
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                config['webhook_url'],
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status != 200:
+                    text = await response.text()
+                    raise Exception(f"Slack webhook returned {response.status}: {text}")
+
+    async def _send_teams_resolved(self, config: Dict[str, Any], namespace: str, pod_name: str):
+        """Send Microsoft Teams resolved notification via Power Automate Workflows webhook"""
+        payload = {
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "contentUrl": None,
+                    "content": {
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "body": [
+                            {
+                                "type": "TextBlock",
+                                "size": "Large",
+                                "weight": "Bolder",
+                                "color": "Good",
+                                "text": "Pod Resolved"
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": f"{namespace}/{pod_name}",
+                                "wrap": True,
+                                "weight": "Bolder"
+                            },
+                            {
+                                "type": "FactSet",
+                                "facts": [
+                                    {"title": "Namespace", "value": namespace},
+                                    {"title": "Pod", "value": pod_name},
+                                    {"title": "Status", "value": "Resolved"}
+                                ]
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": "Kure Monitor",
+                                "size": "Small",
+                                "color": "Accent",
+                                "spacing": "Medium"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                config['webhook_url'],
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
                 if response.status not in (200, 202):
                     text = await response.text()
                     raise Exception(f"Teams webhook returned {response.status}: {text}")

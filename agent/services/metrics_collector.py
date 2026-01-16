@@ -171,45 +171,33 @@ class MetricsCollector:
             # Get set of existing node names for validation
             existing_nodes = {node.metadata.name for node in nodes.items}
 
-            # Count pods per node and collect pod list
+            # Count pods per node and collect pod list (only scheduled pods)
             pods = self.v1.list_pod_for_all_namespaces()
             pods_per_node = {}
             pods_list = []
-            unassigned_pods = 0
             for pod in pods.items:
                 node_name = pod.spec.node_name
+                # Only count pods that are scheduled to an existing node
                 if node_name and node_name in existing_nodes:
-                    # Pod is assigned to an existing node
                     pods_per_node[node_name] = pods_per_node.get(node_name, 0) + 1
-                else:
-                    # Pod has no node or is assigned to a non-existent node
-                    unassigned_pods += 1
-                total_pods += 1
+                    total_pods += 1
 
-                # Get pod status
-                phase = pod.status.phase
-                ready = False
-                restarts = 0
-                if pod.status.container_statuses:
-                    ready = all(cs.ready for cs in pod.status.container_statuses)
-                    restarts = sum(cs.restart_count for cs in pod.status.container_statuses)
+                    # Get pod status
+                    phase = pod.status.phase
+                    ready = False
+                    restarts = 0
+                    if pod.status.container_statuses:
+                        ready = all(cs.ready for cs in pod.status.container_statuses)
+                        restarts = sum(cs.restart_count for cs in pod.status.container_statuses)
 
-                # Determine display node name
-                if not node_name:
-                    display_node = 'Pending'
-                elif node_name not in existing_nodes:
-                    display_node = f'{node_name} (Unknown)'
-                else:
-                    display_node = node_name
-
-                pods_list.append({
-                    'name': pod.metadata.name,
-                    'namespace': pod.metadata.namespace,
-                    'node': display_node,
-                    'status': phase,
-                    'ready': ready,
-                    'restarts': restarts
-                })
+                    pods_list.append({
+                        'name': pod.metadata.name,
+                        'namespace': pod.metadata.namespace,
+                        'node': node_name,
+                        'status': phase,
+                        'ready': ready,
+                        'restarts': restarts
+                    })
 
             # Process each node
             for node in nodes.items:
@@ -300,7 +288,6 @@ class MetricsCollector:
                 'total_storage_used': self._format_memory(total_storage_used) if total_storage_used else None,
                 'storage_usage_percent': storage_usage_percent,
                 'total_pods': total_pods,
-                'unassigned_pods': unassigned_pods,
                 'pods': pods_list,
                 'metrics_available': self.metrics_available,
                 'timestamp': datetime.utcnow().isoformat() + 'Z'
@@ -323,7 +310,6 @@ class MetricsCollector:
                 'total_storage_used': None,
                 'storage_usage_percent': None,
                 'total_pods': 0,
-                'unassigned_pods': 0,
                 'pods': [],
                 'metrics_available': False,
                 'timestamp': datetime.utcnow().isoformat() + 'Z'

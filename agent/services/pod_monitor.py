@@ -185,16 +185,21 @@ class PodMonitor:
         """Check for failed pods across all namespaces"""
         try:
             pods = self.v1.list_pod_for_all_namespaces()
-            
-            # Get list of currently existing pods
+
+            # Build map of current pods for recovery checking
             current_pods = set()
+            current_pods_map = {}
             for pod in pods.items:
                 pod_key = f"{pod.metadata.namespace}/{pod.metadata.name}"
                 current_pods.add(pod_key)
-                
+                current_pods_map[pod_key] = pod
+
                 if self._is_pod_failed(pod) and self._should_report_pod(pod):
                     await self._handle_failed_pod(pod)
-            
+
+            # Check for recovered pods (previously failed, now healthy)
+            await self._check_recovered_pods(current_pods_map)
+
             # Clean up pods that no longer exist
             await self._cleanup_deleted_pods(current_pods)
 
@@ -288,6 +293,28 @@ class PodMonitor:
             logger.error(f"Error handling failed pod {pod_key}: {e}")
             logger.error(f"Error details: {e.__class__.__name__}: {str(e)}")
 
+    async def _check_recovered_pods(self, current_pods_map: dict):
+        """Check if any previously failed pods have recovered (now healthy)"""
+        try:
+            recovered_pods = []
+            for pod_key in list(self.reported_pods.keys()):
+                if pod_key in current_pods_map:
+                    pod = current_pods_map[pod_key]
+                    # If pod is no longer failed, it has recovered
+                    if not self._is_pod_failed(pod):
+                        recovered_pods.append(pod_key)
+
+            for pod_key in recovered_pods:
+                del self.reported_pods[pod_key]
+                logger.info(f"Pod recovered and is now healthy: {pod_key}")
+
+                # Notify backend to dismiss the pod (triggers resolved notification)
+                namespace, pod_name = pod_key.split('/', 1)
+                await self.backend_client.dismiss_deleted_pod(namespace, pod_name)
+
+        except Exception as e:
+            logger.error(f"Error checking recovered pods: {e}")
+
     async def _cleanup_deleted_pods(self, current_pods: set):
         """Clean up pods that no longer exist in Kubernetes"""
         try:
@@ -296,14 +323,14 @@ class PodMonitor:
             for pod_key in list(self.reported_pods.keys()):
                 if pod_key not in current_pods:
                     deleted_pods.append(pod_key)
-            
+
             for pod_key in deleted_pods:
                 del self.reported_pods[pod_key]
                 logger.info(f"Cleaned up tracking for deleted pod: {pod_key}")
-                
+
                 # Notify backend to dismiss the pod
                 namespace, pod_name = pod_key.split('/', 1)
                 await self.backend_client.dismiss_deleted_pod(namespace, pod_name)
-                
+
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")

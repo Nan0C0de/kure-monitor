@@ -19,8 +19,7 @@ const NotificationSettings = ({ isDark = false }) => {
       icon: Hash,
       color: 'purple',
       fields: [
-        { key: 'webhook_url', label: 'Webhook URL', type: 'text', placeholder: 'https://hooks.slack.com/services/...' },
-        { key: 'channel', label: 'Channel (optional)', type: 'text', placeholder: '#alerts' }
+        { key: 'webhook_url', label: 'Webhook URL', type: 'text', placeholder: 'https://hooks.slack.com/services/...' }
       ]
     },
     {

@@ -122,7 +122,18 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
     async def dismiss_pod_failure(pod_id: int):
         """Mark a pod failure as resolved/dismissed"""
         try:
+            # Get pod details before dismissing for notification
+            pod_failure = await db.get_pod_failure_by_id(pod_id)
+
             await db.dismiss_pod_failure(pod_id)
+
+            # Send resolved notification if we have pod details and notification service
+            if pod_failure and notification_service:
+                await notification_service.send_pod_resolved_notification(
+                    namespace=pod_failure.namespace,
+                    pod_name=pod_failure.pod_name
+                )
+
             return {"message": "Pod failure dismissed"}
         except Exception as e:
             logger.error(f"Error dismissing pod failure: {e}")
@@ -195,15 +206,22 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
         try:
             namespace = request.get("namespace")
             pod_name = request.get("pod_name")
-            
+
             if not namespace or not pod_name:
                 raise HTTPException(status_code=400, detail="namespace and pod_name required")
-            
+
             await db.dismiss_deleted_pod(namespace, pod_name)
-            
+
             # Notify frontend via WebSocket that pod was removed
             await websocket_manager.broadcast_pod_deleted(namespace, pod_name)
-            
+
+            # Send resolved notification
+            if notification_service:
+                await notification_service.send_pod_resolved_notification(
+                    namespace=namespace,
+                    pod_name=pod_name
+                )
+
             logger.info(f"Dismissed deleted pod: {namespace}/{pod_name}")
             return {"message": "Deleted pod dismissed"}
         except Exception as e:

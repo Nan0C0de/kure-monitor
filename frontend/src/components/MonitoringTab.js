@@ -774,29 +774,6 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                   </tr>
                 );
               })}
-              {/* Show unassigned/pending pods if any */}
-              {metrics.unassigned_pods > 0 && (
-                <tr className={isDark ? 'bg-gray-900' : 'bg-gray-50'}>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Box className={`w-4 h-4 mr-2 ${isDark ? 'text-yellow-500' : 'text-yellow-600'}`} />
-                      <span className={`text-sm font-medium italic ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Unassigned (Pending)</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      Pending
-                    </span>
-                  </td>
-                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>-</td>
-                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>-</td>
-                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>-</td>
-                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                    {metrics.unassigned_pods}
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
