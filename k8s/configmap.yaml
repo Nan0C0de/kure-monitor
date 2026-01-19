@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kure-config
+  namespace: kure-system
+data:
+  KURE_CHECK_INTERVAL: "5"
+  KURE_LOG_LEVEL: "INFO"
+  POSTGRES_HOST: "postgresql"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "kure"
+  POSTGRES_USER: "kure_user"
+  # Note: DATABASE_URL with password will be constructed in the deployment using env substitution

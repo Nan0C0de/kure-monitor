@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kure-security-scanner
+  namespace: kure-system
+  labels:
+    app: kure-security-scanner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kure-security-scanner
+  template:
+    metadata:
+      labels:
+        app: kure-security-scanner
+    spec:
+      serviceAccountName: kure-security-scanner
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: security-scanner
+        image: SECURITY_SCANNER_IMAGE
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+        envFrom:
+        - configMapRef:
+            name: kure-config
+        env:
+        - name: BACKEND_URL
+          value: "http://kure-monitor-backend:8000"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

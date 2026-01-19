@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kure-agent
+  namespace: kure-system
+  labels:
+    app: kure-agent
+spec:
+  selector:
+    matchLabels:
+      app: kure-agent
+  template:
+    metadata:
+      labels:
+        app: kure-agent
+    spec:
+      serviceAccountName: kure-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      # Ensure the agent runs on all nodes, including control plane nodes if needed
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: agent
+        image: AGENT_IMAGE
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+        envFrom:
+        - configMapRef:
+            name: kure-config
+        env:
+        - name: BACKEND_URL
+          value: "http://kure-monitor-backend:8000"
+        - name: CLUSTER_METRICS_ENABLED
+          value: "true"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
