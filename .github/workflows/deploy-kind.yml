@@ -97,12 +97,15 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ steps.tag.outputs.TAG }}
           no-cache: true
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
       - name: Deploy agent
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ steps.tag.outputs.TAG }}"
           sed -i "s|AGENT_IMAGE|$IMAGE|g" k8s/agent.yaml
           kubectl apply -f k8s/agent.yaml
-          kubectl rollout status daemonset/kure-agent -n kure-system --timeout=120s
+          kubectl rollout status daemonset/kure-monitor-agent -n kure-system --timeout=120s
 
   build-and-deploy-backend:
     needs: detect-changes
@@ -132,6 +135,9 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:${{ steps.tag.outputs.TAG }}
           no-cache: true
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
 
       - name: Deploy backend
         run: |
@@ -169,12 +175,15 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.TAG }}
           no-cache: true
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
       - name: Deploy frontend
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.TAG }}"
           sed -i "s|FRONTEND_IMAGE|$IMAGE|g" k8s/frontend.yaml
           kubectl apply -f k8s/frontend.yaml
-          kubectl rollout status deployment/kure-frontend -n kure-system --timeout=120s
+          kubectl rollout status deployment/kure-monitor-frontend -n kure-system --timeout=120s
 
   build-and-deploy-security-scanner:
     needs: detect-changes
@@ -205,9 +214,12 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:${{ steps.tag.outputs.TAG }}
           no-cache: true
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
       - name: Deploy security-scanner
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:${{ steps.tag.outputs.TAG }}"
           sed -i "s|SECURITY_SCANNER_IMAGE|$IMAGE|g" k8s/security-scanner.yaml
           kubectl apply -f k8s/security-scanner.yaml
-          kubectl rollout status deployment/kure-security-scanner -n kure-system --timeout=120s
+          kubectl rollout status deployment/kure-monitor-security-scanner -n kure-system --timeout=120s

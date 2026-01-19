@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kure-agent
+  name: kure-monitor-agent
   namespace: kure-system
   labels:
     app: kure-agent

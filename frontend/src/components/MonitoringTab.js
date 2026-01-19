@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Server, Cpu, MemoryStick, HardDrive, Box, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Search, Loader2, FileText, RefreshCw, X, Play, Pause } from 'lucide-react';
+import { Server, Cpu, MemoryStick, HardDrive, Box, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Search, Loader2, FileText, RefreshCw, X, Play, Pause } from 'lucide-react';
 import { api } from '../services/api';
 
 const MonitoringTab = ({ metrics, isDark = false }) => {
-  const [showPodsList, setShowPodsList] = useState(false);
-  const [namespaceFilter, setNamespaceFilter] = useState('');
-  const [expandedPod, setExpandedPod] = useState(null); // { namespace, name }
+  const [expandedNode, setExpandedNode] = useState(null); // node name
+  const [nodePodsFilter, setNodePodsFilter] = useState('');
+  const [logsModalPod, setLogsModalPod] = useState(null); // { namespace, name } for modal
   const [podLogs, setPodLogs] = useState(null);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState(null);
@@ -53,31 +53,32 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     }
   }, [liveLogsBuffer, isLiveMode]);
 
-  // Stop live logs when pod expansion changes
+  // Stop live logs when modal closes
   useEffect(() => {
-    if (!expandedPod && eventSourceRef.current) {
+    if (!logsModalPod && eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
       setIsLiveMode(false);
       setLiveLogsBuffer([]);
     }
-  }, [expandedPod]);
+  }, [logsModalPod]);
 
-  // Get unique namespaces for filter suggestions
-  const namespaces = useMemo(() => {
+  // Get pods for a specific node
+  const getPodsForNode = useCallback((nodeName) => {
     if (!metrics?.pods) return [];
-    const ns = [...new Set(metrics.pods.map(p => p.namespace))];
-    return ns.sort();
+    return metrics.pods.filter(pod => pod.node === nodeName);
   }, [metrics?.pods]);
 
-  // Filter pods by namespace
-  const filteredPods = useMemo(() => {
-    if (!metrics?.pods) return [];
-    if (!namespaceFilter.trim()) return metrics.pods;
-    return metrics.pods.filter(pod =>
-      pod.namespace.toLowerCase().includes(namespaceFilter.toLowerCase())
+  // Filter pods by name for expanded node
+  const filteredNodePods = useMemo(() => {
+    if (!expandedNode) return [];
+    const nodePods = getPodsForNode(expandedNode);
+    if (!nodePodsFilter.trim()) return nodePods;
+    return nodePods.filter(pod =>
+      pod.name.toLowerCase().includes(nodePodsFilter.toLowerCase()) ||
+      pod.namespace.toLowerCase().includes(nodePodsFilter.toLowerCase())
     );
-  }, [metrics?.pods, namespaceFilter]);
+  }, [expandedNode, nodePodsFilter, getPodsForNode]);
 
   // Fetch pod logs - must be defined before the useEffect that uses it
   const fetchPodLogs = useCallback(async (namespace, podName, container = null) => {
@@ -100,44 +101,48 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     }
   }, [tailLines, selectedContainer]);
 
-  // Auto-refresh logs when tailLines changes (only if pod is expanded and not in live mode)
+  // Auto-refresh logs when tailLines changes (only if modal is open and not in live mode)
   const prevTailLinesRef = useRef(tailLines);
   useEffect(() => {
-    if (expandedPod && !isLiveMode && prevTailLinesRef.current !== tailLines) {
-      fetchPodLogs(expandedPod.namespace, expandedPod.name, selectedContainer);
+    if (logsModalPod && !isLiveMode && prevTailLinesRef.current !== tailLines) {
+      fetchPodLogs(logsModalPod.namespace, logsModalPod.name, selectedContainer);
     }
     prevTailLinesRef.current = tailLines;
-  }, [tailLines, expandedPod, isLiveMode, selectedContainer, fetchPodLogs]);
+  }, [tailLines, logsModalPod, isLiveMode, selectedContainer, fetchPodLogs]);
 
-  // Toggle pod expansion
-  const togglePodExpansion = useCallback((pod) => {
-    const podKey = `${pod.namespace}/${pod.name}`;
-    const expandedKey = expandedPod ? `${expandedPod.namespace}/${expandedPod.name}` : null;
+  // Open logs modal for a pod
+  const openLogsModal = useCallback((pod) => {
+    setLogsModalPod({ namespace: pod.namespace, name: pod.name });
+    setSelectedContainer(null);
+    setPodLogs(null);
+    setLogsError(null);
+    fetchPodLogs(pod.namespace, pod.name);
+  }, [fetchPodLogs]);
 
-    if (expandedKey === podKey) {
-      // Collapse
-      setExpandedPod(null);
-      setPodLogs(null);
-      setLogsError(null);
-      setSelectedContainer(null);
-    } else {
-      // Expand and fetch logs
-      setExpandedPod({ namespace: pod.namespace, name: pod.name });
-      setSelectedContainer(null);
-      fetchPodLogs(pod.namespace, pod.name);
+  // Close logs modal
+  const closeLogsModal = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
-  }, [expandedPod, fetchPodLogs]);
+    setLogsModalPod(null);
+    setPodLogs(null);
+    setLogsError(null);
+    setSelectedContainer(null);
+    setIsLiveMode(false);
+    setLiveLogsBuffer([]);
+  }, []);
 
   // Refresh logs
   const refreshLogs = useCallback(() => {
-    if (expandedPod) {
-      fetchPodLogs(expandedPod.namespace, expandedPod.name, selectedContainer);
+    if (logsModalPod) {
+      fetchPodLogs(logsModalPod.namespace, logsModalPod.name, selectedContainer);
     }
-  }, [expandedPod, selectedContainer, fetchPodLogs]);
+  }, [logsModalPod, selectedContainer, fetchPodLogs]);
 
   // Start live logs streaming
   const startLiveLogs = useCallback(() => {
-    if (!expandedPod) return;
+    if (!logsModalPod) return;
 
     // Stop any existing stream
     if (eventSourceRef.current) {
@@ -145,7 +150,7 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     }
 
     const container = selectedContainer || (podLogs?.containers?.[0]);
-    const streamUrl = api.getStreamingLogsUrl(expandedPod.namespace, expandedPod.name, {
+    const streamUrl = api.getStreamingLogsUrl(logsModalPod.namespace, logsModalPod.name, {
       container: container,
       tailLines: tailLines
     });
@@ -176,7 +181,7 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
       setIsLiveMode(false);
       setLogsError('Live log stream disconnected');
     };
-  }, [expandedPod, selectedContainer, podLogs, tailLines]);
+  }, [logsModalPod, selectedContainer, podLogs, tailLines]);
 
   // Stop live logs streaming
   const stopLiveLogs = useCallback(() => {
@@ -190,10 +195,21 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
   // Handle container change
   const handleContainerChange = useCallback((container) => {
     setSelectedContainer(container);
-    if (expandedPod) {
-      fetchPodLogs(expandedPod.namespace, expandedPod.name, container);
+    if (logsModalPod) {
+      fetchPodLogs(logsModalPod.namespace, logsModalPod.name, container);
     }
-  }, [expandedPod, fetchPodLogs]);
+  }, [logsModalPod, fetchPodLogs]);
+
+  // Toggle node expansion
+  const toggleNodeExpansion = useCallback((nodeName) => {
+    if (expandedNode === nodeName) {
+      setExpandedNode(null);
+      setNodePodsFilter('');
+    } else {
+      setExpandedNode(nodeName);
+      setNodePodsFilter('');
+    }
+  }, [expandedNode]);
 
   if (!metrics || !metrics.node_count) {
     return (
@@ -274,10 +290,6 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     if (status === 'Succeeded') return 'bg-blue-100 text-blue-800';
     if (status === 'Failed') return 'bg-red-100 text-red-800';
     return 'bg-gray-100 text-gray-800';
-  };
-
-  const isPodExpanded = (pod) => {
-    return expandedPod?.namespace === pod.namespace && expandedPod?.name === pod.name;
   };
 
   // Log viewer theme styles - use global isDark theme
@@ -412,11 +424,8 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
           </div>
         </div>
 
-        {/* Pods - Clickable */}
-        <button
-          onClick={() => setShowPodsList(!showPodsList)}
-          className={`rounded-lg border p-4 transition-colors text-left w-full ${isDark ? 'bg-gray-800 border-gray-700 hover:bg-gray-700' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-        >
+        {/* Pods - Static display */}
+        <div className={`rounded-lg border p-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className={`p-2 rounded-lg ${isDark ? 'bg-orange-900' : 'bg-orange-100'}`}>
@@ -427,273 +436,15 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                 <p className={`text-2xl font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{metrics.total_pods || 0}</p>
               </div>
             </div>
-            {showPodsList ? (
-              <ChevronUp className={`w-5 h-5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-            ) : (
-              <ChevronDown className={`w-5 h-5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-            )}
-          </div>
-          <p className="text-xs text-gray-400 mt-2">Click to {showPodsList ? 'hide' : 'view'} pod list</p>
-        </button>
-      </div>
-
-      {/* Pods List */}
-      {showPodsList && (
-        <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className={`px-4 py-3 border-b flex items-center justify-between ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
-            <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>All Pods ({filteredPods.length})</h3>
-            <div className="flex items-center space-x-2">
-              <div className="relative">
-                <Search className={`w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                <input
-                  type="text"
-                  placeholder="Filter by namespace..."
-                  value={namespaceFilter}
-                  onChange={(e) => setNamespaceFilter(e.target.value)}
-                  className={`pl-9 pr-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-48 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
-                  list="namespace-suggestions"
-                />
-                <datalist id="namespace-suggestions">
-                  {namespaces.map(ns => (
-                    <option key={ns} value={ns} />
-                  ))}
-                </datalist>
-              </div>
-              {namespaceFilter && (
-                <button
-                  onClick={() => setNamespaceFilter('')}
-                  className={`text-xs ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-            <table className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-              <thead className={`sticky top-0 z-10 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                <tr>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Pod
-                  </th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Namespace
-                  </th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Status
-                  </th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Node
-                  </th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Restarts
-                  </th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Logs
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${isDark ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
-                {filteredPods.map((pod, index) => (
-                  <React.Fragment key={`${pod.namespace}-${pod.name}-${index}`}>
-                    <tr
-                      className={`cursor-pointer ${isPodExpanded(pod) ? (isDark ? 'bg-blue-900/30' : 'bg-blue-50') : ''} ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
-                      onClick={() => togglePodExpansion(pod)}
-                    >
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Box className={`w-4 h-4 mr-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                          <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{pod.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <span className={`text-sm px-2 py-0.5 rounded ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-600 bg-gray-100'}`}>
-                          {pod.namespace}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getPodStatusColor(pod.status, pod.ready)}`}>
-                          {pod.ready && pod.status === 'Running' ? (
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                          ) : null}
-                          {pod.status}
-                        </span>
-                      </td>
-                      <td className={`px-4 py-2 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {pod.node}
-                      </td>
-                      <td className={`px-4 py-2 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                        <span className={pod.restarts > 0 ? 'text-orange-500 font-medium' : ''}>
-                          {pod.restarts}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className={`flex items-center text-sm ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                          <FileText className="w-4 h-4 mr-1" />
-                          {isPodExpanded(pod) ? (
-                            <ChevronUp className="w-4 h-4" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4" />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {/* Expanded Log View */}
-                    {isPodExpanded(pod) && (
-                      <tr>
-                        <td colSpan="6" className="px-0 py-0">
-                          <div className={`m-2 rounded-lg border ${logThemeStyles}`}>
-                            {/* Log Header */}
-                            <div className={`px-4 py-2 border-b flex items-center justify-between ${logHeaderStyles}`}>
-                              <div className="flex items-center space-x-4">
-                                <span className="text-sm font-medium">
-                                  <FileText className="w-4 h-4 inline mr-1" />
-                                  Logs: {pod.name}
-                                </span>
-                                {/* Container Selector */}
-                                {podLogs?.containers && podLogs.containers.length > 1 && (
-                                  <select
-                                    value={selectedContainer || ''}
-                                    onChange={(e) => handleContainerChange(e.target.value)}
-                                    disabled={isLiveMode}
-                                    className={`text-xs px-2 py-1 rounded border ${
-                                      isDark
-                                        ? 'bg-gray-700 border-gray-600 text-gray-200'
-                                        : 'bg-white border-gray-300 text-gray-700'
-                                    } ${isLiveMode ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  >
-                                    {podLogs.containers.map(c => (
-                                      <option key={c} value={c}>{c}</option>
-                                    ))}
-                                  </select>
-                                )}
-                                {/* Tail Lines Selector */}
-                                <select
-                                  value={tailLines}
-                                  onChange={(e) => {
-                                    setTailLines(Number(e.target.value));
-                                  }}
-                                  disabled={isLiveMode}
-                                  className={`text-xs px-2 py-1 rounded border ${
-                                    isDark
-                                      ? 'bg-gray-700 border-gray-600 text-gray-200'
-                                      : 'bg-white border-gray-300 text-gray-700'
-                                  } ${isLiveMode ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                  <option value={50}>50 lines</option>
-                                  <option value={100}>100 lines</option>
-                                  <option value={500}>500 lines</option>
-                                  <option value={1000}>1000 lines</option>
-                                </select>
-                                {/* Live mode indicator */}
-                                {isLiveMode && (
-                                  <span className="flex items-center text-xs text-green-500">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
-                                    Live
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {/* Live Logs Toggle Button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isLiveMode) {
-                                      stopLiveLogs();
-                                    } else {
-                                      startLiveLogs();
-                                    }
-                                  }}
-                                  className={`p-1 rounded flex items-center ${
-                                    isLiveMode
-                                      ? 'bg-red-500 text-white hover:bg-red-600'
-                                      : 'bg-green-500 text-white hover:bg-green-600'
-                                  }`}
-                                  title={isLiveMode ? 'Stop live logs' : 'Start live logs'}
-                                >
-                                  {isLiveMode ? (
-                                    <Pause className="w-4 h-4" />
-                                  ) : (
-                                    <Play className="w-4 h-4" />
-                                  )}
-                                </button>
-                                {/* Refresh Button - disabled in live mode */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    refreshLogs();
-                                  }}
-                                  disabled={isLiveMode}
-                                  className={`p-1 rounded hover:bg-opacity-20 hover:bg-gray-500 ${
-                                    logsLoading ? 'animate-spin' : ''
-                                  } ${isLiveMode ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  title="Refresh logs"
-                                >
-                                  <RefreshCw className="w-4 h-4" />
-                                </button>
-                                {/* Close Button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    stopLiveLogs();
-                                    togglePodExpansion(pod);
-                                  }}
-                                  className="p-1 rounded hover:bg-opacity-20 hover:bg-gray-500"
-                                  title="Close"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                            {/* Log Content */}
-                            <div ref={logsContainerRef} className="p-4 max-h-80 overflow-auto">
-                              {logsLoading && !isLiveMode ? (
-                                <div className="flex items-center justify-center py-8">
-                                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                                  <span>Loading logs...</span>
-                                </div>
-                              ) : logsError ? (
-                                <div className="text-red-500 py-4 text-center">
-                                  <AlertTriangle className="w-6 h-6 mx-auto mb-2" />
-                                  <p>{logsError}</p>
-                                </div>
-                              ) : isLiveMode ? (
-                                <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                                  {liveLogsBuffer.length > 0
-                                    ? [...liveLogsBuffer].reverse().join('\n')
-                                    : '[Waiting for logs...]'}
-                                </pre>
-                              ) : podLogs?.logs ? (
-                                <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                                  {podLogs.logs.split('\n').reverse().join('\n') || '[No logs available]'}
-                                </pre>
-                              ) : (
-                                <p className="text-center py-4 text-gray-500">No logs available</p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-                {filteredPods.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className={`px-4 py-8 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {namespaceFilter ? `No pods found in namespace matching "${namespaceFilter}"` : 'No pods found'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Node Details Table */}
+      {/* Node Details Table - Expandable */}
       <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
           <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Node Details</h3>
+          <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Click on a node to view running pods</p>
         </div>
         <div className="overflow-x-auto">
           <table className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
@@ -722,61 +473,306 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
             <tbody className={`divide-y ${isDark ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
               {metrics.nodes && metrics.nodes.map((node, index) => {
                 const status = getNodeStatus(node);
+                const isExpanded = expandedNode === node.name;
                 return (
-                  <tr key={index} className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Server className={`w-4 h-4 mr-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                        <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{node.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        status === 'Ready'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {status === 'Ready' ? (
-                          <CheckCircle className="w-3 h-3 mr-1" />
+                  <React.Fragment key={index}>
+                    <tr
+                      className={`cursor-pointer ${isExpanded ? (isDark ? 'bg-blue-900/30' : 'bg-blue-50') : ''} ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
+                      onClick={() => toggleNodeExpansion(node.name)}
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {isExpanded ? (
+                            <ChevronDown className={`w-4 h-4 mr-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                          ) : (
+                            <ChevronRight className={`w-4 h-4 mr-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                          )}
+                          <Server className={`w-4 h-4 mr-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                          <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{node.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          status === 'Ready'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {status === 'Ready' ? (
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                          ) : (
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                          )}
+                          {status}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {node.cpu_usage ? (
+                          <span>{node.cpu_usage} / {node.cpu_allocatable}</span>
                         ) : (
-                          <AlertTriangle className="w-3 h-3 mr-1" />
+                          <span>{node.cpu_allocatable}</span>
                         )}
-                        {status}
-                      </span>
-                    </td>
-                    <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {node.cpu_usage ? (
-                        <span>{node.cpu_usage} / {node.cpu_allocatable}</span>
-                      ) : (
-                        <span>{node.cpu_allocatable}</span>
-                      )}
-                    </td>
-                    <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {node.memory_usage ? (
-                        <span>{node.memory_usage} / {node.memory_allocatable}</span>
-                      ) : (
-                        <span>{node.memory_allocatable}</span>
-                      )}
-                    </td>
-                    <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {node.storage_used ? (
-                        <span>{node.storage_used} / {node.storage_capacity}</span>
-                      ) : node.storage_capacity ? (
-                        <span>{node.storage_capacity}</span>
-                      ) : (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {node.pods_count || 0}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {node.memory_usage ? (
+                          <span>{node.memory_usage} / {node.memory_allocatable}</span>
+                        ) : (
+                          <span>{node.memory_allocatable}</span>
+                        )}
+                      </td>
+                      <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {node.storage_used ? (
+                          <span>{node.storage_used} / {node.storage_capacity}</span>
+                        ) : node.storage_capacity ? (
+                          <span>{node.storage_capacity}</span>
+                        ) : (
+                          <span className="text-gray-400">N/A</span>
+                        )}
+                      </td>
+                      <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {node.pods_count || 0}
+                      </td>
+                    </tr>
+                    {/* Expanded Pods List */}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan="6" className="px-0 py-0">
+                          <div className={`m-2 rounded-lg border ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                            {/* Pods Header with Filter */}
+                            <div className={`px-4 py-2 border-b flex items-center justify-between ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                              <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                Pods on {node.name} ({filteredNodePods.length})
+                              </span>
+                              <div className="flex items-center space-x-2">
+                                <div className="relative">
+                                  <Search className={`w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                                  <input
+                                    type="text"
+                                    placeholder="Filter pods..."
+                                    value={nodePodsFilter}
+                                    onChange={(e) => setNodePodsFilter(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`pl-9 pr-3 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-48 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                                  />
+                                </div>
+                                {nodePodsFilter && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setNodePodsFilter('');
+                                    }}
+                                    className={`text-xs ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            {/* Pods Table */}
+                            <div className="max-h-64 overflow-y-auto">
+                              <table className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                                <thead className={`sticky top-0 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                  <tr>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Pod</th>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Namespace</th>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Status</th>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Restarts</th>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Logs</th>
+                                  </tr>
+                                </thead>
+                                <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                                  {filteredNodePods.map((pod, podIndex) => (
+                                    <tr key={`${pod.namespace}-${pod.name}-${podIndex}`} className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}>
+                                      <td className="px-4 py-2 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                          <Box className={`w-4 h-4 mr-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                                          <span className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{pod.name}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-2 whitespace-nowrap">
+                                        <span className={`text-xs px-2 py-0.5 rounded ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-600 bg-gray-200'}`}>
+                                          {pod.namespace}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 whitespace-nowrap">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getPodStatusColor(pod.status, pod.ready)}`}>
+                                          {pod.ready && pod.status === 'Running' ? (
+                                            <CheckCircle className="w-3 h-3 mr-1" />
+                                          ) : null}
+                                          {pod.status}
+                                        </span>
+                                      </td>
+                                      <td className={`px-4 py-2 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        <span className={pod.restarts > 0 ? 'text-orange-500 font-medium' : ''}>
+                                          {pod.restarts}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 whitespace-nowrap">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openLogsModal(pod);
+                                          }}
+                                          className={`flex items-center text-sm px-2 py-1 rounded ${isDark ? 'text-blue-400 hover:bg-gray-700' : 'text-blue-600 hover:bg-gray-200'}`}
+                                        >
+                                          <FileText className="w-4 h-4 mr-1" />
+                                          View Logs
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  {filteredNodePods.length === 0 && (
+                                    <tr>
+                                      <td colSpan="5" className={`px-4 py-4 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        {nodePodsFilter ? 'No pods match filter' : 'No pods on this node'}
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Logs Modal */}
+      {logsModalPod && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={closeLogsModal}
+          />
+          {/* Modal */}
+          <div className={`relative w-full max-w-4xl max-h-[80vh] mx-4 rounded-lg shadow-xl overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            {/* Modal Header */}
+            <div className={`px-4 py-3 border-b flex items-center justify-between ${logHeaderStyles}`}>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm font-medium">
+                  <FileText className="w-4 h-4 inline mr-1" />
+                  Logs: {logsModalPod.namespace}/{logsModalPod.name}
+                </span>
+                {/* Container Selector */}
+                {podLogs?.containers && podLogs.containers.length > 1 && (
+                  <select
+                    value={selectedContainer || ''}
+                    onChange={(e) => handleContainerChange(e.target.value)}
+                    disabled={isLiveMode}
+                    className={`text-xs px-2 py-1 rounded border ${
+                      isDark
+                        ? 'bg-gray-700 border-gray-600 text-gray-200'
+                        : 'bg-white border-gray-300 text-gray-700'
+                    } ${isLiveMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {podLogs.containers.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                )}
+                {/* Tail Lines Selector */}
+                <select
+                  value={tailLines}
+                  onChange={(e) => setTailLines(Number(e.target.value))}
+                  disabled={isLiveMode}
+                  className={`text-xs px-2 py-1 rounded border ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-gray-200'
+                      : 'bg-white border-gray-300 text-gray-700'
+                  } ${isLiveMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <option value={50}>50 lines</option>
+                  <option value={100}>100 lines</option>
+                  <option value={500}>500 lines</option>
+                  <option value={1000}>1000 lines</option>
+                </select>
+                {/* Live mode indicator */}
+                {isLiveMode && (
+                  <span className="flex items-center text-xs text-green-500">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+                    Live
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                {/* Live Logs Toggle Button */}
+                <button
+                  onClick={() => {
+                    if (isLiveMode) {
+                      stopLiveLogs();
+                    } else {
+                      startLiveLogs();
+                    }
+                  }}
+                  className={`p-1.5 rounded flex items-center ${
+                    isLiveMode
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                  title={isLiveMode ? 'Stop live logs' : 'Start live logs'}
+                >
+                  {isLiveMode ? (
+                    <Pause className="w-4 h-4" />
+                  ) : (
+                    <Play className="w-4 h-4" />
+                  )}
+                </button>
+                {/* Refresh Button */}
+                <button
+                  onClick={refreshLogs}
+                  disabled={isLiveMode}
+                  className={`p-1.5 rounded ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-200'} ${
+                    logsLoading ? 'animate-spin' : ''
+                  } ${isLiveMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="Refresh logs"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+                {/* Close Button */}
+                <button
+                  onClick={closeLogsModal}
+                  className={`p-1.5 rounded ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            {/* Modal Content - Log Viewer */}
+            <div ref={logsContainerRef} className={`p-4 overflow-auto ${logThemeStyles}`} style={{ maxHeight: 'calc(80vh - 60px)' }}>
+              {logsLoading && !isLiveMode ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                  <span>Loading logs...</span>
+                </div>
+              ) : logsError ? (
+                <div className="text-red-500 py-4 text-center">
+                  <AlertTriangle className="w-6 h-6 mx-auto mb-2" />
+                  <p>{logsError}</p>
+                </div>
+              ) : isLiveMode ? (
+                <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                  {liveLogsBuffer.length > 0
+                    ? [...liveLogsBuffer].reverse().join('\n')
+                    : '[Waiting for logs...]'}
+                </pre>
+              ) : podLogs?.logs ? (
+                <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                  {podLogs.logs.split('\n').reverse().join('\n') || '[No logs available]'}
+                </pre>
+              ) : (
+                <p className="text-center py-4 text-gray-500">No logs available</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Last Updated */}
       {metrics.timestamp && (

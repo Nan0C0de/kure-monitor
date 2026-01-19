@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kure-security-scanner
+  name: kure-monitor-security-scanner
   namespace: kure-system
   labels:
     app: kure-security-scanner

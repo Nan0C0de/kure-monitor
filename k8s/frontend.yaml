@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kure-frontend
+  name: kure-monitor-frontend
   namespace: kure-system
   labels:
     app: kure-frontend
