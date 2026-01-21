@@ -16,6 +16,15 @@ maintainers:
   - name: Nan0C0de
     email: nano.code@outlook.com
 annotations:
+  artifacthub.io/changes: |
+    - kind: added
+      description: Pod metrics viewing with CPU and memory usage display
+    - kind: added
+      description: Pod metrics history charts showing recent trends (last 15 data points)
+    - kind: added
+      description: Node details modal with resource progress bars and conditions table
+    - kind: added
+      description: Clickable node rows in monitoring dashboard for detailed view
   artifacthub.io/category: monitoring-logging
   artifacthub.io/displayName: Kure - Kubernetes Health Monitor
   artifacthub.io/license: MIT
