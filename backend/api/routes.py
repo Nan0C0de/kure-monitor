@@ -18,11 +18,12 @@ from models.models import (
     ExcludedNamespace, ExcludedNamespaceResponse,
     ExcludedPod, ExcludedPodResponse,
     NotificationSettingCreate, NotificationSettingResponse,
-    ClusterMetrics
+    ClusterMetrics, PodMetricsHistory, PodMetricsPoint
 )
 from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
+from services.metrics_history import metrics_history_store, format_cpu, format_memory
 
 logger = logging.getLogger(__name__)
 
@@ -554,6 +555,9 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             latest_cluster_metrics = metrics.dict()
             logger.debug(f"Received cluster metrics: {metrics.node_count} nodes")
 
+            # Update pod metrics history store
+            metrics_history_store.update_from_cluster_metrics(latest_cluster_metrics)
+
             # Broadcast metrics to connected clients via WebSocket
             await websocket_manager.broadcast_cluster_metrics(metrics)
 
@@ -569,6 +573,42 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             return latest_cluster_metrics
         else:
             return {"message": "No metrics available yet", "metrics_available": False}
+
+    @router.get("/metrics/pods/{namespace}/{pod_name}/history", response_model=PodMetricsHistory)
+    async def get_pod_metrics_history(namespace: str, pod_name: str):
+        """Get metrics history for a specific pod"""
+        history = metrics_history_store.get_pod_history(namespace, pod_name)
+
+        if not history:
+            return PodMetricsHistory(
+                name=pod_name,
+                namespace=namespace,
+                current_cpu=None,
+                current_memory=None,
+                history=[]
+            )
+
+        # Format history points
+        formatted_history = []
+        for point in history:
+            formatted_history.append(PodMetricsPoint(
+                timestamp=point['timestamp'],
+                cpu_millicores=point['cpu_millicores'],
+                memory_bytes=point['memory_bytes'],
+                cpu_formatted=format_cpu(point['cpu_millicores']),
+                memory_formatted=format_memory(point['memory_bytes'])
+            ))
+
+        # Get current values from latest point
+        latest = history[-1] if history else {}
+
+        return PodMetricsHistory(
+            name=pod_name,
+            namespace=namespace,
+            current_cpu=format_cpu(latest.get('cpu_millicores')),
+            current_memory=format_memory(latest.get('memory_bytes')),
+            history=formatted_history
+        )
 
     # Pod logs endpoint
     @router.get("/pods/{namespace}/{pod_name}/logs")

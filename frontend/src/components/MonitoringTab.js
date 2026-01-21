@@ -1,11 +1,15 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Server, Cpu, MemoryStick, HardDrive, Box, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Search, Loader2, FileText, RefreshCw, X, Play, Pause } from 'lucide-react';
+import { Server, Cpu, MemoryStick, HardDrive, Box, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Search, Loader2, FileText, RefreshCw, X, Play, Pause, Activity, Info } from 'lucide-react';
 import { api } from '../services/api';
+import PodMetricsModal from './PodMetricsModal';
+import NodeDetailsModal from './NodeDetailsModal';
 
 const MonitoringTab = ({ metrics, isDark = false }) => {
   const [expandedNode, setExpandedNode] = useState(null); // node name
   const [nodePodsFilter, setNodePodsFilter] = useState('');
   const [logsModalPod, setLogsModalPod] = useState(null); // { namespace, name } for modal
+  const [metricsModalPod, setMetricsModalPod] = useState(null); // pod object for metrics modal
+  const [nodeDetailsModalNode, setNodeDetailsModalNode] = useState(null); // node object for details modal
   const [podLogs, setPodLogs] = useState(null);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState(null);
@@ -131,6 +135,26 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     setSelectedContainer(null);
     setIsLiveMode(false);
     setLiveLogsBuffer([]);
+  }, []);
+
+  // Open metrics modal for a pod
+  const openMetricsModal = useCallback((pod) => {
+    setMetricsModalPod(pod);
+  }, []);
+
+  // Close metrics modal
+  const closeMetricsModal = useCallback(() => {
+    setMetricsModalPod(null);
+  }, []);
+
+  // Open node details modal
+  const openNodeDetailsModal = useCallback((node) => {
+    setNodeDetailsModalNode(node);
+  }, []);
+
+  // Close node details modal
+  const closeNodeDetailsModal = useCallback(() => {
+    setNodeDetailsModalNode(null);
   }, []);
 
   // Refresh logs
@@ -468,6 +492,9 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                 <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                   Pods
                 </th>
+                <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className={`divide-y ${isDark ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
@@ -531,11 +558,24 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                       <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                         {node.pods_count || 0}
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openNodeDetailsModal(node);
+                          }}
+                          className={`flex items-center text-sm px-2 py-1 rounded ${isDark ? 'text-blue-400 hover:bg-gray-700' : 'text-blue-600 hover:bg-gray-200'}`}
+                          title="View Node Details"
+                        >
+                          <Info className="w-4 h-4 mr-1" />
+                          Details
+                        </button>
+                      </td>
                     </tr>
                     {/* Expanded Pods List */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan="6" className="px-0 py-0">
+                        <td colSpan="7" className="px-0 py-0">
                           <div className={`m-2 rounded-lg border ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                             {/* Pods Header with Filter */}
                             <div className={`px-4 py-2 border-b flex items-center justify-between ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
@@ -575,8 +615,10 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                                     <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Pod</th>
                                     <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Namespace</th>
                                     <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Status</th>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>CPU</th>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Memory</th>
                                     <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Restarts</th>
-                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Logs</th>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Actions</th>
                                   </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
@@ -602,27 +644,47 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                                         </span>
                                       </td>
                                       <td className={`px-4 py-2 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        {pod.cpu_usage_formatted || '-'}
+                                      </td>
+                                      <td className={`px-4 py-2 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        {pod.memory_usage_formatted || '-'}
+                                      </td>
+                                      <td className={`px-4 py-2 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                                         <span className={pod.restarts > 0 ? 'text-orange-500 font-medium' : ''}>
                                           {pod.restarts}
                                         </span>
                                       </td>
                                       <td className="px-4 py-2 whitespace-nowrap">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openLogsModal(pod);
-                                          }}
-                                          className={`flex items-center text-sm px-2 py-1 rounded ${isDark ? 'text-blue-400 hover:bg-gray-700' : 'text-blue-600 hover:bg-gray-200'}`}
-                                        >
-                                          <FileText className="w-4 h-4 mr-1" />
-                                          View Logs
-                                        </button>
+                                        <div className="flex items-center space-x-2">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openMetricsModal(pod);
+                                            }}
+                                            className={`flex items-center text-sm px-2 py-1 rounded ${isDark ? 'text-purple-400 hover:bg-gray-700' : 'text-purple-600 hover:bg-gray-200'}`}
+                                            title="View Metrics"
+                                          >
+                                            <Activity className="w-4 h-4 mr-1" />
+                                            Metrics
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openLogsModal(pod);
+                                            }}
+                                            className={`flex items-center text-sm px-2 py-1 rounded ${isDark ? 'text-blue-400 hover:bg-gray-700' : 'text-blue-600 hover:bg-gray-200'}`}
+                                            title="View Logs"
+                                          >
+                                            <FileText className="w-4 h-4 mr-1" />
+                                            Logs
+                                          </button>
+                                        </div>
                                       </td>
                                     </tr>
                                   ))}
                                   {filteredNodePods.length === 0 && (
                                     <tr>
-                                      <td colSpan="5" className={`px-4 py-4 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                      <td colSpan="7" className={`px-4 py-4 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                                         {nodePodsFilter ? 'No pods match filter' : 'No pods on this node'}
                                       </td>
                                     </tr>
@@ -780,6 +842,22 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
           Last updated: {new Date(metrics.timestamp).toLocaleString()}
         </div>
       )}
+
+      {/* Pod Metrics Modal */}
+      <PodMetricsModal
+        isOpen={!!metricsModalPod}
+        onClose={closeMetricsModal}
+        pod={metricsModalPod}
+        isDark={isDark}
+      />
+
+      {/* Node Details Modal */}
+      <NodeDetailsModal
+        isOpen={!!nodeDetailsModalNode}
+        onClose={closeNodeDetailsModal}
+        node={nodeDetailsModalNode}
+        isDark={isDark}
+      />
     </div>
   );
 };

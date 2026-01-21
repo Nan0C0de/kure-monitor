@@ -128,6 +128,28 @@ class PodInfo(BaseModel):
     status: str
     ready: bool
     restarts: int
+    cpu_usage: Optional[int] = None  # millicores (raw value)
+    cpu_usage_formatted: Optional[str] = None  # e.g., "150m" or "1.5 cores"
+    memory_usage: Optional[int] = None  # bytes (raw value)
+    memory_usage_formatted: Optional[str] = None  # e.g., "256Mi"
+
+
+class PodMetricsPoint(BaseModel):
+    """Single point in pod metrics history"""
+    timestamp: str
+    cpu_millicores: Optional[int] = None
+    memory_bytes: Optional[int] = None
+    cpu_formatted: Optional[str] = None
+    memory_formatted: Optional[str] = None
+
+
+class PodMetricsHistory(BaseModel):
+    """Pod metrics history response"""
+    name: str
+    namespace: str
+    current_cpu: Optional[str] = None
+    current_memory: Optional[str] = None
+    history: List[PodMetricsPoint] = []
 
 
 class ClusterMetrics(BaseModel):

@@ -167,6 +167,14 @@ export const api = {
     return response.json();
   },
 
+  // Pod Metrics History API
+  getPodMetricsHistory: async (namespace, podName) => {
+    const url = `${API_BASE}/api/metrics/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/history`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // Pod Logs API
   getPodLogs: async (namespace, podName, options = {}) => {
     const params = new URLSearchParams();

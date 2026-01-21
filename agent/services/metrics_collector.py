@@ -96,6 +96,43 @@ class MetricsCollector:
             self.metrics_available = False
             return False
 
+    def _collect_pod_metrics(self) -> Dict[str, Dict[str, Any]]:
+        """Collect pod-level metrics from metrics.k8s.io/v1beta1/pods"""
+        pod_metrics_map = {}
+
+        if not self.metrics_available:
+            return pod_metrics_map
+
+        try:
+            metrics_response = self.custom_api.list_cluster_custom_object(
+                group="metrics.k8s.io",
+                version="v1beta1",
+                plural="pods"
+            )
+
+            for item in metrics_response.get('items', []):
+                namespace = item['metadata']['namespace']
+                pod_name = item['metadata']['name']
+                containers = item.get('containers', [])
+
+                # Sum CPU/memory across all containers
+                total_cpu = 0
+                total_memory = 0
+                for container in containers:
+                    usage = container.get('usage', {})
+                    total_cpu += self._parse_resource(usage.get('cpu', '0'))
+                    total_memory += self._parse_resource(usage.get('memory', '0'))
+
+                key = f"{namespace}/{pod_name}"
+                pod_metrics_map[key] = {
+                    'cpu_millicores': total_cpu,
+                    'memory_bytes': total_memory
+                }
+        except Exception as e:
+            logger.warning(f"Failed to get pod metrics: {e}")
+
+        return pod_metrics_map
+
     def _get_node_storage_stats(self, node_name: str) -> Optional[Dict[str, int]]:
         """Get storage stats from kubelet stats/summary endpoint"""
         try:
@@ -171,6 +208,9 @@ class MetricsCollector:
             # Get set of existing node names for validation
             existing_nodes = {node.metadata.name for node in nodes.items}
 
+            # Collect pod-level metrics if available
+            pod_metrics_map = self._collect_pod_metrics()
+
             # Count pods per node and collect pod list (only scheduled pods)
             pods = self.v1.list_pod_for_all_namespaces()
             pods_per_node = {}
@@ -190,13 +230,23 @@ class MetricsCollector:
                         ready = all(cs.ready for cs in pod.status.container_statuses)
                         restarts = sum(cs.restart_count for cs in pod.status.container_statuses)
 
+                    # Get pod metrics if available
+                    pod_key = f"{pod.metadata.namespace}/{pod.metadata.name}"
+                    pod_metrics = pod_metrics_map.get(pod_key, {})
+                    cpu_usage = pod_metrics.get('cpu_millicores')
+                    memory_usage = pod_metrics.get('memory_bytes')
+
                     pods_list.append({
                         'name': pod.metadata.name,
                         'namespace': pod.metadata.namespace,
                         'node': node_name,
                         'status': phase,
                         'ready': ready,
-                        'restarts': restarts
+                        'restarts': restarts,
+                        'cpu_usage': cpu_usage,
+                        'cpu_usage_formatted': self._format_cpu(cpu_usage) if cpu_usage else None,
+                        'memory_usage': memory_usage,
+                        'memory_usage_formatted': self._format_memory(memory_usage) if memory_usage else None
                     })
 
             # Process each node
