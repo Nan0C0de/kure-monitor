@@ -21,14 +21,13 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 - **Multi-Provider LLM Support** - OpenAI, Anthropic, and Groq integration
 - **PostgreSQL Backend** - Robust data persistence with full-text search
 
-## What's New in v1.3.0
+## What's New in v1.4.0
 
-- **Cluster Metrics Tab** - Real-time cluster overview with CPU, memory, and storage usage
-- **Live Pod Logs** - Stream pod logs in real-time with play/pause controls
-- **Notification Service** - Slack webhook support for pod failure alerts
-- **Pod Exclusions** - Exclude specific pods from monitoring by name
-- **Progress Bar Loading** - Visual progress indicator for metrics loading
-- **Improved Test Coverage** - Comprehensive test suite for all components
+- **Pod Metrics Viewing** - View CPU and memory usage per pod with historical charts
+- **Node Details Modal** - Detailed node view with progress bars and conditions
+- **Enhanced Monitoring Tab** - CPU/Memory columns in pod table with Metrics button
+- **Metrics History** - Backend stores last 15 data points for trend analysis
+- **Recharts Integration** - Beautiful line charts for metrics visualization
 
 ## Architecture
 
