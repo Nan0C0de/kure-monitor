@@ -5,6 +5,9 @@ global:
   imageRegistry: ""
   imagePullSecrets: []
 
+# Namespace configuration
+createNamespace: false  # Set to true to create namespace with PSA labels
+
 # Pod monitoring agent configuration
 agent:
   enabled: true  # Set to false to disable pod monitoring
@@ -37,6 +40,7 @@ agent:
   serviceAccount:
     create: true
     name: kure-agent
+    automountServiceAccountToken: true  # Required for Kubernetes API access
 
 # Security scanner agent configuration
 securityScanner:
@@ -66,6 +70,7 @@ securityScanner:
   serviceAccount:
     create: true
     name: kure-security-scanner
+    automountServiceAccountToken: true  # Required for Kubernetes API access
 
 # Backend configuration
 backend:
@@ -111,22 +116,23 @@ backend:
   serviceAccount:
     create: true
     name: kure-backend
+    automountServiceAccountToken: true  # Required for pod logs API access
 
 # Frontend configuration
 frontend:
   replicaCount: 1
-  
+
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/frontend
     tag: "1.3.0"
     pullPolicy: IfNotPresent
-  
+
   service:
     type: NodePort
     port: 8080
     targetPort: 8080
     nodePort: 30080
-  
+
   resources:
     requests:
       cpu: 100m
@@ -134,14 +140,20 @@ frontend:
     limits:
       cpu: 500m
       memory: 512Mi
-  
+
   # Environment variables for React app
   env:
     REACT_APP_API_URL: ""  # Will be set automatically to backend service
-  
+
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+  # Service account settings - frontend doesn't need API access
+  serviceAccount:
+    create: true
+    name: kure-frontend
+    automountServiceAccountToken: false
 
 # Ingress configuration
 ingress:
@@ -180,20 +192,20 @@ securityContext:
 # PostgreSQL configuration
 postgresql:
   external: false  # Set to true to use external PostgreSQL
-  
+
   # PostgreSQL connection details (for external or internal)
   host: ""  # Only required if external: true
   port: 5432
   database: kure
   username: kure
   password: "kure-password-change-me"  # Change this in production!
-  
+
   # Internal PostgreSQL deployment settings (ignored if external: true)
   image:
     repository: postgres
     tag: "17.6-alpine3.21"
     pullPolicy: IfNotPresent
-  
+
   resources:
     requests:
       cpu: 250m
@@ -201,12 +213,18 @@ postgresql:
     limits:
       cpu: 1000m
       memory: 1Gi
-  
+
   persistence:
     enabled: true
     size: 10Gi
     storageClass: ""
     accessMode: ReadWriteOnce
+
+  # Service account settings - postgresql doesn't need API access
+  serviceAccount:
+    create: true
+    name: kure-postgresql
+    automountServiceAccountToken: false
 
 podSecurityContext:
   runAsNonRoot: true

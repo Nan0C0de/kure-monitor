@@ -20,6 +20,10 @@ spec:
         {{- include "kure.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: postgresql
     spec:
+      {{- if .Values.postgresql.serviceAccount.create }}
+      serviceAccountName: {{ .Values.postgresql.serviceAccount.name }}
+      automountServiceAccountToken: {{ .Values.postgresql.serviceAccount.automountServiceAccountToken }}
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

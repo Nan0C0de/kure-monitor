@@ -17,6 +17,10 @@ spec:
         {{- include "kure.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
     spec:
+      {{- if .Values.frontend.serviceAccount.create }}
+      serviceAccountName: {{ .Values.frontend.serviceAccount.name }}
+      automountServiceAccountToken: {{ .Values.frontend.serviceAccount.automountServiceAccountToken }}
+      {{- end }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

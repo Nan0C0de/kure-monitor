@@ -1,3 +1,12 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kure-frontend
+  namespace: kure-system
+  labels:
+    app: kure-frontend
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,26 +24,41 @@ spec:
       labels:
         app: kure-frontend
     spec:
+      serviceAccountName: kure-frontend
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
         runAsGroup: 1001
         fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: frontend
         image: FRONTEND_IMAGE
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 1001
           runAsGroup: 1001
           capabilities:
             drop:
             - ALL
+          seccompProfile:
+            type: RuntimeDefault
         resources:
           requests:
             memory: "64Mi"
@@ -42,6 +66,15 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "100m"
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -63,7 +96,14 @@ metadata:
   namespace: kure-system
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    # Uncomment below for cert-manager TLS
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
+  # Uncomment and configure TLS for production
+  # tls:
+  # - hosts:
+  #   - kure.local
+  #   secretName: kure-tls-secret
   rules:
   - host: kure.local
     http:

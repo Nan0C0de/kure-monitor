@@ -18,6 +18,15 @@ data:
   POSTGRES_DB: "kure"
   POSTGRES_USER: "kure_user"
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kure-postgresql
+  namespace: kure-system
+  labels:
+    app: postgresql
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,6 +36,8 @@ metadata:
     app: postgresql
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: postgresql
@@ -35,9 +46,19 @@ spec:
       labels:
         app: postgresql
     spec:
+      serviceAccountName: kure-postgresql
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: postgresql
-        image: postgres:15
+        image: postgres:17-alpine
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5432
         envFrom:
@@ -54,6 +75,23 @@ spec:
         volumeMounts:
         - name: postgresql-storage
           mountPath: /var/lib/postgresql/data
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
+        - name: postgres-run
+          mountPath: /var/run/postgresql
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
         resources:
           requests:
             memory: "256Mi"
@@ -87,6 +125,12 @@ spec:
       - name: postgresql-storage
         persistentVolumeClaim:
           claimName: postgresql-pvc
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
+      - name: postgres-run
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

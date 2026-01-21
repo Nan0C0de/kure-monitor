@@ -112,6 +112,30 @@ subjects:
   namespace: {{ .Release.Namespace }}
 {{- end }}
 ---
+{{- if .Values.frontend.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.frontend.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+automountServiceAccountToken: {{ .Values.frontend.serviceAccount.automountServiceAccountToken }}
+{{- end }}
+---
+{{- if and .Values.postgresql.serviceAccount.create (not .Values.postgresql.external) }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.postgresql.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kure.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+automountServiceAccountToken: {{ .Values.postgresql.serviceAccount.automountServiceAccountToken }}
+{{- end }}
+---
 {{- if .Values.backend.rbac.create }}
 apiVersion: v1
 kind: ServiceAccount
