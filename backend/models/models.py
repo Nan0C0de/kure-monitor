@@ -170,3 +170,32 @@ class ClusterMetrics(BaseModel):
     pods: List[PodInfo] = []
     metrics_available: bool = False
     timestamp: str
+
+
+# LLM Configuration models
+class LLMProvider(str, Enum):
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GROQ = "groq"
+
+
+class LLMConfigCreate(BaseModel):
+    provider: str
+    api_key: str
+    model: Optional[str] = None
+
+
+class LLMConfigResponse(BaseModel):
+    id: Optional[int] = None
+    provider: str
+    model: Optional[str] = None
+    configured: bool = True
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class LLMConfigStatus(BaseModel):
+    configured: bool = False
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    source: Optional[str] = None  # "database" or "environment"

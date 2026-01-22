@@ -18,7 +18,8 @@ from models.models import (
     ExcludedNamespace, ExcludedNamespaceResponse,
     ExcludedPod, ExcludedPodResponse,
     NotificationSettingCreate, NotificationSettingResponse,
-    ClusterMetrics, PodMetricsHistory, PodMetricsPoint
+    ClusterMetrics, PodMetricsHistory, PodMetricsPoint,
+    LLMConfigCreate, LLMConfigResponse, LLMConfigStatus
 )
 from database.database import Database
 from services.solution_engine import SolutionEngine
@@ -815,5 +816,128 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
         except Exception as e:
             logger.error(f"Error setting up log stream: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+
+    # LLM Configuration endpoints
+    @router.get("/admin/llm/status", response_model=LLMConfigStatus)
+    async def get_llm_status():
+        """Get current LLM configuration status"""
+        try:
+            import os
+
+            # Check database first
+            db_config = await db.get_llm_config()
+            if db_config:
+                return LLMConfigStatus(
+                    configured=True,
+                    provider=db_config['provider'],
+                    model=db_config['model'],
+                    source="database"
+                )
+
+            # Fall back to environment variables
+            env_provider = os.getenv("KURE_LLM_PROVIDER")
+            env_api_key = os.getenv("KURE_LLM_API_KEY")
+            env_model = os.getenv("KURE_LLM_MODEL")
+
+            if env_provider and env_api_key:
+                return LLMConfigStatus(
+                    configured=True,
+                    provider=env_provider,
+                    model=env_model,
+                    source="environment"
+                )
+
+            return LLMConfigStatus(configured=False)
+        except Exception as e:
+            logger.error(f"Error getting LLM status: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/llm/config", response_model=LLMConfigResponse)
+    async def save_llm_config(config: LLMConfigCreate):
+        """Save LLM configuration"""
+        try:
+            # Validate provider
+            valid_providers = ["openai", "anthropic", "claude", "groq", "groq_cloud"]
+            if config.provider.lower() not in valid_providers:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid provider. Supported: {', '.join(valid_providers)}"
+                )
+
+            # Save to database
+            result = await db.save_llm_config(
+                provider=config.provider.lower(),
+                api_key=config.api_key,
+                model=config.model
+            )
+
+            # Reinitialize the solution engine with new config
+            await solution_engine.reinitialize_llm(
+                provider=config.provider.lower(),
+                api_key=config.api_key,
+                model=config.model
+            )
+
+            logger.info(f"LLM configuration saved: provider={config.provider}")
+
+            return LLMConfigResponse(
+                id=result['id'],
+                provider=result['provider'],
+                model=result['model'],
+                configured=True,
+                created_at=result['created_at'],
+                updated_at=result['updated_at']
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error saving LLM config: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/admin/llm/config")
+    async def delete_llm_config():
+        """Delete LLM configuration (revert to environment or rule-based)"""
+        try:
+            deleted = await db.delete_llm_config()
+
+            # Reinitialize solution engine from environment variables
+            await solution_engine.reinitialize_from_env()
+
+            if deleted:
+                return {"message": "LLM configuration deleted"}
+            else:
+                return {"message": "No LLM configuration to delete"}
+        except Exception as e:
+            logger.error(f"Error deleting LLM config: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/llm/test")
+    async def test_llm_config(config: LLMConfigCreate):
+        """Test LLM configuration without saving"""
+        try:
+            from services.llm_factory import LLMFactory
+
+            # Create a temporary provider to test
+            provider = LLMFactory.create_provider(
+                provider_name=config.provider.lower(),
+                api_key=config.api_key,
+                model=config.model
+            )
+
+            # Test with a simple prompt
+            test_response = await provider.generate_solution(
+                failure_reason="Test",
+                pod_context={"name": "test-pod", "namespace": "test"},
+                events=[{"reason": "Test", "message": "Test message"}],
+                logs="Test logs"
+            )
+
+            if test_response and len(test_response) > 10:
+                return {"success": True, "message": "LLM connection successful"}
+            else:
+                return {"success": False, "message": "LLM returned empty response"}
+        except Exception as e:
+            logger.error(f"Error testing LLM config: {e}")
+            return {"success": False, "message": str(e)}
 
     return router

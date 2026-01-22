@@ -45,6 +45,10 @@ changes:
     description: Node details modal with resource progress bars and conditions table
   - kind: added
     description: Clickable node rows in monitoring dashboard for detailed view
+  - kind: added
+    description: LLM configuration via Admin panel - no API key required at install time
+  - kind: added
+    description: Setup banner prompting users to configure AI when not set up
   - kind: fixed
     description: Init containers now have resource limits defined
   - kind: fixed
@@ -54,9 +58,13 @@ install: |
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
+  # Basic install (LLM can be configured via Admin panel after install)
   helm install kure-monitor kure-monitor/kure --version 1.4.1 \
-    --create-namespace --namespace kure-system \
-    --set backend.env.KURE_LLM_PROVIDER=openai \
-    --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
-    --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
+    --create-namespace --namespace kure-system
+
+  # Or with LLM pre-configured:
+  # helm install kure-monitor kure-monitor/kure --version 1.4.1 \
+  #   --create-namespace --namespace kure-system \
+  #   --set backend.env.KURE_LLM_PROVIDER=openai \
+  #   --set backend.env.KURE_LLM_API_KEY=your_api_key_here
   ```

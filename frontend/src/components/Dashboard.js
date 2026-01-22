@@ -4,6 +4,7 @@ import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
 import MonitoringTab from './MonitoringTab';
+import SetupBanner from './SetupBanner';
 import { api } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -277,6 +278,9 @@ const Dashboard = () => {
             </div>
           </div>
         )}
+
+        {/* Setup Banner - shows when LLM is not configured */}
+        <SetupBanner isDark={isDark} onNavigateToAdmin={() => setActiveTab('admin')} />
 
         {/* Tabs */}
         <div className="mb-6">

@@ -182,6 +182,18 @@ class PostgreSQLDatabase(DatabaseInterface):
                     ON notification_settings(enabled)
                 """)
 
+                # Create llm_config table for storing LLM provider settings
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS llm_config (
+                        id SERIAL PRIMARY KEY,
+                        provider VARCHAR(50) NOT NULL,
+                        api_key_encrypted VARCHAR(500) NOT NULL,
+                        model VARCHAR(100),
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
             logger.info("PostgreSQL database initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize PostgreSQL database: {e}")
@@ -839,5 +851,54 @@ class PostgreSQLDatabase(DatabaseInterface):
                 "DELETE FROM notification_settings WHERE provider = $1",
                 provider
             )
+            count = int(result.split()[-1]) if result else 0
+            return count > 0
+
+    # LLM Configuration methods
+    async def save_llm_config(self, provider: str, api_key: str, model: Optional[str] = None) -> dict:
+        """Save or update LLM configuration (only one config allowed)"""
+        async with self.pool.acquire() as conn:
+            # Delete any existing config first (only one LLM config allowed)
+            await conn.execute("DELETE FROM llm_config")
+
+            # Insert new config
+            result = await conn.fetchrow("""
+                INSERT INTO llm_config (provider, api_key_encrypted, model)
+                VALUES ($1, $2, $3)
+                RETURNING id, provider, model, created_at, updated_at
+            """, provider, api_key, model)
+
+            return {
+                'id': result['id'],
+                'provider': result['provider'],
+                'model': result['model'],
+                'configured': True,
+                'created_at': result['created_at'].isoformat() if result['created_at'] else None,
+                'updated_at': result['updated_at'].isoformat() if result['updated_at'] else None
+            }
+
+    async def get_llm_config(self) -> Optional[dict]:
+        """Get the LLM configuration (returns None if not configured)"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT id, provider, api_key_encrypted, model, created_at, updated_at FROM llm_config LIMIT 1"
+            )
+            if not row:
+                return None
+
+            return {
+                'id': row['id'],
+                'provider': row['provider'],
+                'api_key': row['api_key_encrypted'],  # Will be used internally
+                'model': row['model'],
+                'configured': True,
+                'created_at': row['created_at'].isoformat() if row['created_at'] else None,
+                'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None
+            }
+
+    async def delete_llm_config(self) -> bool:
+        """Delete the LLM configuration"""
+        async with self.pool.acquire() as conn:
+            result = await conn.execute("DELETE FROM llm_config")
             count = int(result.split()[-1]) if result else 0
             return count > 0

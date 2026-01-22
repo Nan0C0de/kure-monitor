@@ -195,5 +195,44 @@ export const api = {
     if (options.tailLines) params.append('tail_lines', options.tailLines);
 
     return `${API_BASE}/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/logs/stream?${params}`;
+  },
+
+  // LLM Configuration API
+  getLLMStatus: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/llm/status`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  saveLLMConfig: async (config) => {
+    const response = await fetch(`${API_BASE}/api/admin/llm/config`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(config)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  deleteLLMConfig: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/llm/config`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  testLLMConfig: async (config) => {
+    const response = await fetch(`${API_BASE}/api/admin/llm/test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(config)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
   }
 };

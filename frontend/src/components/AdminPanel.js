@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle, CheckCircle, Shield, Activity } from 'lucide-react';
 import { api } from '../services/api';
 import NotificationSettings from './NotificationSettings';
+import LLMSettings from './LLMSettings';
 
 const AdminPanel = ({ isDark = false }) => {
   // Security Scan Namespace Exclusions state
@@ -187,6 +188,9 @@ const AdminPanel = ({ isDark = false }) => {
           </div>
         </div>
       )}
+
+      {/* LLM Configuration */}
+      <LLMSettings isDark={isDark} />
 
       {/* Notification Settings */}
       <NotificationSettings isDark={isDark} />

@@ -7,9 +7,52 @@ logger = logging.getLogger(__name__)
 
 
 class SolutionEngine:
-    def __init__(self):
-        # Initialize LLM provider
+    def __init__(self, db=None):
+        # Store database reference for loading config
+        self._db = db
+        # Initialize LLM provider (will be set up properly after db init)
+        self.llm_provider = None
+
+    async def initialize(self):
+        """Initialize the LLM provider from database or environment"""
+        # Try database config first
+        if self._db:
+            try:
+                db_config = await self._db.get_llm_config()
+                if db_config:
+                    logger.info(f"Loading LLM config from database: provider={db_config['provider']}")
+                    self.llm_provider = LLMFactory.create_provider(
+                        provider_name=db_config['provider'],
+                        api_key=db_config['api_key'],
+                        model=db_config['model']
+                    )
+                    return
+            except Exception as e:
+                logger.warning(f"Failed to load LLM config from database: {e}")
+
+        # Fall back to environment variables
         self.llm_provider = LLMFactory.create_from_env()
+
+    async def reinitialize_llm(self, provider: str, api_key: str, model: str = None):
+        """Reinitialize the LLM provider with new configuration"""
+        try:
+            self.llm_provider = LLMFactory.create_provider(
+                provider_name=provider,
+                api_key=api_key,
+                model=model
+            )
+            logger.info(f"LLM provider reinitialized: {provider}")
+        except Exception as e:
+            logger.error(f"Failed to reinitialize LLM provider: {e}")
+            raise
+
+    async def reinitialize_from_env(self):
+        """Reinitialize the LLM provider from environment variables"""
+        self.llm_provider = LLMFactory.create_from_env()
+        if self.llm_provider:
+            logger.info(f"LLM provider reinitialized from environment: {self.llm_provider.provider_name}")
+        else:
+            logger.info("LLM provider disabled (no environment config)")
         
         # Hardcoded solutions for common Kubernetes pod issues (fallback)
         self.solutions = {

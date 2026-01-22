@@ -179,4 +179,3 @@ class BackendClient:
         except Exception as e:
             logger.warning(f"Error reporting cluster metrics: {e}")
             return False
-

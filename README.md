@@ -28,6 +28,8 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 - **Enhanced Monitoring Tab** - CPU/Memory columns in pod table with Metrics button
 - **Metrics History** - Backend stores last 15 data points for trend analysis
 - **Recharts Integration** - Beautiful line charts for metrics visualization
+- **LLM Configuration via UI** - Configure AI provider (OpenAI, Anthropic, Groq) through Admin panel - no API key required at install time
+- **Setup Banner** - Prompts users to configure AI on first run
 - **Security Fixes** - Init containers now have resource limits, namespace includes PSA labels
 
 ## Architecture

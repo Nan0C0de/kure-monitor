@@ -16,7 +16,7 @@ def create_app() -> FastAPI:
 
     # Global instances
     db = Database()
-    solution_engine = SolutionEngine()
+    solution_engine = SolutionEngine(db=db)  # Pass db for LLM config loading
     websocket_manager = WebSocketManager()
     notification_service = NotificationService(db)
 
@@ -25,6 +25,9 @@ def create_app() -> FastAPI:
         # Startup
         await db.init_database()
         logger.info("Database initialized")
+        # Initialize solution engine (loads LLM config from db or env)
+        await solution_engine.initialize()
+        logger.info("Solution engine initialized")
         yield
         # Shutdown
         await db.close()

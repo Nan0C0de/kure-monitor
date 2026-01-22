@@ -132,3 +132,13 @@ class Database:
     async def delete_notification_setting(self, provider):
         return await self._db.delete_notification_setting(provider)
 
+    # LLM Configuration methods
+    async def save_llm_config(self, provider, api_key, model=None):
+        return await self._db.save_llm_config(provider, api_key, model)
+
+    async def get_llm_config(self):
+        return await self._db.get_llm_config()
+
+    async def delete_llm_config(self):
+        return await self._db.delete_llm_config()
+
