@@ -30,7 +30,7 @@ def create_app() -> FastAPI:
         await db.close()
 
     # Create FastAPI app
-    app = FastAPI(title="Kure Backend", version="1.4.0", lifespan=lifespan)
+    app = FastAPI(title="Kure Backend", version="1.4.1", lifespan=lifespan)
 
     # Configure middleware and exception handlers
     configure_cors(app)

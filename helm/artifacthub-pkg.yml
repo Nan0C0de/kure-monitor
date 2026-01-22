@@ -1,5 +1,5 @@
 # Artifact Hub package metadata file
-version: 1.4.0
+version: 1.4.1
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Health Monitor
@@ -7,16 +7,16 @@ createdAt: 2025-08-30T00:00:00Z
 description: A Kubernetes health monitoring system with agent, backend, and frontend components
 license: MIT
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "1.4.0"
+appVersion: "1.4.1"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:1.4.0
+    image: ghcr.io/nan0c0de/kure-monitor/agent:1.4.1
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:1.4.0
+    image: ghcr.io/nan0c0de/kure-monitor/backend:1.4.1
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:1.4.0
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:1.4.1
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:1.4.0
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:1.4.1
 operator: false
 deprecated: false
 prerelease: false
@@ -36,12 +36,25 @@ maintainers:
     email: nano.code@outlook.com
 provider:
   name: Nan0C0de
+changes:
+  - kind: added
+    description: Pod metrics viewing with CPU and memory usage display
+  - kind: added
+    description: Pod metrics history charts showing recent trends (last 15 data points)
+  - kind: added
+    description: Node details modal with resource progress bars and conditions table
+  - kind: added
+    description: Clickable node rows in monitoring dashboard for detailed view
+  - kind: fixed
+    description: Init containers now have resource limits defined
+  - kind: fixed
+    description: Namespace template now includes Pod Security Admission labels
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
-  helm install kure-monitor kure-monitor/kure --version 1.4.0 \
+  helm install kure-monitor kure-monitor/kure --version 1.4.1 \
     --create-namespace --namespace kure-system \
     --set backend.env.KURE_LLM_PROVIDER=openai \
     --set backend.env.KURE_LLM_API_KEY=your_api_key_here \

@@ -6,7 +6,7 @@ global:
   imagePullSecrets: []
 
 # Namespace configuration
-createNamespace: false  # Set to true to create namespace with PSA labels
+createNamespace: true  # Creates namespace with Pod Security Admission labels
 
 # Pod monitoring agent configuration
 agent:
@@ -18,7 +18,7 @@ agent:
 
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/agent
-    tag: "1.4.0"
+    tag: "1.4.1"
     pullPolicy: IfNotPresent
 
   resources:
@@ -48,7 +48,7 @@ securityScanner:
 
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/security-scanner
-    tag: "1.4.0"
+    tag: "1.4.1"
     pullPolicy: IfNotPresent
 
   resources:
@@ -78,7 +78,7 @@ backend:
   
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/backend
-    tag: "1.4.0"
+    tag: "1.4.1"
     pullPolicy: IfNotPresent
   
   service:
@@ -124,7 +124,7 @@ frontend:
 
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/frontend
-    tag: "1.4.0"
+    tag: "1.4.1"
     pullPolicy: IfNotPresent
 
   service:

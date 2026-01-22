@@ -39,6 +39,13 @@ spec:
             echo "Backend is ready!"
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
       containers:
       - name: agent
         image: "{{ .Values.global.imageRegistry }}{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
