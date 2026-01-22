@@ -17,17 +17,22 @@ env:
 
 jobs:
   detect-changes:
-    runs-on: [self-hosted, kind]
+    runs-on: ubuntu-latest
     outputs:
       agent: ${{ steps.changes.outputs.agent }}
       backend: ${{ steps.changes.outputs.backend }}
       frontend: ${{ steps.changes.outputs.frontend }}
       security-scanner: ${{ steps.changes.outputs.security-scanner }}
       k8s: ${{ steps.changes.outputs.k8s }}
+      tag: ${{ steps.tag.outputs.TAG }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
+
+      - name: Set image tag
+        id: tag
+        run: echo "TAG=$(git rev-parse --short=6 HEAD)" >> $GITHUB_OUTPUT
 
       - name: Detect changed directories
         id: changes
@@ -68,19 +73,16 @@ jobs:
             echo "k8s=false" >> $GITHUB_OUTPUT
           fi
 
-  build-and-deploy-agent:
+  # ==================== AGENT ====================
+  build-agent:
     needs: detect-changes
     if: needs.detect-changes.outputs.agent == 'true'
-    runs-on: [self-hosted, kind]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Set image tag
-        id: tag
-        run: echo "TAG=$(git rev-parse --short=6 HEAD)" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -94,32 +96,32 @@ jobs:
         with:
           context: ./agent
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ steps.tag.outputs.TAG }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ needs.detect-changes.outputs.tag }}
           no-cache: true
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
+  deploy-agent:
+    needs: [detect-changes, build-agent]
+    runs-on: [self-hosted, kind]
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Deploy agent
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ steps.tag.outputs.TAG }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ needs.detect-changes.outputs.tag }}"
           sed -i "s|AGENT_IMAGE|$IMAGE|g" k8s/agent.yaml
           kubectl apply -f k8s/agent.yaml
           kubectl rollout status daemonset/kure-monitor-agent -n kure-system --timeout=120s
 
-  build-and-deploy-backend:
+  # ==================== BACKEND ====================
+  build-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
-    runs-on: [self-hosted, kind]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Set image tag
-        id: tag
-        run: echo "TAG=$(git rev-parse --short=6 HEAD)" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -133,32 +135,32 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:${{ steps.tag.outputs.TAG }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:${{ needs.detect-changes.outputs.tag }}
           no-cache: true
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
+  deploy-backend:
+    needs: [detect-changes, build-backend]
+    runs-on: [self-hosted, kind]
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Deploy backend
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:${{ steps.tag.outputs.TAG }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:${{ needs.detect-changes.outputs.tag }}"
           sed -i "s|BACKEND_IMAGE|$IMAGE|g" k8s/backend.yaml
           kubectl apply -f k8s/backend.yaml
           kubectl rollout status deployment/kure-monitor-backend -n kure-system --timeout=120s
 
-  build-and-deploy-frontend:
+  # ==================== FRONTEND ====================
+  build-frontend:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
-    runs-on: [self-hosted, kind]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Set image tag
-        id: tag
-        run: echo "TAG=$(git rev-parse --short=6 HEAD)" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -172,32 +174,32 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.TAG }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ needs.detect-changes.outputs.tag }}
           no-cache: true
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
+  deploy-frontend:
+    needs: [detect-changes, build-frontend]
+    runs-on: [self-hosted, kind]
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Deploy frontend
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.TAG }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ needs.detect-changes.outputs.tag }}"
           sed -i "s|FRONTEND_IMAGE|$IMAGE|g" k8s/frontend.yaml
           kubectl apply -f k8s/frontend.yaml
           kubectl rollout status deployment/kure-monitor-frontend -n kure-system --timeout=120s
 
-  build-and-deploy-security-scanner:
+  # ==================== SECURITY SCANNER ====================
+  build-security-scanner:
     needs: detect-changes
     if: needs.detect-changes.outputs.security-scanner == 'true'
-    runs-on: [self-hosted, kind]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Set image tag
-        id: tag
-        run: echo "TAG=$(git rev-parse --short=6 HEAD)" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -211,15 +213,18 @@ jobs:
         with:
           context: ./security-scanner
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:${{ steps.tag.outputs.TAG }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:${{ needs.detect-changes.outputs.tag }}
           no-cache: true
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
+  deploy-security-scanner:
+    needs: [detect-changes, build-security-scanner]
+    runs-on: [self-hosted, kind]
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Deploy security-scanner
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:${{ steps.tag.outputs.TAG }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:${{ needs.detect-changes.outputs.tag }}"
           sed -i "s|SECURITY_SCANNER_IMAGE|$IMAGE|g" k8s/security-scanner.yaml
           kubectl apply -f k8s/security-scanner.yaml
           kubectl rollout status deployment/kure-monitor-security-scanner -n kure-system --timeout=120s
