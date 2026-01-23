@@ -17,13 +17,44 @@ const LLMSettings = ({ isDark = false }) => {
   const [model, setModel] = useState('');
 
   const providers = [
-    { value: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o-mini' },
-    { value: 'anthropic', label: 'Anthropic (Claude)', defaultModel: 'claude-3-haiku-20240307' },
-    { value: 'groq', label: 'Groq', defaultModel: 'llama-3.1-8b-instant' }
+    {
+      value: 'openai',
+      label: 'OpenAI',
+      defaultModel: 'gpt-4o-mini',
+      models: [
+        { value: 'gpt-4o', label: 'GPT-4o (Latest)' },
+        { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Recommended)' },
+        { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
+      ]
+    },
+    {
+      value: 'anthropic',
+      label: 'Anthropic (Claude)',
+      defaultModel: 'claude-sonnet-4-20250514',
+      models: [
+        { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Latest)' },
+        { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+        { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fast)' }
+      ]
+    },
+    {
+      value: 'groq',
+      label: 'Groq',
+      defaultModel: 'llama-3.3-70b-versatile',
+      models: [
+        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Latest)' },
+        { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant (Fast)' },
+        { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' }
+      ]
+    }
   ];
 
   useEffect(() => {
     loadStatus();
+    // Set default model for initial provider (openai)
+    if (!model) {
+      setModel('gpt-4o-mini');
+    }
   }, []);
 
   const loadStatus = async () => {
@@ -46,12 +77,15 @@ const LLMSettings = ({ isDark = false }) => {
   const handleProviderChange = (e) => {
     const newProvider = e.target.value;
     setProvider(newProvider);
-    // Set default model for provider
+    // Set default model for new provider
     const providerConfig = providers.find(p => p.value === newProvider);
-    if (providerConfig && !model) {
+    if (providerConfig) {
       setModel(providerConfig.defaultModel);
     }
   };
+
+  // Get current provider's models
+  const currentProviderModels = providers.find(p => p.value === provider)?.models || [];
 
   const handleTest = async () => {
     if (!apiKey) {
@@ -243,21 +277,20 @@ const LLMSettings = ({ isDark = false }) => {
             </div>
           </div>
 
-          {/* Model Input */}
+          {/* Model Select */}
           <div>
             <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              Model (optional)
+              Model
             </label>
-            <input
-              type="text"
+            <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              placeholder={providers.find(p => p.value === provider)?.defaultModel || 'Default model'}
-              className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
-            />
-            <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              Leave empty for default: {providers.find(p => p.value === provider)?.defaultModel}
-            </p>
+              className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+            >
+              {currentProviderModels.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
           </div>
 
           {/* Action Buttons */}
