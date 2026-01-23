@@ -926,13 +926,13 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
 
             # Test with a simple prompt
             test_response = await provider.generate_solution(
-                failure_reason="Test",
+                failure_reason="CrashLoopBackOff",
+                failure_message="Test connection to LLM provider",
                 pod_context={"name": "test-pod", "namespace": "test"},
-                events=[{"reason": "Test", "message": "Test message"}],
-                logs="Test logs"
+                events=[{"type": "Warning", "reason": "BackOff", "message": "Back-off restarting container"}]
             )
 
-            if test_response and len(test_response) > 10:
+            if test_response and test_response.content and len(test_response.content) > 10:
                 return {"success": True, "message": "LLM connection successful"}
             else:
                 return {"success": False, "message": "LLM returned empty response"}
