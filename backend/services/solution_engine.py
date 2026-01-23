@@ -14,8 +14,7 @@ class SolutionEngine:
         self.llm_provider = None
 
     async def initialize(self):
-        """Initialize the LLM provider from database or environment"""
-        # Try database config first
+        """Initialize the LLM provider from database configuration"""
         if self._db:
             try:
                 db_config = await self._db.get_llm_config()
@@ -26,12 +25,10 @@ class SolutionEngine:
                         api_key=db_config['api_key'],
                         model=db_config['model']
                     )
-                    return
+                else:
+                    logger.info("No LLM configuration found. Configure via Admin panel to enable AI solutions.")
             except Exception as e:
                 logger.warning(f"Failed to load LLM config from database: {e}")
-
-        # Fall back to environment variables
-        self.llm_provider = LLMFactory.create_from_env()
 
     async def reinitialize_llm(self, provider: str, api_key: str, model: str = None):
         """Reinitialize the LLM provider with new configuration"""
@@ -46,14 +43,6 @@ class SolutionEngine:
             logger.error(f"Failed to reinitialize LLM provider: {e}")
             raise
 
-    async def reinitialize_from_env(self):
-        """Reinitialize the LLM provider from environment variables"""
-        self.llm_provider = LLMFactory.create_from_env()
-        if self.llm_provider:
-            logger.info(f"LLM provider reinitialized from environment: {self.llm_provider.provider_name}")
-        else:
-            logger.info("LLM provider disabled (no environment config)")
-        
         # Hardcoded solutions for common Kubernetes pod issues (fallback)
         self.solutions = {
             'ImagePullBackOff': {

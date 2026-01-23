@@ -73,14 +73,13 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 helm repo update
 
-# Install with AI-powered solutions
+# Install Kure Monitor
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
-  --create-namespace \
-  --set backend.env.KURE_LLM_PROVIDER=openai \
-  --set backend.env.KURE_LLM_API_KEY=your_api_key_here \
-  --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
+  --create-namespace
 ```
+
+After installation, configure your LLM provider (OpenAI, Anthropic, or Groq) via the Admin panel in the web dashboard to enable AI-powered solutions.
 
 ### Access the Dashboard
 
@@ -96,16 +95,9 @@ kubectl get svc -n kure-system
 
 ## Configuration
 
-### Environment Variables
+### LLM Configuration (Admin Panel)
 
-| Variable | Component | Description | Default |
-|----------|-----------|-------------|---------|
-| `KURE_LLM_PROVIDER` | Backend | LLM provider (`openai`, `anthropic`, `groq`) | None |
-| `KURE_LLM_API_KEY` | Backend | API key for chosen LLM provider | None |
-| `KURE_LLM_MODEL` | Backend | Specific model to use | Provider default |
-| `DATABASE_URL` | Backend | PostgreSQL connection string | Auto-generated |
-
-**Note:** All three LLM values must be provided together for AI functionality, or all omitted to use rule-based solutions only.
+LLM provider is configured via the Admin panel in the web dashboard after installation. No API key is required during helm install.
 
 ### Supported LLM Providers
 
@@ -135,12 +127,7 @@ securityScanner:
 postgresql:
   enabled: true          # Use built-in PostgreSQL
 
-# Notification settings (configure via Admin Panel)
-backend:
-  env:
-    KURE_LLM_PROVIDER: ""
-    KURE_LLM_API_KEY: ""
-    KURE_LLM_MODEL: ""
+# LLM and notifications are configured via Admin Panel after installation
 ```
 
 ## Dashboard Features
@@ -166,6 +153,7 @@ backend:
 - Namespace filtering
 
 ### Admin Panel
+- **LLM Configuration** - Configure AI provider (OpenAI, Anthropic, Groq) for intelligent solutions
 - **Namespace Exclusions** - Exclude namespaces from security scanning
 - **Pod Exclusions** - Exclude pods from failure monitoring
 - **Notification Settings** - Configure Slack webhook for alerts
@@ -192,7 +180,7 @@ kubectl logs -l app.kubernetes.io/component=frontend -n kure-system
 | Agent not detecting failures | No pods in dashboard | Check RBAC permissions: `kubectl auth can-i list pods --as=system:serviceaccount:kure-system:kure-monitor-agent` |
 | No cluster metrics | Metrics tab shows loading | Install metrics-server or check agent logs |
 | Backend connection errors | 500 errors in frontend | Verify PostgreSQL connection and network policies |
-| LLM solutions not generating | Generic solutions only | Verify API key and provider configuration |
+| LLM solutions not generating | Generic solutions only | Configure LLM provider via Admin panel |
 | Storage metrics unavailable | N/A shown for storage | Ensure kubelet stats endpoint is accessible |
 
 ### Metrics Server Installation

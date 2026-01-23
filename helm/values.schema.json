@@ -214,24 +214,6 @@
             }
           }
         },
-        "env": {
-          "type": "object",
-          "properties": {
-            "KURE_LLM_PROVIDER": {
-              "type": "string",
-              "enum": ["", "openai", "anthropic", "groq"],
-              "default": ""
-            },
-            "KURE_LLM_API_KEY": {
-              "type": "string",
-              "default": ""
-            },
-            "KURE_LLM_MODEL": {
-              "type": "string",
-              "default": ""
-            }
-          }
-        },
         "resources": {
           "type": "object",
           "properties": {

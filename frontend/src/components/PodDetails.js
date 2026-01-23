@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { FileText, RefreshCw, Copy, Check } from 'lucide-react';
+import { FileText, RefreshCw, Copy, Check, Terminal } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../services/api';
+
+// Failure reasons where app logs would be useful (container actually runs/crashes)
+const APP_CRASH_REASONS = ['CrashLoopBackOff', 'Error', 'OOMKilled'];
 
 // Code block component with copy button - defined as standalone component
 const CodeBlock = ({ code, language }) => {
@@ -38,8 +41,11 @@ const CodeBlock = ({ code, language }) => {
   );
 };
 
-const PodDetails = ({ pod, onViewManifest, onSolutionUpdated, aiEnabled = false }) => {
+const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, aiEnabled = false }) => {
   const [isRetrying, setIsRetrying] = useState(false);
+
+  // Check if logs viewing is available (only for app crashes, not config issues)
+  const canViewLogs = APP_CRASH_REASONS.includes(pod.failure_reason);
 
   // Check if solution is a fallback (AI unavailable)
   const isFallbackSolution = pod.solution && (
@@ -211,14 +217,26 @@ const PodDetails = ({ pod, onViewManifest, onSolutionUpdated, aiEnabled = false 
               {isRetrying ? 'Retrying...' : 'Retry AI'}
             </button>
           </div>
-          <button
-            onClick={onViewManifest}
-            className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            title="View Pod Manifest"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            View Manifest
-          </button>
+          <div className="flex items-center space-x-2">
+            {canViewLogs && (
+              <button
+                onClick={onViewLogs}
+                className="inline-flex items-center px-3 py-1 border border-green-300 rounded-md text-sm text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                title="View Live Logs - See what's causing the crash"
+              >
+                <Terminal className="w-4 h-4 mr-2" />
+                Live Logs
+              </button>
+            )}
+            <button
+              onClick={onViewManifest}
+              className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="View Pod Manifest"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              View Manifest
+            </button>
+          </div>
         </div>
         <div className={`rounded p-4 text-sm overflow-hidden ${
           isFallbackSolution

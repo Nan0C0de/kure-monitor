@@ -105,6 +105,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
       - name: Deploy agent
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ needs.detect-changes.outputs.tag }}"
@@ -143,6 +146,9 @@ jobs:
     runs-on: [self-hosted, kind]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
 
       - name: Deploy backend
         run: |
@@ -183,6 +189,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
       - name: Deploy frontend
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ needs.detect-changes.outputs.tag }}"
@@ -221,6 +230,9 @@ jobs:
     runs-on: [self-hosted, kind]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
 
       - name: Deploy security-scanner
         run: |

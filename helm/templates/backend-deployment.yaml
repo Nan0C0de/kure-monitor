@@ -63,20 +63,6 @@ spec:
         # Database configuration - PostgreSQL only
         - name: DATABASE_URL
           value: "postgresql://{{ .Values.postgresql.username }}:{{ .Values.postgresql.password }}@{{ if .Values.postgresql.external }}{{ .Values.postgresql.host }}{{ else }}{{ include "kure.fullname" . }}-postgresql{{ end }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.database }}"
-        # LLM configuration - All three values required together
-        {{- if and .Values.backend.env.KURE_LLM_PROVIDER .Values.backend.env.KURE_LLM_API_KEY .Values.backend.env.KURE_LLM_MODEL }}
-        - name: KURE_LLM_PROVIDER
-          value: {{ .Values.backend.env.KURE_LLM_PROVIDER | quote }}
-        - name: KURE_LLM_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "kure.fullname" . }}-backend-secrets
-              key: llm-api-key
-        - name: KURE_LLM_MODEL
-          value: {{ .Values.backend.env.KURE_LLM_MODEL | quote }}
-        {{- else if or .Values.backend.env.KURE_LLM_PROVIDER .Values.backend.env.KURE_LLM_API_KEY .Values.backend.env.KURE_LLM_MODEL }}
-        {{- fail "LLM configuration incomplete: KURE_LLM_PROVIDER, KURE_LLM_API_KEY, and KURE_LLM_MODEL must all be provided together or all be empty (to disable LLM)" }}
-        {{- end }}
         volumeMounts:
         - name: tmp
           mountPath: /tmp

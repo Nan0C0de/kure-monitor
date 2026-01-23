@@ -56,21 +56,6 @@ spec:
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
-        - name: KURE_LLM_PROVIDER
-          valueFrom:
-            secretKeyRef:
-              name: kure-secrets
-              key: KURE_LLM_PROVIDER
-        - name: KURE_LLM_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: kure-secrets
-              key: KURE_LLM_API_KEY
-        - name: KURE_LLM_MODEL
-          valueFrom:
-            secretKeyRef:
-              name: kure-secrets
-              key: KURE_LLM_MODEL
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:

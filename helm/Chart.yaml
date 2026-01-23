@@ -51,12 +51,9 @@ annotations:
   artifacthub.io/install: |
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
-    # Basic install (LLM can be configured via Admin panel)
+    # Install Kure Monitor
     helm install kure-monitor kure-monitor/kure --version 1.4.1 \
       --create-namespace --namespace kure-system
 
-    # Or with LLM pre-configured:
-    # helm install kure-monitor kure-monitor/kure --version 1.4.1 \
-    #   --create-namespace --namespace kure-system \
-    #   --set backend.env.KURE_LLM_PROVIDER=openai \
-    #   --set backend.env.KURE_LLM_API_KEY=your_api_key_here
+    # After installation, configure LLM provider via the Admin panel
+    # to enable AI-powered troubleshooting suggestions

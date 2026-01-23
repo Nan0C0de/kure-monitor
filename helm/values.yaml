@@ -94,13 +94,6 @@ backend:
       cpu: 1000m
       memory: 1Gi
   
-  env:
-    # LLM Configuration (optional - leave empty to use rule-based solutions)
-    # Set these when installing: --set backend.env.KURE_LLM_PROVIDER=openai --set backend.env.KURE_LLM_API_KEY=your_key --set backend.env.KURE_LLM_MODEL=gpt-4o-mini
-    KURE_LLM_PROVIDER: ""  # openai, anthropic, or groq
-    KURE_LLM_API_KEY: ""   # Your LLM provider API key
-    KURE_LLM_MODEL: ""     # Model name for the provider
-  
   # Database configuration - PostgreSQL only
   database:
     type: postgresql

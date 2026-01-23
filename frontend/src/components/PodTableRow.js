@@ -3,11 +3,13 @@ import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import PodDetails from './PodDetails';
 import ManifestModal from './ManifestModal';
+import PodLogsModal from './PodLogsModal';
 import { api } from '../services/api';
 
 const PodTableRow = ({ pod, onSolutionUpdated, isDark = false, aiEnabled = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
   const [isRetryingFromModal, setIsRetryingFromModal] = useState(false);
 
   const formatTimestamp = (timestamp) => {
@@ -112,6 +114,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, isDark = false, aiEnabled = false
             <PodDetails
               pod={pod}
               onViewManifest={() => setShowManifest(true)}
+              onViewLogs={() => setShowLogs(true)}
               onSolutionUpdated={onSolutionUpdated}
               isDark={isDark}
               aiEnabled={aiEnabled}
@@ -130,6 +133,12 @@ const PodTableRow = ({ pod, onSolutionUpdated, isDark = false, aiEnabled = false
         isRetrying={isRetryingFromModal}
         isDark={isDark}
         aiEnabled={aiEnabled}
+      />
+      <PodLogsModal
+        isOpen={showLogs}
+        onClose={() => setShowLogs(false)}
+        pod={pod}
+        isDark={isDark}
       />
     </>
   );
