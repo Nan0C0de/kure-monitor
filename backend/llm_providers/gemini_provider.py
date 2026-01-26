@@ -6,17 +6,17 @@ from .base import LLMProvider, LLMResponse
 logger = logging.getLogger(__name__)
 
 
-class AnthropicProvider(LLMProvider):
-    """Anthropic Claude provider"""
-    
+class GeminiProvider(LLMProvider):
+    """Google Gemini provider"""
+
     @property
     def provider_name(self) -> str:
-        return "anthropic"
-    
+        return "gemini"
+
     @property
     def default_model(self) -> str:
-        return "claude-sonnet-4-20250514"
-    
+        return "gemini-2.0-flash"
+
     async def generate_solution(
         self,
         failure_reason: str,
@@ -25,52 +25,54 @@ class AnthropicProvider(LLMProvider):
         container_statuses: List[Dict] = None,
         pod_context: Dict = None
     ) -> LLMResponse:
-        """Generate solution using Anthropic Claude API"""
+        """Generate solution using Google Gemini API"""
         prompt = self._build_prompt(
             failure_reason, failure_message, events, container_statuses, pod_context
         )
-        
-        headers = {
-            "x-api-key": self.api_key,
-            "Content-Type": "application/json",
-            "anthropic-version": "2023-06-01"
-        }
-        
+
+        system_instruction = "You are a Kubernetes expert providing concise, actionable solutions for pod failures."
+
         payload = {
-            "model": self.model,
-            "max_tokens": 1000,
-            "messages": [
+            "contents": [
                 {
                     "role": "user",
-                    "content": f"You are a Kubernetes expert providing concise, actionable solutions for pod failures.\n\n{prompt}"
+                    "parts": [{"text": prompt}]
                 }
-            ]
+            ],
+            "systemInstruction": {
+                "parts": [{"text": system_instruction}]
+            },
+            "generationConfig": {
+                "maxOutputTokens": 1000,
+                "temperature": 0.1
+            }
         }
-        
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers=headers,
+                    url,
+                    headers={"Content-Type": "application/json"},
                     json=payload
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"Anthropic API error {response.status}: {error_text}")
-                        raise Exception(f"Anthropic API error: {response.status}")
-                    
+                        logger.error(f"Gemini API error {response.status}: {error_text}")
+                        raise Exception(f"Gemini API error: {response.status}")
+
                     data = await response.json()
-                    content = data["content"][0]["text"]
-                    tokens_used = data.get("usage", {}).get("input_tokens", 0) + data.get("usage", {}).get("output_tokens", 0)
-                    
+                    content = data["candidates"][0]["content"]["parts"][0]["text"]
+                    tokens_used = data.get("usageMetadata", {}).get("totalTokenCount")
+
                     return LLMResponse(
                         content=content,
                         provider=self.provider_name,
                         model=self.model,
                         tokens_used=tokens_used
                     )
-        
+
         except Exception as e:
-            logger.error(f"Error calling Anthropic API: {e}")
-            # Re-raise to let solution engine use its better fallback
+            logger.error(f"Error calling Gemini API: {e}")
             raise

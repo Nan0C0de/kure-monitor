@@ -103,9 +103,9 @@ LLM provider is configured via the Admin panel in the web dashboard after instal
 
 | Provider | Default Model | Alternative Models |
 |----------|---------------|--------------------|
-| **OpenAI** | `gpt-4o-mini` | `gpt-4o`, `gpt-4`, `gpt-3.5-turbo` |
-| **Anthropic** | `claude-3-haiku-20240307` | `claude-3-sonnet-20240229`, `claude-3-opus-20240229` |
-| **Groq** | `llama-3.1-8b-instant` | `mixtral-8x7b-32768`, `llama-3.1-70b-versatile` |
+| **OpenAI** | `gpt-4.1-mini` | `gpt-4.1`, `gpt-4o` |
+| **Anthropic** | `claude-sonnet-4-20250514` | `claude-opus-4-5-20251124`, `claude-haiku-4-5-20251015` |
+| **Groq** | `llama-4-scout-17b-16e-instruct` | `llama-4-maverick-17b-128e-instruct`, `llama-3.3-70b-versatile` |
 
 **Provider Aliases:** `claude` → `anthropic`, `groq_cloud` → `groq`
 

@@ -20,11 +20,11 @@ const LLMSettings = ({ isDark = false }) => {
     {
       value: 'openai',
       label: 'OpenAI',
-      defaultModel: 'gpt-4o-mini',
+      defaultModel: 'gpt-4.1-mini',
       models: [
-        { value: 'gpt-4o', label: 'GPT-4o (Latest)' },
-        { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Recommended)' },
-        { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
+        { value: 'gpt-4.1', label: 'GPT-4.1 (Latest)' },
+        { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini (Recommended)' },
+        { value: 'gpt-4o', label: 'GPT-4o' }
       ]
     },
     {
@@ -32,19 +32,29 @@ const LLMSettings = ({ isDark = false }) => {
       label: 'Anthropic (Claude)',
       defaultModel: 'claude-sonnet-4-20250514',
       models: [
-        { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Latest)' },
-        { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-        { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fast)' }
+        { value: 'claude-opus-4-5-20251124', label: 'Claude Opus 4.5 (Latest)' },
+        { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Recommended)' },
+        { value: 'claude-haiku-4-5-20251015', label: 'Claude Haiku 4.5 (Fast)' }
       ]
     },
     {
       value: 'groq',
       label: 'Groq',
-      defaultModel: 'llama-3.3-70b-versatile',
+      defaultModel: 'llama-4-scout-17b-16e-instruct',
       models: [
-        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Latest)' },
-        { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant (Fast)' },
-        { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' }
+        { value: 'llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick (Best)' },
+        { value: 'llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Recommended)' },
+        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' }
+      ]
+    },
+    {
+      value: 'gemini',
+      label: 'Google Gemini',
+      defaultModel: 'gemini-2.0-flash',
+      models: [
+        { value: 'gemini-2.5-pro-preview-05-06', label: 'Gemini 2.5 Pro (Latest)' },
+        { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Recommended)' },
+        { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Fast)' }
       ]
     }
   ];
@@ -53,7 +63,7 @@ const LLMSettings = ({ isDark = false }) => {
     loadStatus();
     // Set default model for initial provider (openai)
     if (!model) {
-      setModel('gpt-4o-mini');
+      setModel('gpt-4.1-mini');
     }
   }, []);
 

@@ -9,18 +9,18 @@ class TestLLMFactory:
         provider = LLMFactory.create_provider(
             provider_name='openai',
             api_key='test-key',
-            model='gpt-4o-mini'
+            model='gpt-4.1-mini'
         )
         assert provider is not None
         assert provider.provider_name == "openai"
-        assert provider.model == "gpt-4o-mini"
+        assert provider.model == "gpt-4.1-mini"
 
     def test_create_anthropic_provider(self):
         """Test creating Anthropic provider"""
         provider = LLMFactory.create_provider(
             provider_name='anthropic',
             api_key='test-key',
-            model='claude-3-haiku-20240307'
+            model='claude-sonnet-4-20250514'
         )
         assert provider is not None
         assert provider.provider_name == "anthropic"
@@ -52,6 +52,26 @@ class TestLLMFactory:
         assert provider is not None
         assert provider.provider_name == "groq"
 
+    def test_create_gemini_provider(self):
+        """Test creating Gemini provider"""
+        provider = LLMFactory.create_provider(
+            provider_name='gemini',
+            api_key='test-key',
+            model='gemini-2.0-flash'
+        )
+        assert provider is not None
+        assert provider.provider_name == "gemini"
+        assert provider.model == "gemini-2.0-flash"
+
+    def test_create_provider_with_alias_google(self):
+        """Test creating provider with google alias"""
+        provider = LLMFactory.create_provider(
+            provider_name='google',
+            api_key='test-key'
+        )
+        assert provider is not None
+        assert provider.provider_name == "gemini"
+
     def test_invalid_provider(self):
         """Test with invalid provider name"""
         with pytest.raises(ValueError) as exc_info:
@@ -69,3 +89,5 @@ class TestLLMFactory:
         assert 'groq' in providers
         assert 'claude' in providers
         assert 'groq_cloud' in providers
+        assert 'gemini' in providers
+        assert 'google' in providers

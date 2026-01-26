@@ -15,7 +15,7 @@ class GroqProvider(LLMProvider):
     
     @property
     def default_model(self) -> str:
-        return "llama-3.1-8b-instant"
+        return "llama-4-scout-17b-16e-instruct"
     
     async def generate_solution(
         self,

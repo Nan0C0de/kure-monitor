@@ -2,11 +2,13 @@ from .base import LLMProvider, LLMResponse
 from .openai_provider import OpenAIProvider
 from .anthropic_provider import AnthropicProvider
 from .groq_provider import GroqProvider
+from .gemini_provider import GeminiProvider
 
 __all__ = [
     'LLMProvider',
-    'LLMResponse', 
+    'LLMResponse',
     'OpenAIProvider',
     'AnthropicProvider',
-    'GroqProvider'
+    'GroqProvider',
+    'GeminiProvider'
 ]

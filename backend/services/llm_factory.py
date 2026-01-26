@@ -4,7 +4,8 @@ from llm_providers import (
     LLMProvider,
     OpenAIProvider,
     AnthropicProvider,
-    GroqProvider
+    GroqProvider,
+    GeminiProvider
 )
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,8 @@ class LLMFactory:
         "claude": AnthropicProvider,  # Alias for anthropic
         "groq": GroqProvider,
         "groq_cloud": GroqProvider,  # Alias for groq
+        "gemini": GeminiProvider,
+        "google": GeminiProvider,  # Alias for gemini
     }
 
     @classmethod

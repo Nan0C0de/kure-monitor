@@ -15,7 +15,7 @@ class OpenAIProvider(LLMProvider):
     
     @property
     def default_model(self) -> str:
-        return "gpt-4o-mini"
+        return "gpt-4.1-mini"
     
     async def generate_solution(
         self,
