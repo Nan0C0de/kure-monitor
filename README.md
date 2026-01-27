@@ -1,20 +1,19 @@
 # Kure Monitor
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kure-monitor)](https://artifacthub.io/packages/search?repo=kure-monitor)
-[![Test Suite](https://github.com/Nan0C0de/kure-monitor/actions/workflows/test-suite.yml/badge.svg)](https://github.com/Nan0C0de/kure-monitor/actions/workflows/test-suite.yml)
 
 > **Stop debugging Kubernetes failures manually — let AI analyze your pod crashes, image pull errors, and scheduling issues in seconds.**
 
 Kure is a failure diagnosis tool that helps you understand **why** your Kubernetes workloads fail. When a pod crashes, gets stuck pending, or can't pull an image, Kure detects it instantly and provides AI-generated troubleshooting guidance to help you fix it fast.
 
-![Kure Dashboard](docs/images/dashboard-overview.png)
+[Few Screenshots](docs/images)
 
 ## Features
 
 **Core Diagnosis**
 - **AI-Powered Troubleshooting** — Get contextual solutions generated from pod events, logs, and manifest analysis using OpenAI, Anthropic, Groq, or Google Gemini
 - **Real-time Failure Detection** — Know immediately when pods enter CrashLoopBackOff, ImagePullBackOff, Pending, or other failure states
-- **Security Scanning** — Detect privileged containers, host network/PID access, missing seccomp profiles, containers running as root, overprivileged ServiceAccounts, and missing resource limits
+- **Security Scanning** — 50+ checks including privileged containers, host namespace access, dangerous capabilities, missing seccomp/AppArmor profiles, root containers, RBAC misconfigurations, untrusted image registries, and missing resource limits
 
 **Dashboard**
 - **Live Pod Logs** — Stream logs in real-time with container selection
@@ -204,48 +203,6 @@ For full cluster metrics (CPU/memory usage), install metrics-server:
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
 
-## Development
-
-### Local Development Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/Nan0C0de/kure-monitor.git
-cd kure-monitor
-
-# Backend
-cd backend
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# Frontend (in another terminal)
-cd frontend
-npm install
-npm start
-
-# Agent (requires kubectl configured)
-cd agent
-pip install -r requirements.txt
-python main.py
-```
-
-### Running Tests
-
-```bash
-# Backend tests
-cd backend && python -m pytest -v
-
-# Frontend tests
-cd frontend && npm test
-
-# Agent tests
-cd agent && python -m pytest -v
-
-# Security scanner tests
-cd security-scanner && python -m pytest -v
-```
-
 ## Security
 
 - All components run as non-root users
@@ -253,14 +210,6 @@ cd security-scanner && python -m pytest -v
 - RBAC limits agent permissions to read-only pod access
 - Security contexts prevent privilege escalation
 - Container images are regularly scanned for vulnerabilities
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
 
 ## License
 

@@ -35,6 +35,20 @@ class SecurityScanner:
     # System namespaces to skip
     SYSTEM_NAMESPACES = ['kube-system', 'kube-public', 'kube-node-lease', 'kube-flannel']
 
+    # Trusted container registries (can be customized via config)
+    TRUSTED_REGISTRIES = [
+        'docker.io',
+        'gcr.io',
+        'ghcr.io',
+        'quay.io',
+        'registry.k8s.io',
+        'mcr.microsoft.com',
+        'public.ecr.aws',
+    ]
+
+    # Large emptyDir size limit threshold (in bytes) - 10GB
+    LARGE_EMPTYDIR_THRESHOLD = 10 * 1024 * 1024 * 1024
+
     def __init__(self):
         self.backend_url = os.getenv("BACKEND_URL", "http://kure-monitor-backend:8000")
         self.backend_client = BackendClient(self.backend_url)
@@ -819,6 +833,51 @@ class SecurityScanner:
         """Track a resource as having findings (sync version for report_finding)"""
         self.tracked_resources.add((resource_type, namespace, resource_name))
 
+    def _get_image_registry(self, image: str) -> Optional[str]:
+        """Extract registry from container image string"""
+        if not image:
+            return None
+        # Handle images like: registry/repo:tag, repo:tag, registry/namespace/repo:tag
+        parts = image.split('/')
+        if len(parts) == 1:
+            # No registry specified, defaults to docker.io
+            return 'docker.io'
+        elif len(parts) == 2:
+            # Could be registry/repo or namespace/repo
+            first_part = parts[0]
+            if '.' in first_part or ':' in first_part or first_part == 'localhost':
+                return first_part.split(':')[0]  # Remove port if present
+            else:
+                # Assume it's docker.io namespace/repo
+                return 'docker.io'
+        else:
+            # registry/namespace/repo format
+            return parts[0].split(':')[0]  # Remove port if present
+
+    def _parse_size_to_bytes(self, size_str: str) -> Optional[int]:
+        """Parse Kubernetes size string to bytes"""
+        if not size_str:
+            return None
+        try:
+            size_str = size_str.strip()
+            units = {
+                'Ki': 1024,
+                'Mi': 1024 ** 2,
+                'Gi': 1024 ** 3,
+                'Ti': 1024 ** 4,
+                'K': 1000,
+                'M': 1000 ** 2,
+                'G': 1000 ** 3,
+                'T': 1000 ** 4,
+            }
+            for suffix, multiplier in units.items():
+                if size_str.endswith(suffix):
+                    return int(float(size_str[:-len(suffix)]) * multiplier)
+            # No suffix, assume bytes
+            return int(size_str)
+        except (ValueError, TypeError):
+            return None
+
     async def scan_cluster(self):
         """Run all security checks"""
         # Refresh excluded namespaces before full scan
@@ -838,6 +897,7 @@ class SecurityScanner:
         await self.scan_resource_quotas()
         await self.scan_configmaps()
         await self.scan_cronjobs()
+        await self.scan_persistent_volumes()
 
     async def scan_pods(self):
         """Scan pods for security issues based on Pod Security Standards and NSA/CISA guidelines"""
@@ -1074,6 +1134,108 @@ class SecurityScanner:
                                     "timestamp": timestamp
                                 })
 
+                    # Check for :latest image tag
+                    image = container.image or ""
+                    if image.endswith(':latest') or (':' not in image.split('/')[-1]):
+                        await self.report_finding({
+                            "resource_type": "Pod",
+                            "resource_name": pod_name,
+                            "namespace": namespace,
+                            "severity": "medium",
+                            "category": "Best Practice",
+                            "title": f"Image uses :latest or no tag: {container_name}",
+                            "description": f"Container '{container_name}' uses image '{image}' with :latest or no tag. Mutable tags can introduce unexpected changes and make rollbacks difficult.",
+                            "remediation": "Use immutable image tags (e.g., specific versions or SHA digests) for reproducible deployments.",
+                            "timestamp": timestamp
+                        })
+
+                    # Check for untrusted registry
+                    image_registry = self._get_image_registry(image)
+                    if image_registry and image_registry not in self.TRUSTED_REGISTRIES:
+                        await self.report_finding({
+                            "resource_type": "Pod",
+                            "resource_name": pod_name,
+                            "namespace": namespace,
+                            "severity": "high",
+                            "category": "Security",
+                            "title": f"Image from untrusted registry: {container_name}",
+                            "description": f"Container '{container_name}' uses image from registry '{image_registry}' which is not in the trusted registry list.",
+                            "remediation": f"Use images from trusted registries: {', '.join(self.TRUSTED_REGISTRIES[:4])}. Or add the registry to the trusted list if it's an internal registry.",
+                            "timestamp": timestamp
+                        })
+
+                    # Check for missing imagePullPolicy
+                    if not container.image_pull_policy or container.image_pull_policy == "IfNotPresent":
+                        if image.endswith(':latest') or (':' not in image.split('/')[-1]):
+                            await self.report_finding({
+                                "resource_type": "Pod",
+                                "resource_name": pod_name,
+                                "namespace": namespace,
+                                "severity": "low",
+                                "category": "Best Practice",
+                                "title": f"Missing imagePullPolicy with mutable tag: {container_name}",
+                                "description": f"Container '{container_name}' uses a mutable image tag without imagePullPolicy: Always. Cached vulnerable images may be used.",
+                                "remediation": "Set imagePullPolicy: Always when using mutable tags, or use immutable image tags.",
+                                "timestamp": timestamp
+                            })
+
+                # Check for emptyDir volumes with large sizeLimit
+                if pod.spec.volumes:
+                    for volume in pod.spec.volumes:
+                        if volume.empty_dir and volume.empty_dir.size_limit:
+                            size_limit_str = volume.empty_dir.size_limit
+                            size_bytes = self._parse_size_to_bytes(size_limit_str)
+                            if size_bytes and size_bytes > self.LARGE_EMPTYDIR_THRESHOLD:
+                                await self.report_finding({
+                                    "resource_type": "Pod",
+                                    "resource_name": pod_name,
+                                    "namespace": namespace,
+                                    "severity": "low",
+                                    "category": "Best Practice",
+                                    "title": f"EmptyDir with large sizeLimit: {volume.name}",
+                                    "description": f"Volume '{volume.name}' has emptyDir with sizeLimit of {size_limit_str}. Large emptyDir volumes can exhaust node disk space.",
+                                    "remediation": "Consider using PersistentVolumes for large storage needs, or reduce the sizeLimit.",
+                                    "timestamp": timestamp
+                                })
+
+                # Check for AppArmor profile
+                annotations = pod.metadata.annotations or {}
+                for container in all_containers:
+                    container_name = container.name
+                    apparmor_key = f"container.apparmor.security.beta.kubernetes.io/{container_name}"
+                    if apparmor_key not in annotations:
+                        await self.report_finding({
+                            "resource_type": "Pod",
+                            "resource_name": pod_name,
+                            "namespace": namespace,
+                            "severity": "medium",
+                            "category": "Security",
+                            "title": f"Missing AppArmor profile: {container_name}",
+                            "description": f"Container '{container_name}' does not have an AppArmor profile configured. AppArmor provides mandatory access control for Linux applications.",
+                            "remediation": f"Add annotation '{apparmor_key}: runtime/default' to use the default AppArmor profile.",
+                            "timestamp": timestamp
+                        })
+
+                # Check for SELinux options
+                pod_sec_ctx = pod.spec.security_context
+                pod_has_selinux = pod_sec_ctx and pod_sec_ctx.se_linux_options
+                for container in all_containers:
+                    container_name = container.name
+                    sec_ctx = container.security_context
+                    container_has_selinux = sec_ctx and sec_ctx.se_linux_options
+                    if not pod_has_selinux and not container_has_selinux:
+                        await self.report_finding({
+                            "resource_type": "Pod",
+                            "resource_name": pod_name,
+                            "namespace": namespace,
+                            "severity": "medium",
+                            "category": "Security",
+                            "title": f"Missing SELinux options: {container_name}",
+                            "description": f"Container '{container_name}' does not have SELinux options configured. SELinux provides mandatory access control enforcement.",
+                            "remediation": "Configure seLinuxOptions in the pod or container securityContext if running on SELinux-enabled nodes.",
+                            "timestamp": timestamp
+                        })
+
             logger.info("Pod security scan completed")
         except ApiException as e:
             logger.error(f"Kubernetes API error while scanning pods: {e}")
@@ -1106,6 +1268,29 @@ class SecurityScanner:
                         "remediation": "Increase the number of replicas to at least 2 for production workloads.",
                         "timestamp": timestamp
                     })
+
+                # Check for missing pod anti-affinity in HA deployments
+                replicas = deployment.spec.replicas or 1
+                if replicas >= 2:
+                    pod_template = deployment.spec.template
+                    affinity = pod_template.spec.affinity if pod_template.spec else None
+                    has_anti_affinity = (
+                        affinity and affinity.pod_anti_affinity and
+                        (affinity.pod_anti_affinity.required_during_scheduling_ignored_during_execution or
+                         affinity.pod_anti_affinity.preferred_during_scheduling_ignored_during_execution)
+                    )
+                    if not has_anti_affinity:
+                        await self.report_finding({
+                            "resource_type": "Deployment",
+                            "resource_name": deployment.metadata.name,
+                            "namespace": deployment.metadata.namespace,
+                            "severity": "low",
+                            "category": "Best Practice",
+                            "title": "HA deployment without pod anti-affinity",
+                            "description": f"Deployment '{deployment.metadata.name}' has {replicas} replicas but no pod anti-affinity rules. All replicas could be scheduled on the same node.",
+                            "remediation": "Add podAntiAffinity rules to spread replicas across nodes for better fault tolerance.",
+                            "timestamp": timestamp
+                        })
 
             logger.info("Deployment security scan completed")
         except ApiException as e:
@@ -1411,6 +1596,25 @@ class SecurityScanner:
                             })
                     except ApiException:
                         pass  # Service account might not exist or we don't have permission
+
+                # Check for pods using ServiceAccounts from kube-system
+                sa_namespace = namespace  # By default, SA is in the same namespace
+                # Check if serviceAccountName includes namespace prefix (rare but possible)
+                if '/' in sa_name:
+                    sa_namespace, sa_name = sa_name.split('/', 1)
+
+                if sa_namespace == 'kube-system' or (namespace != 'kube-system' and sa_name.startswith('system:')):
+                    await self.report_finding({
+                        "resource_type": "Pod",
+                        "resource_name": pod_name,
+                        "namespace": namespace,
+                        "severity": "medium",
+                        "category": "Security",
+                        "title": f"Pod uses system ServiceAccount: {sa_name}",
+                        "description": f"Pod '{pod_name}' uses a system-level ServiceAccount. This could grant unintended elevated permissions.",
+                        "remediation": "Create a dedicated ServiceAccount in the workload's namespace with only required permissions.",
+                        "timestamp": timestamp
+                    })
 
             logger.info("Service account scan completed")
         except ApiException as e:
@@ -1927,3 +2131,50 @@ class SecurityScanner:
             logger.error(f"Kubernetes API error while scanning CronJobs: {e}")
         except Exception as e:
             logger.error(f"Error scanning CronJobs: {e}")
+
+    async def scan_persistent_volumes(self):
+        """Scan PersistentVolumes for security issues"""
+        logger.info("Scanning PersistentVolumes...")
+        try:
+            pvs = self.v1.list_persistent_volume()
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            for pv in pvs.items:
+                pv_name = pv.metadata.name
+
+                # Check for hostPath PersistentVolumes
+                if pv.spec.host_path:
+                    host_path = pv.spec.host_path.path
+                    severity = "critical" if host_path in ['/', '/etc', '/var', '/root', '/home'] else "high"
+                    await self.report_finding({
+                        "resource_type": "PersistentVolume",
+                        "resource_name": pv_name,
+                        "namespace": "cluster-wide",
+                        "severity": severity,
+                        "category": "Security",
+                        "title": f"PersistentVolume uses hostPath: {host_path}",
+                        "description": f"PersistentVolume '{pv_name}' uses hostPath '{host_path}'. This provides direct access to the host filesystem and can lead to container escape or data exposure.",
+                        "remediation": "Use cloud provider storage classes, NFS, or other network-attached storage instead of hostPath for PersistentVolumes.",
+                        "timestamp": timestamp
+                    })
+
+                # Check for local PersistentVolumes (similar security concerns)
+                if pv.spec.local:
+                    local_path = pv.spec.local.path
+                    await self.report_finding({
+                        "resource_type": "PersistentVolume",
+                        "resource_name": pv_name,
+                        "namespace": "cluster-wide",
+                        "severity": "medium",
+                        "category": "Security",
+                        "title": f"PersistentVolume uses local storage: {local_path}",
+                        "description": f"PersistentVolume '{pv_name}' uses local storage at '{local_path}'. Local volumes are node-specific and may expose host filesystem.",
+                        "remediation": "Consider using network-attached storage for better isolation and portability.",
+                        "timestamp": timestamp
+                    })
+
+            logger.info("PersistentVolume scan completed")
+        except ApiException as e:
+            logger.error(f"Kubernetes API error while scanning PersistentVolumes: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning PersistentVolumes: {e}")
