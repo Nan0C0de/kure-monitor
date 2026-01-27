@@ -822,9 +822,7 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
     async def get_llm_status():
         """Get current LLM configuration status"""
         try:
-            import os
-
-            # Check database first
+            # Check database for LLM configuration
             db_config = await db.get_llm_config()
             if db_config:
                 return LLMConfigStatus(
@@ -832,19 +830,6 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
                     provider=db_config['provider'],
                     model=db_config['model'],
                     source="database"
-                )
-
-            # Fall back to environment variables
-            env_provider = os.getenv("KURE_LLM_PROVIDER")
-            env_api_key = os.getenv("KURE_LLM_API_KEY")
-            env_model = os.getenv("KURE_LLM_MODEL")
-
-            if env_provider and env_api_key:
-                return LLMConfigStatus(
-                    configured=True,
-                    provider=env_provider,
-                    model=env_model,
-                    source="environment"
                 )
 
             return LLMConfigStatus(configured=False)
@@ -857,7 +842,7 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
         """Save LLM configuration"""
         try:
             # Validate provider
-            valid_providers = ["openai", "anthropic", "claude", "groq", "groq_cloud"]
+            valid_providers = ["openai", "anthropic", "claude", "groq", "groq_cloud", "gemini", "google"]
             if config.provider.lower() not in valid_providers:
                 raise HTTPException(
                     status_code=400,
@@ -896,12 +881,12 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
 
     @router.delete("/admin/llm/config")
     async def delete_llm_config():
-        """Delete LLM configuration (revert to environment or rule-based)"""
+        """Delete LLM configuration (revert to rule-based solutions)"""
         try:
             deleted = await db.delete_llm_config()
 
-            # Reinitialize solution engine from environment variables
-            await solution_engine.reinitialize_from_env()
+            # Reset solution engine to rule-based mode (no LLM)
+            solution_engine.llm_provider = None
 
             if deleted:
                 return {"message": "LLM configuration deleted"}

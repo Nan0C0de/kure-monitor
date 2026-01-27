@@ -1,4 +1,3 @@
-import os
 import logging
 from .database_base import DatabaseInterface
 

@@ -18,19 +18,14 @@ Kure is a comprehensive Kubernetes health monitoring system that detects pod fai
 - **Admin Panel** - Manage namespace and pod exclusions in real-time
 - **Modern Web Dashboard** - Clean interface with dark/light mode support
 - **Secure by Design** - RBAC-compliant with network policies and security contexts
-- **Multi-Provider LLM Support** - OpenAI, Anthropic, and Groq integration
+- **Multi-Provider LLM Support** - OpenAI, Anthropic, Groq, and Google Gemini integration
 - **PostgreSQL Backend** - Robust data persistence with full-text search
 
-## What's New in v1.4.1
+## What's New in v1.5.0
 
-- **Pod Metrics Viewing** - View CPU and memory usage per pod with historical charts
-- **Node Details Modal** - Detailed node view with progress bars and conditions
-- **Enhanced Monitoring Tab** - CPU/Memory columns in pod table with Metrics button
-- **Metrics History** - Backend stores last 15 data points for trend analysis
-- **Recharts Integration** - Beautiful line charts for metrics visualization
-- **LLM Configuration via UI** - Configure AI provider (OpenAI, Anthropic, Groq) through Admin panel - no API key required at install time
-- **Setup Banner** - Prompts users to configure AI on first run
-- **Security Fixes** - Init containers now have resource limits, namespace includes PSA labels
+- **Google Gemini Support** - New LLM provider with Gemini 2.5 Pro, 2.0 Flash, and 2.0 Flash Lite models
+- **Redesigned Admin Panel** - New tabbed interface for better navigation (AI Config, Notifications, Exclusions)
+- **Simplified Exclusions** - Security and Monitoring exclusions merged into single Exclusions tab
 
 ## Architecture
 
@@ -79,7 +74,7 @@ helm install kure-monitor kure-monitor/kure \
   --create-namespace
 ```
 
-After installation, configure your LLM provider (OpenAI, Anthropic, or Groq) via the Admin panel in the web dashboard to enable AI-powered solutions.
+After installation, configure your LLM provider (OpenAI, Anthropic, Groq, or Google Gemini) via the Admin panel in the web dashboard to enable AI-powered solutions.
 
 ### Access the Dashboard
 
@@ -106,8 +101,9 @@ LLM provider is configured via the Admin panel in the web dashboard after instal
 | **OpenAI** | `gpt-4.1-mini` | `gpt-4.1`, `gpt-4o` |
 | **Anthropic** | `claude-sonnet-4-20250514` | `claude-opus-4-5-20251124`, `claude-haiku-4-5-20251015` |
 | **Groq** | `llama-4-scout-17b-16e-instruct` | `llama-4-maverick-17b-128e-instruct`, `llama-3.3-70b-versatile` |
+| **Google Gemini** | `gemini-2.0-flash` | `gemini-2.5-pro-preview-05-06`, `gemini-2.0-flash-lite` |
 
-**Provider Aliases:** `claude` → `anthropic`, `groq_cloud` → `groq`
+**Provider Aliases:** `claude` → `anthropic`, `groq_cloud` → `groq`, `google` → `gemini`
 
 ### Helm Values
 
@@ -153,10 +149,9 @@ postgresql:
 - Namespace filtering
 
 ### Admin Panel
-- **LLM Configuration** - Configure AI provider (OpenAI, Anthropic, Groq) for intelligent solutions
-- **Namespace Exclusions** - Exclude namespaces from security scanning
-- **Pod Exclusions** - Exclude pods from failure monitoring
-- **Notification Settings** - Configure Slack webhook for alerts
+- **AI Config** - Configure AI provider (OpenAI, Anthropic, Groq, Google Gemini) for intelligent solutions
+- **Notifications** - Configure Slack webhook for alerts
+- **Exclusions** - Exclude namespaces from security scanning and pods from failure monitoring
 - Real-time updates via WebSocket
 
 ## Monitoring and Troubleshooting
