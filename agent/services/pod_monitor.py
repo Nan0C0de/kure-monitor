@@ -2,9 +2,8 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
-from kubernetes import client, config, watch
+from kubernetes import client, config
 from kubernetes.client.rest import ApiException
-import json
 
 from clients.backend_client import BackendClient
 from clients.websocket_client import WebSocketClient

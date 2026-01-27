@@ -20,7 +20,7 @@ After installation, access the dashboard and configure your LLM provider via the
 ## Features
 
 - Real-time pod failure detection and monitoring
-- AI-powered troubleshooting solutions (OpenAI, Anthropic, Groq)
+- AI-powered troubleshooting solutions (OpenAI, Anthropic, Groq, Google Gemini)
 - Cluster metrics dashboard (CPU, memory, storage)
 - Live pod log streaming
 - Security misconfiguration scanning
@@ -36,21 +36,22 @@ After installation, access the dashboard and configure your LLM provider via the
 |-----------|-------------|---------|
 | `agent.enabled` | Enable pod monitoring agent | `true` |
 | `agent.clusterMetrics.enabled` | Enable cluster metrics collection | `true` |
-| `agent.image.tag` | Agent image tag | `1.4.1` |
+| `agent.image.tag` | Agent image tag | `1.5.0` |
 | `securityScanner.enabled` | Enable security scanner | `true` |
-| `securityScanner.image.tag` | Security scanner image tag | `1.4.1` |
+| `securityScanner.image.tag` | Security scanner image tag | `1.5.0` |
 | `backend.replicaCount` | Backend replica count | `1` |
-| `backend.image.tag` | Backend image tag | `1.4.1` |
-| `frontend.image.tag` | Frontend image tag | `1.4.1` |
+| `backend.image.tag` | Backend image tag | `1.5.0` |
+| `frontend.image.tag` | Frontend image tag | `1.5.0` |
 
 ### LLM Configuration
 
-LLM provider (OpenAI, Anthropic, or Groq) is configured via the Admin panel in the web dashboard after installation. No API key is required during helm install.
+LLM provider is configured via the Admin panel in the web dashboard after installation. No API key is required during helm install.
 
 Supported providers:
-- **OpenAI** - `gpt-4o-mini` (default)
-- **Anthropic** - `claude-3-haiku-20240307` (default)
-- **Groq** - `llama-3.1-8b-instant` (default, free tier available)
+- **OpenAI** - `gpt-4.1-mini` (default)
+- **Anthropic** - `claude-sonnet-4-20250514` (default)
+- **Groq** - `llama-4-scout-17b-16e-instruct` (default)
+- **Google Gemini** - `gemini-2.0-flash` (default)
 
 ### Service Configuration
 
@@ -121,7 +122,7 @@ Then open http://localhost:8080 and configure your LLM provider in the Admin pan
 
 ```bash
 helm repo update
-helm upgrade kure-monitor kure-monitor/kure --version 1.4.1 -n kure-system
+helm upgrade kure-monitor kure-monitor/kure --version 1.5.0 -n kure-system
 ```
 
 ## Uninstall

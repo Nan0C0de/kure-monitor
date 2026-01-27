@@ -1,7 +1,6 @@
 import logging
 import yaml
-from typing import Dict, Any, Optional
-from kubernetes import client
+from typing import Dict, Any
 from datetime import datetime
 
 logger = logging.getLogger(__name__)

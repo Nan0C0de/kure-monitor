@@ -2,8 +2,8 @@ apiVersion: v2
 name: kure
 description: A Kubernetes health monitoring system with agent, backend, and frontend components
 type: application
-version: 1.4.1
-appVersion: "1.4.1"
+version: 1.5.0
+appVersion: "1.5.0"
 keywords:
   - kubernetes
   - monitoring
@@ -18,21 +18,11 @@ maintainers:
 annotations:
   artifacthub.io/changes: |
     - kind: added
-      description: Pod metrics viewing with CPU and memory usage display
-    - kind: added
-      description: Pod metrics history charts showing recent trends (last 15 data points)
-    - kind: added
-      description: Node details modal with resource progress bars and conditions table
-    - kind: added
-      description: Clickable node rows in monitoring dashboard for detailed view
-    - kind: added
-      description: LLM configuration via Admin panel - no API key required at install time
-    - kind: added
-      description: Setup banner prompting users to configure AI when not set up
-    - kind: fixed
-      description: Init containers now have resource limits defined
-    - kind: fixed
-      description: Namespace template now includes Pod Security Admission labels
+      description: Google Gemini LLM provider support with Gemini 2.5 Pro, 2.0 Flash, and 2.0 Flash Lite models
+    - kind: changed
+      description: Admin panel redesigned with tabbed interface for better navigation
+    - kind: changed
+      description: Merged Security and Monitoring exclusion settings into single Exclusions tab
   artifacthub.io/category: monitoring-logging
   artifacthub.io/displayName: Kure - Kubernetes Health Monitor
   artifacthub.io/license: MIT
@@ -52,7 +42,7 @@ annotations:
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
     # Install Kure Monitor
-    helm install kure-monitor kure-monitor/kure --version 1.4.1 \
+    helm install kure-monitor kure-monitor/kure --version 1.5.0 \
       --create-namespace --namespace kure-system
 
     # After installation, configure LLM provider via the Admin panel

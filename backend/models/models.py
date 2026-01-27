@@ -1,7 +1,5 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from datetime import datetime
-from enum import Enum
 
 class ContainerStatus(BaseModel):
     name: str
@@ -77,20 +75,6 @@ class ExcludedPodResponse(ExcludedPod):
 
 
 # Notification models
-class NotificationProvider(str, Enum):
-    SLACK = "slack"
-    TEAMS = "teams"
-
-
-class SlackConfig(BaseModel):
-    webhook_url: str
-    channel: Optional[str] = None
-
-
-class TeamsConfig(BaseModel):
-    webhook_url: str
-
-
 class NotificationSettingCreate(BaseModel):
     provider: str
     enabled: bool = False
@@ -173,12 +157,6 @@ class ClusterMetrics(BaseModel):
 
 
 # LLM Configuration models
-class LLMProvider(str, Enum):
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    GROQ = "groq"
-
-
 class LLMConfigCreate(BaseModel):
     provider: str
     api_key: str
@@ -198,4 +176,4 @@ class LLMConfigStatus(BaseModel):
     configured: bool = False
     provider: Optional[str] = None
     model: Optional[str] = None
-    source: Optional[str] = None  # "database" or "environment"
+    source: Optional[str] = None  # "database"
