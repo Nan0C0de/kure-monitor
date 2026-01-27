@@ -1,5 +1,5 @@
 # Artifact Hub package metadata file
-version: 1.4.1
+version: 1.5.0
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Health Monitor
@@ -7,16 +7,16 @@ createdAt: 2025-08-30T00:00:00Z
 description: A Kubernetes health monitoring system with agent, backend, and frontend components
 license: MIT
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "1.4.1"
+appVersion: "1.5.0"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:1.4.1
+    image: ghcr.io/nan0c0de/kure-monitor/agent:1.5.0
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:1.4.1
+    image: ghcr.io/nan0c0de/kure-monitor/backend:1.5.0
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:1.4.1
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:1.5.0
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:1.4.1
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:1.5.0
 operator: false
 deprecated: false
 prerelease: false
@@ -38,28 +38,18 @@ provider:
   name: Nan0C0de
 changes:
   - kind: added
-    description: Pod metrics viewing with CPU and memory usage display
-  - kind: added
-    description: Pod metrics history charts showing recent trends (last 15 data points)
-  - kind: added
-    description: Node details modal with resource progress bars and conditions table
-  - kind: added
-    description: Clickable node rows in monitoring dashboard for detailed view
-  - kind: added
-    description: LLM configuration via Admin panel - no API key required at install time
-  - kind: added
-    description: Setup banner prompting users to configure AI when not set up
-  - kind: fixed
-    description: Init containers now have resource limits defined
-  - kind: fixed
-    description: Namespace template now includes Pod Security Admission labels
+    description: Google Gemini LLM provider support with Gemini 2.5 Pro, 2.0 Flash, and 2.0 Flash Lite models
+  - kind: changed
+    description: Redesigned Admin Panel with tabbed interface (AI Config, Notifications, Exclusions)
+  - kind: changed
+    description: Merged Security and Monitoring exclusions into single Exclusions tab
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 1.4.1 \
+  helm install kure-monitor kure-monitor/kure --version 1.5.0 \
     --create-namespace --namespace kure-system
 
   # After installation, configure LLM provider via the Admin panel
