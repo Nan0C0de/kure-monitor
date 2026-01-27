@@ -1,6 +1,6 @@
 apiVersion: v2
 name: kure
-description: A Kubernetes health monitoring system with agent, backend, and frontend components
+description: Kubernetes failure diagnosis tool with AI-powered troubleshooting
 type: application
 version: 1.5.0
 appVersion: "1.5.0"
@@ -24,7 +24,7 @@ annotations:
     - kind: changed
       description: Merged Security and Monitoring exclusion settings into single Exclusions tab
   artifacthub.io/category: monitoring-logging
-  artifacthub.io/displayName: Kure - Kubernetes Health Monitor
+  artifacthub.io/displayName: Kure - Kubernetes Failure Diagnosis
   artifacthub.io/license: MIT
   artifacthub.io/links: |
     - name: Source

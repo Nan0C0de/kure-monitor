@@ -2,9 +2,9 @@
 version: 1.5.0
 name: kure
 category: monitoring-logging
-displayName: Kure - Kubernetes Health Monitor
+displayName: Kure - Kubernetes Failure Diagnosis
 createdAt: 2025-08-30T00:00:00Z
-description: A Kubernetes health monitoring system with agent, backend, and frontend components
+description: Kubernetes failure diagnosis tool with AI-powered troubleshooting. Detects pod failures instantly and provides contextual solutions to help you fix issues fast.
 license: MIT
 homeURL: https://github.com/Nan0C0de/kure-monitor
 appVersion: "1.5.0"
