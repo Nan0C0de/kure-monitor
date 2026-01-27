@@ -4,8 +4,9 @@ name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
 createdAt: 2025-08-30T00:00:00Z
-description: Kubernetes failure diagnosis tool with AI-powered troubleshooting. Detects pod failures instantly and provides contextual solutions to help you fix issues fast.
-license: MIT
+description: |
+  Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes security scanning for privileged containers, missing security contexts, and RBAC misconfigurations. No Prometheus dependency required.
+license: Custom Non-Commercial
 homeURL: https://github.com/Nan0C0de/kure-monitor
 appVersion: "1.5.0"
 containersImages:
@@ -22,10 +23,11 @@ deprecated: false
 prerelease: false
 keywords:
   - kubernetes
-  - monitoring
-  - health
-  - observability
-  - monitoring-logging
+  - troubleshooting
+  - diagnosis
+  - pod-failures
+  - security-scanning
+  - ai-powered
 links:
   - name: Chart Source
     url: https://github.com/Nan0C0de/kure-monitor/tree/main/helm

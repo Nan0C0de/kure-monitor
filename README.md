@@ -3,39 +3,34 @@
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kure-monitor)](https://artifacthub.io/packages/search?repo=kure-monitor)
 [![Test Suite](https://github.com/Nan0C0de/kure-monitor/actions/workflows/test-suite.yml/badge.svg)](https://github.com/Nan0C0de/kure-monitor/actions/workflows/test-suite.yml)
 
-**Kubernetes failure diagnosis with AI-powered troubleshooting**
+> **Stop debugging Kubernetes failures manually — let AI analyze your pod crashes, image pull errors, and scheduling issues in seconds.**
 
 Kure is a failure diagnosis tool that helps you understand **why** your Kubernetes workloads fail. When a pod crashes, gets stuck pending, or can't pull an image, Kure detects it instantly and provides AI-generated troubleshooting guidance to help you fix it fast.
 
-## Why Kure?
-
-Traditional monitoring tells you *that* something failed. Kure tells you *why* it failed and *how* to fix it:
-
-- **Instant failure detection** — Know immediately when pods enter CrashLoopBackOff, ImagePullBackOff, Pending, or other failure states
-- **AI-powered diagnosis** — Get contextual troubleshooting steps generated from pod events, logs, and manifest analysis
-- **Security misconfiguration scanning** — Identify privileged containers, missing security contexts, and other security issues
-- **All in one dashboard** — No context switching between kubectl, logs, and documentation
-
-## What Kure is NOT
-
-Kure is focused on failure diagnosis, not general observability:
-
-- **Not a Prometheus replacement** — Kure doesn't collect time-series metrics or provide alerting rules
-- **Not a full APM solution** — No distributed tracing, no service mesh integration
-- **Not a log aggregator** — Logs are fetched on-demand for troubleshooting, not stored long-term
-
-If you need comprehensive observability, use Kure alongside tools like Prometheus, Grafana, or Datadog.
+![Kure Dashboard](docs/images/dashboard-overview.png)
 
 ## Features
 
-- **Real-time Failure Detection** — Detects pod failures across all namespaces instantly
-- **AI-Powered Troubleshooting** — Generates contextual solutions using OpenAI, Anthropic, Groq, or Google Gemini
-- **Security Scanning** — Identifies security misconfigurations with remediation guidance
+**Core Diagnosis**
+- **AI-Powered Troubleshooting** — Get contextual solutions generated from pod events, logs, and manifest analysis using OpenAI, Anthropic, Groq, or Google Gemini
+- **Real-time Failure Detection** — Know immediately when pods enter CrashLoopBackOff, ImagePullBackOff, Pending, or other failure states
+- **Security Scanning** — Detect privileged containers, host network/PID access, missing seccomp profiles, containers running as root, overprivileged ServiceAccounts, and missing resource limits
+
+**Dashboard**
 - **Live Pod Logs** — Stream logs in real-time with container selection
 - **Cluster Overview** — CPU, memory, and storage usage at a glance
-- **Notification Alerts** — Slack webhook integration for failure notifications
-- **Admin Panel** — Configure AI provider, notifications, and exclusions via UI
-- **Modern Dashboard** — Clean interface with dark/light mode support
+- **Slack Notifications** — Get alerted when failures occur
+
+## Limitations
+
+Kure is focused on failure diagnosis, not general observability:
+
+- **No Prometheus dependency** — Kure works standalone; it doesn't require or replace Prometheus
+- **Not a metrics platform** — No time-series data, no alerting rules, no historical dashboards
+- **Not a log aggregator** — Logs are fetched on-demand, not stored or indexed
+- **Single cluster only** — Monitors one Kubernetes cluster per installation
+
+Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
 ## What's New in v1.5.0
 
@@ -46,29 +41,36 @@ If you need comprehensive observability, use Kure alongside tools like Prometheu
 ## Architecture
 
 ```
-┌─────────────────┐    ┌──────────────┐    ┌─────────────────┐
-│ Kure Agent      │───▶│ Kure Backend │───▶│ LLM Providers   │
-│ (Pod Monitor)   │    │ (FastAPI)    │    │ OpenAI/Anthropic│
-└─────────────────┘    └──────────────┘    └─────────────────┘
-        │                      │
-        │                      ▼
-        │              ┌──────────────┐
-        │              │ PostgreSQL   │
-        │              │ Database     │
-        │              └──────────────┘
-        │
-        ▼                      ▲
-┌─────────────────┐            │
-│ Kubernetes      │            │
-│ API Server      │            │
-└─────────────────┘            │
-        ▲                      │
-        │              ┌──────────────┐
-┌─────────────────┐    │ Kure Frontend│
-│ Security Scanner│    │ (React)      │
-│ (Pod Auditor)   │───▶└──────────────┘
-└─────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        Kubernetes Cluster                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐               │
+│  │   Agent     │  │  Security   │  │  Backend    │               │
+│  │ (DaemonSet) │  │  Scanner    │  │  (FastAPI)  │──┐            │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  │            │
+│         │                │                │         │            │
+│         │    Pod failures & security      │         │            │
+│         └────────────────┴────────────────┘         │            │
+│                          │                          │            │
+│                          ▼                          ▼            │
+│                   ┌─────────────┐           ┌─────────────┐      │
+│                   │ PostgreSQL  │           │  Frontend   │      │
+│                   │  Database   │           │   (React)   │      │
+│                   └─────────────┘           └─────────────┘      │
+└──────────────────────────────────────────────────────────────────┘
+                                                      │
+                                                      ▼
+                                              ┌─────────────┐
+                                              │ LLM Provider│
+                                              │ (External)  │
+                                              └─────────────┘
 ```
+
+**Components:**
+- **Agent** — Watches Kubernetes API for pod failures, runs as DaemonSet
+- **Security Scanner** — Audits pods for security misconfigurations
+- **Backend** — FastAPI server, generates AI solutions, serves WebSocket updates
+- **Frontend** — React dashboard with real-time updates
+- **PostgreSQL** — Stores failure history and configuration
 
 ## Quick Start
 
@@ -262,12 +264,14 @@ cd security-scanner && python -m pytest -v
 
 ## License
 
-This project is licensed under a **Custom Non-Commercial License**. See the [LICENSE](LICENSE) file for full details.
+**Custom Non-Commercial License** — See [LICENSE](LICENSE) for full terms.
 
-### Key License Terms:
+| Use Case | Allowed? |
+|----------|----------|
+| Personal homelab or learning | Yes |
+| Internal company use (non-revenue) | Contact for permission |
+| Selling or reselling Kure | No |
+| Offering Kure as a managed service | No |
+| Including in commercial products | No |
 
-- **Free for non-commercial use** - Personal projects, education, open-source contributions
-- **Commercial use requires permission** - Contact nano.code@outlook.com for licensing
-- **Modifications allowed** - For non-commercial purposes only
-
-**Commercial inquiries**: nano.code@outlook.com
+**Commercial licensing**: nano.code@outlook.com

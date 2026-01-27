@@ -1,6 +1,6 @@
 # Kure Pod Failure Test Cases
 
-This directory contains 10 different pod failure scenarios to test the Kure monitoring system's ability to detect and report various types of pod failures.
+This directory contains 10 different pod failure scenarios to test Kure's ability to detect failures and generate troubleshooting solutions.
 
 ## Test Cases
 
