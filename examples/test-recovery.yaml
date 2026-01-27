@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-recovery
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-recovery
+  template:
+    metadata:
+      labels:
+        app: test-recovery
+    spec:
+      containers:
+      - name: app
+        image: nginx:invalid-tag-that-does-not-exist
+        ports:
+        - containerPort: 80

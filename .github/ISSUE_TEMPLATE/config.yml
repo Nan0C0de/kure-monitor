@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/Nan0C0de/kure-monitor#readme
+    about: Check the README for setup instructions and troubleshooting
+  - name: Discussions
+    url: https://github.com/Nan0C0de/kure-monitor/discussions
+    about: Ask questions and discuss ideas

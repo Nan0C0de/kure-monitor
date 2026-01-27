@@ -3,23 +3,39 @@
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kure-monitor)](https://artifacthub.io/packages/search?repo=kure-monitor)
 [![Test Suite](https://github.com/Nan0C0de/kure-monitor/actions/workflows/test-suite.yml/badge.svg)](https://github.com/Nan0C0de/kure-monitor/actions/workflows/test-suite.yml)
 
-**Real-time Kubernetes monitoring with AI-powered diagnostics**
+**Kubernetes failure diagnosis with AI-powered troubleshooting**
 
-Kure is a comprehensive Kubernetes health monitoring system that detects pod failures in real-time and provides AI-generated solutions for quick troubleshooting. Built with a modern microservices architecture, it continuously watches your cluster and delivers actionable insights through an intuitive web dashboard.
+Kure is a failure diagnosis tool that helps you understand **why** your Kubernetes workloads fail. When a pod crashes, gets stuck pending, or can't pull an image, Kure detects it instantly and provides AI-generated troubleshooting guidance to help you fix it fast.
+
+## Why Kure?
+
+Traditional monitoring tells you *that* something failed. Kure tells you *why* it failed and *how* to fix it:
+
+- **Instant failure detection** — Know immediately when pods enter CrashLoopBackOff, ImagePullBackOff, Pending, or other failure states
+- **AI-powered diagnosis** — Get contextual troubleshooting steps generated from pod events, logs, and manifest analysis
+- **Security misconfiguration scanning** — Identify privileged containers, missing security contexts, and other security issues
+- **All in one dashboard** — No context switching between kubectl, logs, and documentation
+
+## What Kure is NOT
+
+Kure is focused on failure diagnosis, not general observability:
+
+- **Not a Prometheus replacement** — Kure doesn't collect time-series metrics or provide alerting rules
+- **Not a full APM solution** — No distributed tracing, no service mesh integration
+- **Not a log aggregator** — Logs are fetched on-demand for troubleshooting, not stored long-term
+
+If you need comprehensive observability, use Kure alongside tools like Prometheus, Grafana, or Datadog.
 
 ## Features
 
-- **Real-time Pod Monitoring** - Detects failures across all namespaces instantly
-- **Cluster Metrics Dashboard** - Live CPU, memory, storage usage with node details
-- **Security Scanning** - Real-time detection of security misconfigurations and vulnerabilities
-- **AI-Powered Solutions** - Generates contextual troubleshooting steps using LLMs
-- **Live Pod Logs** - Stream logs in real-time with container selection
-- **Notification System** - Slack webhook integration for instant alerts
-- **Admin Panel** - Manage namespace and pod exclusions in real-time
-- **Modern Web Dashboard** - Clean interface with dark/light mode support
-- **Secure by Design** - RBAC-compliant with network policies and security contexts
-- **Multi-Provider LLM Support** - OpenAI, Anthropic, Groq, and Google Gemini integration
-- **PostgreSQL Backend** - Robust data persistence with full-text search
+- **Real-time Failure Detection** — Detects pod failures across all namespaces instantly
+- **AI-Powered Troubleshooting** — Generates contextual solutions using OpenAI, Anthropic, Groq, or Google Gemini
+- **Security Scanning** — Identifies security misconfigurations with remediation guidance
+- **Live Pod Logs** — Stream logs in real-time with container selection
+- **Cluster Overview** — CPU, memory, and storage usage at a glance
+- **Notification Alerts** — Slack webhook integration for failure notifications
+- **Admin Panel** — Configure AI provider, notifications, and exclusions via UI
+- **Modern Dashboard** — Clean interface with dark/light mode support
 
 ## What's New in v1.5.0
 

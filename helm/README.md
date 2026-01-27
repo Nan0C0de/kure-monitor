@@ -1,6 +1,6 @@
 # Kure Helm Chart
 
-A Kubernetes health monitoring system with AI-powered diagnostics, real-time cluster metrics, and security scanning.
+Kubernetes failure diagnosis tool with AI-powered troubleshooting. Detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, etc.) instantly and provides contextual solutions to help you fix issues fast.
 
 ## Quick Start
 
@@ -19,14 +19,13 @@ After installation, access the dashboard and configure your LLM provider via the
 
 ## Features
 
-- Real-time pod failure detection and monitoring
-- AI-powered troubleshooting solutions (OpenAI, Anthropic, Groq, Google Gemini)
-- Cluster metrics dashboard (CPU, memory, storage)
-- Live pod log streaming
-- Security misconfiguration scanning
-- Slack and Microsoft Teams notifications
-- Admin panel for namespace/pod exclusions
-- LLM configuration via Admin panel (no API key required at install time)
+- **Instant Failure Detection** — Detects pod failures across all namespaces in real-time
+- **AI-Powered Troubleshooting** — Generates contextual solutions using OpenAI, Anthropic, Groq, or Google Gemini
+- **Security Scanning** — Identifies security misconfigurations with remediation guidance
+- **Live Pod Logs** — Stream logs on-demand for troubleshooting
+- **Cluster Overview** — CPU, memory, and storage usage at a glance
+- **Slack Notifications** — Get alerted when failures occur
+- **Admin Panel** — Configure AI provider, notifications, and exclusions via UI
 
 ## Configuration
 

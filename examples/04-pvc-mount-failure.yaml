@@ -1,0 +1,19 @@
+# Test Case 4: PVC Mount Failure - Missing PersistentVolumeClaim
+apiVersion: v1
+kind: Pod
+metadata:
+  name: failed-pod-pvc-mount
+  namespace: default
+  labels:
+    test-case: "pvc-mount-failure"
+spec:
+  containers:
+  - name: app-container
+    image: nginx:latest
+    volumeMounts:
+    - name: data-volume
+      mountPath: /data
+  volumes:
+  - name: data-volume
+    persistentVolumeClaim:
+      claimName: missing-pvc

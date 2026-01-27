@@ -1,0 +1,349 @@
+# Security Scan Test Cases
+# This file contains test resources to verify the security scanner detects various security issues.
+#
+# Apply with: kubectl apply -f examples/security-scan-tests.yaml
+# Cleanup with: kubectl delete -f examples/security-scan-tests.yaml
+
+# =============================================================================
+# NAMESPACE - Without PSA labels (triggers: scan_pod_security_admission)
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-security-scan
+  # No pod-security.kubernetes.io labels - should trigger finding
+---
+# =============================================================================
+# NAMESPACE - With privileged PSA enforce (triggers: scan_pod_security_admission)
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-privileged-ns
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+# =============================================================================
+# INGRESS - Without TLS (triggers: scan_ingresses)
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: insecure-ingress-no-tls
+  namespace: test-security-scan
+spec:
+  rules:
+  - host: app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 80
+---
+# =============================================================================
+# INGRESS - With wildcard host (triggers: scan_ingresses)
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: insecure-ingress-wildcard
+  namespace: test-security-scan
+spec:
+  rules:
+  - host: "*.example.com"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 80
+---
+# =============================================================================
+# INGRESS - With dangerous annotation (triggers: scan_ingresses)
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: insecure-ingress-snippet
+  namespace: test-security-scan
+  annotations:
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Custom-Header: value";
+spec:
+  rules:
+  - host: dangerous.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 80
+---
+# =============================================================================
+# POD - Without seccomp profile (triggers: scan_seccomp_profiles)
+# =============================================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-no-seccomp
+  namespace: test-security-scan
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    # No securityContext.seccompProfile configured
+---
+# =============================================================================
+# POD - With seccomp profile (for comparison - should NOT trigger)
+# =============================================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-seccomp
+  namespace: test-security-scan
+spec:
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      runAsNonRoot: true
+      runAsUser: 1000
+      readOnlyRootFilesystem: true
+    resources:
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
+---
+# =============================================================================
+# CLUSTERROLEBINDING - Grants permissions to anonymous users (triggers: scan_cluster_role_bindings)
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: insecure-anonymous-binding
+subjects:
+- kind: Group
+  name: system:anonymous
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: view
+  apiGroup: rbac.authorization.k8s.io
+---
+# =============================================================================
+# CLUSTERROLEBINDING - ServiceAccount with cluster-admin (triggers: scan_cluster_role_bindings)
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: overprivileged-sa
+  namespace: test-security-scan
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: insecure-sa-cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: overprivileged-sa
+  namespace: test-security-scan
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+# =============================================================================
+# DEPLOYMENT - HA deployment without PDB (triggers: scan_pod_disruption_budgets)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ha-deployment-no-pdb
+  namespace: test-security-scan
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ha-app
+  template:
+    metadata:
+      labels:
+        app: ha-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+---
+# =============================================================================
+# DEPLOYMENT - HA deployment WITH PDB (for comparison - should NOT trigger)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ha-deployment-with-pdb
+  namespace: test-security-scan
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ha-app-pdb
+  template:
+    metadata:
+      labels:
+        app: ha-app-pdb
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ha-app-pdb
+  namespace: test-security-scan
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: ha-app-pdb
+---
+# =============================================================================
+# CONFIGMAP - With sensitive data patterns (triggers: scan_configmaps)
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: insecure-config
+  namespace: test-security-scan
+data:
+  config.properties: |
+    app.name=MyApp
+    database.password=supersecret123
+    api_key=sk-1234567890abcdef
+  credentials.txt: |
+    username=admin
+    secret_key=very-secret-value
+---
+# =============================================================================
+# CONFIGMAP - With sensitive key names (triggers: scan_configmaps)
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensitive-keys-config
+  namespace: test-security-scan
+data:
+  db_password: "should-be-in-secret"
+  api_token: "also-should-be-secret"
+  normal_setting: "this-is-fine"
+---
+# =============================================================================
+# CRONJOB - With privileged container (triggers: scan_cronjobs)
+# =============================================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: insecure-cronjob-privileged
+  namespace: test-security-scan
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: task
+            image: busybox:1.36
+            command: ["echo", "privileged job"]
+            securityContext:
+              privileged: true
+---
+# =============================================================================
+# CRONJOB - With host network (triggers: scan_cronjobs)
+# =============================================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: insecure-cronjob-hostnet
+  namespace: test-security-scan
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          hostNetwork: true
+          restartPolicy: OnFailure
+          containers:
+          - name: task
+            image: busybox:1.36
+            command: ["echo", "host network job"]
+---
+# =============================================================================
+# CRONJOB - With excessive history (triggers: scan_cronjobs)
+# =============================================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cronjob-excessive-history
+  namespace: test-security-scan
+spec:
+  schedule: "0 0 * * *"
+  successfulJobsHistoryLimit: 50
+  failedJobsHistoryLimit: 20
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: task
+            image: busybox:1.36
+            command: ["echo", "lots of history"]
+---
+# =============================================================================
+# SERVICE - For Ingress backends (required for Ingress to be valid)
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+  namespace: test-security-scan
+spec:
+  selector:
+    app: test-app
+  ports:
+  - port: 80
+    targetPort: 80
+---
+# =============================================================================
+# Note: ResourceQuota and LimitRange checks are triggered by their ABSENCE
+# The test-security-scan namespace has no ResourceQuota or LimitRange,
+# which should trigger scan_resource_quotas findings.
+# =============================================================================

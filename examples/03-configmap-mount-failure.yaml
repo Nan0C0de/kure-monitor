@@ -1,0 +1,20 @@
+# Test Case 3: ConfigMap Mount Failure - Missing configmap
+apiVersion: v1
+kind: Pod
+metadata:
+  name: failed-pod-configmap-mount
+  namespace: default
+  labels:
+    test-case: "configmap-mount-failure"
+spec:
+  containers:
+  - name: app-container
+    image: busybox:latest
+    command: ["sleep", "3600"]
+    volumeMounts:
+    - name: config-volume
+      mountPath: /etc/config
+  volumes:
+  - name: config-volume
+    configMap:
+      name: nonexistent-configmap

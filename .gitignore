@@ -249,9 +249,6 @@ Thumbs.db
 *.local
 .local/
 
-# Ignore k8s
-examples
-
 # KinD
 kind
 

@@ -1,0 +1,16 @@
+# Test Case 10: Init Container Failure - Init container fails
+apiVersion: v1
+kind: Pod
+metadata:
+  name: failed-pod-init-container
+  namespace: default
+  labels:
+    test-case: "init-container-failure"
+spec:
+  initContainers:
+  - name: init-setup
+    image: busybox:latest
+    command: ["sh", "-c", "echo 'Init container failing' && exit 1"]
+  containers:
+  - name: app-container
+    image: nginx:latest
