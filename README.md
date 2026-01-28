@@ -117,7 +117,7 @@ LLM provider is configured via the Admin panel in the web dashboard after instal
 |----------|---------------|--------------------|
 | **OpenAI** | `gpt-4.1-mini` | `gpt-4.1`, `gpt-4o` |
 | **Anthropic** | `claude-sonnet-4-20250514` | `claude-opus-4-5-20251124`, `claude-haiku-4-5-20251015` |
-| **Groq** | `llama-4-scout-17b-16e-instruct` | `llama-4-maverick-17b-128e-instruct`, `llama-3.3-70b-versatile` |
+| **Groq** | `meta-llama/llama-4-scout-17b-16e-instruct` | `meta-llama/llama-4-maverick-17b-128e-instruct`, `llama-3.3-70b-versatile` |
 | **Google Gemini** | `gemini-2.0-flash` | `gemini-2.5-pro-preview-05-06`, `gemini-2.0-flash-lite` |
 
 **Provider Aliases:** `claude` → `anthropic`, `groq_cloud` → `groq`, `google` → `gemini`

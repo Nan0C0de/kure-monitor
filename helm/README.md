@@ -47,7 +47,7 @@ LLM provider is configured via the Admin panel in the web dashboard after instal
 Supported providers:
 - **OpenAI** - `gpt-4.1-mini` (default)
 - **Anthropic** - `claude-sonnet-4-20250514` (default)
-- **Groq** - `llama-4-scout-17b-16e-instruct` (default)
+- **Groq** - `meta-llama/llama-4-scout-17b-16e-instruct` (default)
 - **Google Gemini** - `gemini-2.0-flash` (default)
 
 ### Service Configuration

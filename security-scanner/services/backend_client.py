@@ -130,4 +130,3 @@ class BackendClient:
             if "Backend returned" in str(e) or "Timeout" in str(e) or "HTTP client" in str(e):
                 raise
             raise Exception(f"Error fetching excluded namespaces: {e}")
-

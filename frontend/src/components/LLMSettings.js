@@ -40,10 +40,10 @@ const LLMSettings = ({ isDark = false }) => {
     {
       value: 'groq',
       label: 'Groq',
-      defaultModel: 'llama-4-scout-17b-16e-instruct',
+      defaultModel: 'meta-llama/llama-4-scout-17b-16e-instruct',
       models: [
-        { value: 'llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick (Best)' },
-        { value: 'llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Recommended)' },
+        { value: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick (Best)' },
+        { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Recommended)' },
         { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' }
       ]
     },
