@@ -1,15 +1,6 @@
-{{- if .Values.createNamespace }}
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Release.Namespace }}
-  labels:
-    {{- include "kure.labels" . | nindent 4 }}
-    # Pod Security Admission labels
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/enforce-version: latest
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/audit-version: latest
-    pod-security.kubernetes.io/warn: restricted
-    pod-security.kubernetes.io/warn-version: latest
-{{- end }}
+{{- /*
+Namespace is created by Helm with --create-namespace flag.
+This template adds Pod Security Admission labels to the namespace.
+Note: Helm doesn't support patching namespaces it creates, so this
+only works when the namespace is pre-created or on upgrade.
+*/ -}}

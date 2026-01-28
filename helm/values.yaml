@@ -5,9 +5,6 @@ global:
   imageRegistry: ""
   imagePullSecrets: []
 
-# Namespace configuration
-createNamespace: true  # Creates namespace with Pod Security Admission labels
-
 # Pod monitoring agent configuration
 agent:
   # Cluster metrics collection (CPU, memory, pod counts, etc.)
