@@ -33,10 +33,8 @@ After installation, access the dashboard and configure your LLM provider via the
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `agent.enabled` | Enable pod monitoring agent | `true` |
 | `agent.clusterMetrics.enabled` | Enable cluster metrics collection | `true` |
 | `agent.image.tag` | Agent image tag | `1.5.0` |
-| `securityScanner.enabled` | Enable security scanner | `true` |
 | `securityScanner.image.tag` | Security scanner image tag | `1.5.0` |
 | `backend.replicaCount` | Backend replica count | `1` |
 | `backend.image.tag` | Backend image tag | `1.5.0` |

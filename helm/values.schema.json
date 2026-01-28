@@ -21,10 +21,6 @@
     "agent": {
       "type": "object",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": true
-        },
         "image": {
           "type": "object",
           "properties": {
@@ -102,10 +98,6 @@
     "securityScanner": {
       "type": "object",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": true
-        },
         "image": {
           "type": "object",
           "properties": {

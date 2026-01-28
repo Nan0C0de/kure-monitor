@@ -1,4 +1,3 @@
-{{- if .Values.agent.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -90,4 +89,3 @@ spec:
       {{- with .Values.agent.tolerations }}
         {{- toYaml . | nindent 6 }}
       {{- end }}
-{{- end }}

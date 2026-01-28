@@ -127,15 +127,10 @@ LLM provider is configured via the Admin panel in the web dashboard after instal
 Key configuration options in `values.yaml`:
 
 ```yaml
-# Enable/disable components
+# Agent configuration
 agent:
-  enabled: true
   clusterMetrics:
     enabled: true        # Enable cluster metrics collection
-    interval: 30         # Collection interval in seconds
-
-securityScanner:
-  enabled: true          # Enable security scanning
 
 postgresql:
   enabled: true          # Use built-in PostgreSQL
@@ -184,16 +179,6 @@ kubectl logs -l app.kubernetes.io/component=agent -n kure-system
 kubectl logs -l app.kubernetes.io/component=security-scanner -n kure-system
 kubectl logs -l app.kubernetes.io/component=frontend -n kure-system
 ```
-
-### Common Issues
-
-| Issue | Symptom | Solution |
-|-------|---------|----------|
-| Agent not detecting failures | No pods in dashboard | Check RBAC permissions: `kubectl auth can-i list pods --as=system:serviceaccount:kure-system:kure-monitor-agent` |
-| No cluster metrics | Metrics tab shows loading | Install metrics-server or check agent logs |
-| Backend connection errors | 500 errors in frontend | Verify PostgreSQL connection and network policies |
-| LLM solutions not generating | Generic solutions only | Configure LLM provider via Admin panel |
-| Storage metrics unavailable | N/A shown for storage | Ensure kubelet stats endpoint is accessible |
 
 ### Metrics Server Installation
 

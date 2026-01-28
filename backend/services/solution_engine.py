@@ -12,38 +12,11 @@ class SolutionEngine:
         self._db = db
         # Initialize LLM provider (will be set up properly after db init)
         self.llm_provider = None
+        # Initialize hardcoded solutions dictionary
+        self._init_solutions()
 
-    async def initialize(self):
-        """Initialize the LLM provider from database configuration"""
-        if self._db:
-            try:
-                db_config = await self._db.get_llm_config()
-                if db_config:
-                    logger.info(f"Loading LLM config from database: provider={db_config['provider']}")
-                    self.llm_provider = LLMFactory.create_provider(
-                        provider_name=db_config['provider'],
-                        api_key=db_config['api_key'],
-                        model=db_config['model']
-                    )
-                else:
-                    logger.info("No LLM configuration found. Configure via Admin panel to enable AI solutions.")
-            except Exception as e:
-                logger.warning(f"Failed to load LLM config from database: {e}")
-
-    async def reinitialize_llm(self, provider: str, api_key: str, model: str = None):
-        """Reinitialize the LLM provider with new configuration"""
-        try:
-            self.llm_provider = LLMFactory.create_provider(
-                provider_name=provider,
-                api_key=api_key,
-                model=model
-            )
-            logger.info(f"LLM provider reinitialized: {provider}")
-        except Exception as e:
-            logger.error(f"Failed to reinitialize LLM provider: {e}")
-            raise
-
-        # Hardcoded solutions for common Kubernetes pod issues (fallback)
+    def _init_solutions(self):
+        """Initialize hardcoded solutions for common Kubernetes pod issues (fallback)"""
         self.solutions = {
             'ImagePullBackOff': {
                 'default': 'The pod cannot pull the container image. Check: 1) Image name and tag are correct, 2) Image exists in the registry, 3) Registry credentials are properly configured, 4) Network connectivity to registry.',
@@ -96,6 +69,36 @@ class SolutionEngine:
                 'default': 'Pod is in error state. Check pod events and logs for specific error details.',
             }
         }
+
+    async def initialize(self):
+        """Initialize the LLM provider from database configuration"""
+        if self._db:
+            try:
+                db_config = await self._db.get_llm_config()
+                if db_config:
+                    logger.info(f"Loading LLM config from database: provider={db_config['provider']}")
+                    self.llm_provider = LLMFactory.create_provider(
+                        provider_name=db_config['provider'],
+                        api_key=db_config['api_key'],
+                        model=db_config['model']
+                    )
+                else:
+                    logger.info("No LLM configuration found. Configure via Admin panel to enable AI solutions.")
+            except Exception as e:
+                logger.warning(f"Failed to load LLM config from database: {e}")
+
+    async def reinitialize_llm(self, provider: str, api_key: str, model: str = None):
+        """Reinitialize the LLM provider with new configuration"""
+        try:
+            self.llm_provider = LLMFactory.create_provider(
+                provider_name=provider,
+                api_key=api_key,
+                model=model
+            )
+            logger.info(f"LLM provider reinitialized: {provider}")
+        except Exception as e:
+            logger.error(f"Failed to reinitialize LLM provider: {e}")
+            raise
 
     async def get_solution(self, reason: str, message: Optional[str] = None,
                      events: List[PodEvent] = None,
