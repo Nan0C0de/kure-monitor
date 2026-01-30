@@ -112,6 +112,25 @@ class Database:
     async def delete_pod_failure_by_pod(self, pod_name):
         return await self._db.delete_pod_failure_by_pod(pod_name)
 
+    # Excluded rules methods (security rule exclusions)
+    async def add_excluded_rule(self, rule_title, namespace=''):
+        return await self._db.add_excluded_rule(rule_title, namespace)
+
+    async def remove_excluded_rule(self, rule_title, namespace=''):
+        return await self._db.remove_excluded_rule(rule_title, namespace)
+
+    async def get_excluded_rules(self):
+        return await self._db.get_excluded_rules()
+
+    async def is_rule_excluded(self, rule_title, namespace=''):
+        return await self._db.is_rule_excluded(rule_title, namespace)
+
+    async def get_all_rule_titles(self, namespace=None):
+        return await self._db.get_all_rule_titles(namespace)
+
+    async def delete_findings_by_rule_title(self, rule_title, namespace=None):
+        return await self._db.delete_findings_by_rule_title(rule_title, namespace)
+
     # Notification settings methods
     async def save_notification_setting(self, setting):
         return await self._db.save_notification_setting(setting)

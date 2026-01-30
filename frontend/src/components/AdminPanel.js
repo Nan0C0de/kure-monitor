@@ -20,6 +20,13 @@ const AdminPanel = ({ isDark = false }) => {
   const [newPodName, setNewPodName] = useState('');
   const [showPodSuggestions, setShowPodSuggestions] = useState(false);
 
+  // Security Rule Exclusions state
+  const [excludedRules, setExcludedRules] = useState([]);
+  const [availableRuleTitles, setAvailableRuleTitles] = useState([]);
+  const [newRuleTitle, setNewRuleTitle] = useState('');
+  const [showRuleSuggestions, setShowRuleSuggestions] = useState(false);
+  const [ruleNamespaceScope, setRuleNamespaceScope] = useState('');
+
   // General state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,16 +45,20 @@ const AdminPanel = ({ isDark = false }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [excluded, available, excludedPodsData, monitoredPodsData] = await Promise.all([
+      const [excluded, available, excludedPodsData, monitoredPodsData, excludedRulesData, ruleTitlesData] = await Promise.all([
         api.getExcludedNamespaces(),
         api.getAllNamespaces(),
         api.getExcludedPods(),
-        api.getMonitoredPods()
+        api.getMonitoredPods(),
+        api.getExcludedRules(),
+        api.getAllRuleTitles()
       ]);
       setExcludedNamespaces(excluded);
       setAvailableNamespaces(available);
       setExcludedPods(excludedPodsData);
       setMonitoredPods(monitoredPodsData);
+      setExcludedRules(excludedRulesData);
+      setAvailableRuleTitles(ruleTitlesData);
       setError(null);
     } catch (err) {
       setError('Failed to load data');
@@ -76,6 +87,28 @@ const AdminPanel = ({ isDark = false }) => {
         pod.pod_name.toLowerCase().includes(newPodName.toLowerCase())
       )
     : podSuggestions;
+
+  // Re-fetch rule titles when namespace scope changes
+  useEffect(() => {
+    const fetchRuleTitles = async () => {
+      try {
+        const titles = await api.getAllRuleTitles(ruleNamespaceScope || null);
+        setAvailableRuleTitles(titles);
+      } catch (err) {
+        console.error('Error fetching rule titles:', err);
+      }
+    };
+    fetchRuleTitles();
+  }, [ruleNamespaceScope]);
+
+  // Rule suggestions: available rule titles that are not already excluded (for current scope)
+  const ruleSuggestions = availableRuleTitles.filter(
+    title => !excludedRules.some(excluded => excluded.rule_title === title && (excluded.namespace || null) === (ruleNamespaceScope || null))
+  );
+
+  const filteredRuleSuggestions = newRuleTitle.trim()
+    ? ruleSuggestions.filter(title => title.toLowerCase().includes(newRuleTitle.toLowerCase()))
+    : ruleSuggestions;
 
   const handleAddNamespace = async (namespaceToAdd) => {
     const namespace = (namespaceToAdd || newNamespace).trim();
@@ -165,6 +198,58 @@ const AdminPanel = ({ isDark = false }) => {
   const handlePodSubmit = (e) => {
     e.preventDefault();
     handleAddPod();
+  };
+
+  const handleAddRule = async (ruleToAdd) => {
+    const ruleTitle = (ruleToAdd || newRuleTitle).trim();
+
+    if (!ruleTitle) {
+      setError('Please enter a rule title');
+      return;
+    }
+
+    const namespace = ruleNamespaceScope || null;
+
+    if (excludedRules.some(rule => rule.rule_title === ruleTitle && (rule.namespace || null) === namespace)) {
+      setError('This rule is already excluded for this scope');
+      return;
+    }
+
+    try {
+      const result = await api.addExcludedRule(ruleTitle, namespace);
+      setExcludedRules(prev => [...prev, result]);
+      setNewRuleTitle('');
+      setRuleNamespaceScope('');
+      setShowRuleSuggestions(false);
+      setError(null);
+      const scope = namespace ? ` in namespace "${namespace}"` : ' globally';
+      setSuccessMessage(`Rule "${ruleTitle}" excluded${scope}.`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError('Failed to add rule');
+      console.error('Error adding rule:', err);
+    }
+  };
+
+  const handleRemoveRule = async (ruleTitle, namespace = null) => {
+    try {
+      await api.removeExcludedRule(ruleTitle, namespace);
+      setExcludedRules(prev => prev.filter(rule =>
+        !(rule.rule_title === ruleTitle && (rule.namespace || null) === namespace)
+      ));
+      setError(null);
+      const scope = namespace ? ` in namespace "${namespace}"` : ' (global)';
+      setSuccessMessage(`Rule "${ruleTitle}"${scope} will now be reported again`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError('Failed to remove rule');
+      console.error('Error removing rule:', err);
+    }
+  };
+
+  const handleRuleSubmit = (e) => {
+    e.preventDefault();
+    handleAddRule();
   };
 
   if (loading) {
@@ -401,6 +486,113 @@ const AdminPanel = ({ isDark = false }) => {
                       </div>
                       <button
                         onClick={() => handleRemovePod(pod.pod_name)}
+                        className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* Security Rule Exclusions */}
+          <div>
+            <div className="mb-4 flex items-center">
+              <Shield className="w-5 h-5 text-purple-500 mr-2" />
+              <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Security Rules</h2>
+            </div>
+            <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Exclude specific security rules from scanning. Findings for excluded rules will be removed.
+            </p>
+
+            <form onSubmit={handleRuleSubmit} className="mb-4">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={newRuleTitle}
+                    onChange={(e) => {
+                      setNewRuleTitle(e.target.value);
+                      setShowRuleSuggestions(true);
+                    }}
+                    onFocus={() => setShowRuleSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowRuleSuggestions(false), 200)}
+                    placeholder="Enter or select security rule"
+                    className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                  />
+                  {showRuleSuggestions && filteredRuleSuggestions.length > 0 && (
+                    <div className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                      <div className={`px-3 py-2 text-xs border-b ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
+                        Active security rules
+                      </div>
+                      {filteredRuleSuggestions.map(title => (
+                        <button
+                          key={title}
+                          type="button"
+                          onClick={() => handleAddRule(title)}
+                          className={`w-full px-3 py-2 text-left text-sm focus:outline-none ${isDark ? 'hover:bg-gray-700 hover:text-purple-400 focus:bg-gray-700' : 'hover:bg-purple-50 hover:text-purple-700 focus:bg-purple-50'}`}
+                        >
+                          {title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <select
+                  value={ruleNamespaceScope}
+                  onChange={(e) => setRuleNamespaceScope(e.target.value)}
+                  className={`px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+                >
+                  <option value="">All namespaces</option>
+                  {availableNamespaces.map(ns => (
+                    <option key={ns} value={ns}>{ns}</option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Exclude
+                </button>
+              </div>
+            </form>
+
+            <div className={`border rounded-md ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <div className={`px-4 py-3 border-b ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                  Excluded Rules ({excludedRules.length})
+                </h3>
+              </div>
+
+              {excludedRules.length === 0 ? (
+                <div className={`px-4 py-6 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p className="text-sm">No rules excluded.</p>
+                </div>
+              ) : (
+                <ul className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                  {excludedRules.map((rule) => (
+                    <li key={`${rule.rule_title}-${rule.namespace || 'global'}`} className={`px-4 py-3 flex items-center justify-between ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}>
+                      <div>
+                        <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{rule.rule_title}</span>
+                        <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                          rule.namespace
+                            ? isDark ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700'
+                            : isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'
+                        }`}>
+                          {rule.namespace || 'Global'}
+                        </span>
+                        {rule.created_at && (
+                          <span className={`ml-2 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                            Added {new Date(rule.created_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleRemoveRule(rule.rule_title, rule.namespace || null)}
                         className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                       >
                         <Trash2 className="w-3 h-3 mr-1" />

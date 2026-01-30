@@ -4,7 +4,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import Set, Tuple, List, Optional
+from typing import Set, Tuple, List, Optional, Dict
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 from services.backend_client import BackendClient
@@ -68,6 +68,11 @@ class SecurityScanner:
         self.excluded_namespaces: List[str] = []
         self.excluded_namespaces_last_refresh: Optional[datetime] = None
         self.excluded_namespaces_refresh_interval = timedelta(minutes=1)
+        # Cache for admin-configured excluded rules
+        self.globally_excluded_rules: Set[str] = set()
+        self.namespace_excluded_rules: Dict[str, Set[str]] = {}
+        self.excluded_rules_last_refresh: Optional[datetime] = None
+        self.excluded_rules_refresh_interval = timedelta(minutes=1)
 
     def _init_kubernetes_client(self):
         """Initialize Kubernetes client"""
@@ -128,6 +133,74 @@ class SecurityScanner:
             return True
         return False
 
+    async def _refresh_excluded_rules(self, force: bool = False) -> bool:
+        """Refresh the excluded rules cache from backend
+
+        Args:
+            force: If True, refresh regardless of cache age
+
+        Returns:
+            True if refresh was successful, False otherwise
+        """
+        now = datetime.utcnow()
+        if (force or self.excluded_rules_last_refresh is None or
+                now - self.excluded_rules_last_refresh > self.excluded_rules_refresh_interval):
+            try:
+                rules = await self.backend_client.get_excluded_rules()
+                globally_excluded = set()
+                namespace_excluded = {}
+                for rule in rules:
+                    rule_title = rule.get('rule_title')
+                    namespace = rule.get('namespace')
+                    if not rule_title:
+                        continue
+                    if namespace is None:
+                        globally_excluded.add(rule_title)
+                    else:
+                        if namespace not in namespace_excluded:
+                            namespace_excluded[namespace] = set()
+                        namespace_excluded[namespace].add(rule_title)
+                self.globally_excluded_rules = globally_excluded
+                self.namespace_excluded_rules = namespace_excluded
+                self.excluded_rules_last_refresh = now
+                if globally_excluded or namespace_excluded:
+                    logger.info(f"Refreshed excluded rules: global={globally_excluded}, namespaced={namespace_excluded}")
+                else:
+                    logger.info("No excluded rules configured")
+                return True
+            except Exception as e:
+                logger.warning(f"Failed to refresh excluded rules: {e}")
+                return False
+        return True
+
+    def _is_rule_excluded(self, title: str, namespace: str = '') -> bool:
+        """Check if a rule title is excluded (globally or for given namespace)"""
+        if title in self.globally_excluded_rules:
+            return True
+        if namespace and namespace in self.namespace_excluded_rules:
+            return title in self.namespace_excluded_rules[namespace]
+        return False
+
+    async def _handle_rule_change(self, rule_title: str, action: str, namespace: str = None):
+        """Handle real-time rule exclusion changes from WebSocket"""
+        try:
+            await self._refresh_excluded_rules(force=True)
+
+            if action == "included":
+                if namespace:
+                    if not self._is_rule_excluded(rule_title, namespace):
+                        logger.info(f"Rule '{rule_title}' included for namespace '{namespace}' - rescanning namespace...")
+                        await self._scan_namespace_pods(namespace)
+                else:
+                    if not self._is_rule_excluded(rule_title):
+                        logger.info(f"Rule '{rule_title}' included globally - rescanning cluster...")
+                        await self.scan_cluster()
+            elif action == "excluded":
+                scope = f"for namespace '{namespace}'" if namespace else "globally"
+                logger.info(f"Rule '{rule_title}' excluded {scope} - exclusion list updated")
+        except Exception as e:
+            logger.error(f"Error handling rule change: {e}")
+
     async def _handle_namespace_change(self, namespace: str, action: str):
         """Handle real-time namespace exclusion changes from WebSocket"""
         try:
@@ -166,7 +239,8 @@ class SecurityScanner:
                 # Try to fetch excluded namespaces as a health check
                 success = await self._refresh_excluded_namespaces(force=True)
                 if success:
-                    logger.info("Backend is ready, excluded namespaces loaded successfully")
+                    await self._refresh_excluded_rules(force=True)
+                    logger.info("Backend is ready, excluded namespaces and rules loaded successfully")
                     return True
             except Exception as e:
                 logger.warning(f"Backend not ready (attempt {attempt + 1}/{max_retries}): {e}")
@@ -194,8 +268,9 @@ class SecurityScanner:
         # Clear all findings on startup (after loading exclusions)
         await self.backend_client.clear_security_findings()
 
-        # Set up WebSocket client for real-time namespace exclusion changes
+        # Set up WebSocket client for real-time exclusion changes
         self.websocket_client.set_namespace_change_handler(self._handle_namespace_change)
+        self.websocket_client.set_rule_change_handler(self._handle_rule_change)
 
         # Run initial scan to populate findings
         logger.info("Running initial security scan...")
@@ -883,8 +958,9 @@ class SecurityScanner:
         """Run all security checks"""
         start_time = time.monotonic()
 
-        # Refresh excluded namespaces before full scan
+        # Refresh exclusion caches before full scan
         await self._refresh_excluded_namespaces()
+        await self._refresh_excluded_rules()
 
         await self.scan_pods()
         await self.scan_deployments()
@@ -1632,9 +1708,15 @@ class SecurityScanner:
 
     async def report_finding(self, finding_data: dict):
         """Report a security finding to the backend and track the resource"""
+        # Check if this rule is excluded (globally or for this namespace)
+        title = finding_data.get("title", "")
+        namespace = finding_data.get("namespace", "")
+        if title and self._is_rule_excluded(title, namespace):
+            logger.debug(f"Skipping excluded rule: {title} (namespace: {namespace})")
+            return
+
         # Track this resource for deletion detection
         resource_type = finding_data.get("resource_type", "")
-        namespace = finding_data.get("namespace", "")
         resource_name = finding_data.get("resource_name", "")
         if resource_type and namespace and resource_name:
             self._track_resource(resource_type, namespace, resource_name)

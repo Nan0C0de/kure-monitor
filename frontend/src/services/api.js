@@ -113,6 +113,51 @@ export const api = {
     return response.json();
   },
 
+  // Admin API - Excluded Security Rules
+  getExcludedRules: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/excluded-rules`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getAllRuleTitles: async (namespace = null) => {
+    let url = `${API_BASE}/api/admin/rule-titles`;
+    if (namespace) {
+      url += `?namespace=${encodeURIComponent(namespace)}`;
+    }
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  addExcludedRule: async (ruleTitle, namespace = null) => {
+    const body = { rule_title: ruleTitle };
+    if (namespace) {
+      body.namespace = namespace;
+    }
+    const response = await fetch(`${API_BASE}/api/admin/excluded-rules`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  removeExcludedRule: async (ruleTitle, namespace = null) => {
+    let url = `${API_BASE}/api/admin/excluded-rules/${encodeURIComponent(ruleTitle)}`;
+    if (namespace) {
+      url += `?namespace=${encodeURIComponent(namespace)}`;
+    }
+    const response = await fetch(url, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // Notification Settings API
   getNotificationSettings: async () => {
     const response = await fetch(`${API_BASE}/api/admin/notifications`);

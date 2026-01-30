@@ -17,6 +17,7 @@ from models.models import (
     SecurityFindingReport, SecurityFindingResponse,
     ExcludedNamespace, ExcludedNamespaceResponse,
     ExcludedPod, ExcludedPodResponse,
+    ExcludedRule, ExcludedRuleResponse,
     NotificationSettingCreate, NotificationSettingResponse,
     ClusterMetrics, PodMetricsHistory, PodMetricsPoint,
     LLMConfigCreate, LLMConfigResponse, LLMConfigStatus
@@ -486,6 +487,76 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             raise
         except Exception as e:
             logger.error(f"Error removing excluded pod: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Admin endpoints - Excluded security rules
+    @router.get("/admin/excluded-rules")
+    async def get_excluded_rules():
+        """Get all excluded security rules"""
+        try:
+            return await db.get_excluded_rules()
+        except Exception as e:
+            logger.error(f"Error getting excluded rules: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/admin/rule-titles")
+    async def get_all_rule_titles(namespace: str = Query(None)):
+        """Get all rule titles that have findings (for suggestions). Optionally filter by namespace."""
+        try:
+            return await db.get_all_rule_titles(namespace)
+        except Exception as e:
+            logger.error(f"Error getting rule titles: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/excluded-rules")
+    async def add_excluded_rule(request: ExcludedRule):
+        """Add a rule to the security scan exclusion list and remove matching findings"""
+        try:
+            if not request.rule_title or not request.rule_title.strip():
+                raise HTTPException(status_code=400, detail="Rule title is required")
+
+            rule_title = request.rule_title.strip()
+            namespace_db = request.namespace.strip() if request.namespace else ''
+
+            result = await db.add_excluded_rule(rule_title, namespace_db)
+            scope = f"namespace '{request.namespace}'" if request.namespace else "global"
+            logger.info(f"Added excluded security rule: {rule_title} ({scope})")
+
+            # Delete findings: global = all, per-namespace = only that namespace
+            delete_namespace = request.namespace.strip() if request.namespace else None
+            findings_count, deleted_findings = await db.delete_findings_by_rule_title(rule_title, delete_namespace)
+            for finding in deleted_findings:
+                await websocket_manager.broadcast_security_finding_deleted(finding)
+            logger.info(f"Deleted {findings_count} security findings for excluded rule: {rule_title}")
+
+            # Broadcast to all connected clients (frontend + scanners) for real-time update
+            await websocket_manager.broadcast_rule_exclusion_change(rule_title, "excluded", request.namespace)
+
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error adding excluded rule: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/admin/excluded-rules/{rule_title:path}")
+    async def remove_excluded_rule(rule_title: str, namespace: str = Query(None)):
+        """Remove a rule from the exclusion list (query param namespace for per-namespace)"""
+        try:
+            namespace_db = namespace.strip() if namespace else ''
+            removed = await db.remove_excluded_rule(rule_title, namespace_db)
+            if removed:
+                scope = f"namespace '{namespace}'" if namespace else "global"
+                logger.info(f"Removed excluded rule: {rule_title} ({scope})")
+                # Broadcast to all connected clients for real-time update
+                await websocket_manager.broadcast_rule_exclusion_change(rule_title, "included", namespace)
+                return {"message": f"Rule '{rule_title}' removed from exclusion list ({scope})"}
+            else:
+                raise HTTPException(status_code=404, detail=f"Rule '{rule_title}' not found in exclusion list")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error removing excluded rule: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     # Notification settings endpoints

@@ -172,6 +172,27 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
+    async def broadcast_rule_exclusion_change(self, rule_title: str, action: str, namespace: str = None):
+        """Broadcast rule exclusion change to all connected clients (including scanners)"""
+        if self.active_connections:
+            message = {
+                "type": "rule_exclusion_change",
+                "data": {"rule_title": rule_title, "namespace": namespace, "action": action}
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send rule exclusion change to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            # Remove disconnected connections
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
     async def broadcast_cluster_metrics(self, metrics: ClusterMetrics):
         """Broadcast cluster metrics to all connected clients"""
         if self.active_connections:

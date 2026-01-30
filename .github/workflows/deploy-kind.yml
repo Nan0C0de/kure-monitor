@@ -113,7 +113,7 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ needs.detect-changes.outputs.tag }}"
           sed -i "s|AGENT_IMAGE|$IMAGE|g" k8s/agent.yaml
           kubectl apply -f k8s/agent.yaml
-          kubectl rollout status daemonset/kure-monitor-agent -n kure-system --timeout=180s
+          kubectl rollout status daemonset/kure-monitor-agent -n kure-system --timeout=300s
 
   # ==================== BACKEND ====================
   build-backend:
@@ -155,7 +155,7 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:${{ needs.detect-changes.outputs.tag }}"
           sed -i "s|BACKEND_IMAGE|$IMAGE|g" k8s/backend.yaml
           kubectl apply -f k8s/backend.yaml
-          kubectl rollout status deployment/kure-monitor-backend -n kure-system --timeout=180s
+          kubectl rollout status deployment/kure-monitor-backend -n kure-system --timeout=300s
 
   # ==================== FRONTEND ====================
   build-frontend:
@@ -197,7 +197,7 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ needs.detect-changes.outputs.tag }}"
           sed -i "s|FRONTEND_IMAGE|$IMAGE|g" k8s/frontend.yaml
           kubectl apply -f k8s/frontend.yaml
-          kubectl rollout status deployment/kure-monitor-frontend -n kure-system --timeout=180s
+          kubectl rollout status deployment/kure-monitor-frontend -n kure-system --timeout=300s
 
   # ==================== SECURITY SCANNER ====================
   build-security-scanner:
@@ -239,4 +239,4 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:${{ needs.detect-changes.outputs.tag }}"
           sed -i "s|SECURITY_SCANNER_IMAGE|$IMAGE|g" k8s/security-scanner.yaml
           kubectl apply -f k8s/security-scanner.yaml
-          kubectl rollout status deployment/kure-monitor-security-scanner -n kure-system --timeout=180s
+          kubectl rollout status deployment/kure-monitor-security-scanner -n kure-system --timeout=300s

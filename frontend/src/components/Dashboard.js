@@ -197,14 +197,18 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [activePods, findings, config] = await Promise.all([
+      const [activePods, findings, config, metrics] = await Promise.all([
         api.getFailedPods(),
         api.getSecurityFindings(),
-        api.getConfig()
+        api.getConfig(),
+        api.getClusterMetrics().catch(() => null)
       ]);
       setPods(activePods);
       setSecurityFindings(findings);
       setAiEnabled(config.ai_enabled || false);
+      if (metrics && metrics.node_count) {
+        setClusterMetrics(metrics);
+      }
       setError(null);
     } catch (err) {
       setError('Failed to load data');

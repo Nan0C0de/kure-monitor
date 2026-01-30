@@ -167,6 +167,36 @@ class PostgreSQLDatabase(DatabaseInterface):
                     ON excluded_pods(pod_name)
                 """)
 
+                # Create excluded_rules table for security rule exclusions
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS excluded_rules (
+                        id SERIAL PRIMARY KEY,
+                        rule_title VARCHAR(500) NOT NULL,
+                        namespace VARCHAR(255) NOT NULL DEFAULT '',
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(rule_title, namespace)
+                    )
+                """)
+
+                # Migration: add namespace column if it doesn't exist (for existing deployments)
+                # Must run BEFORE index creation since old table lacks the namespace column
+                col_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'excluded_rules' AND column_name = 'namespace'
+                    )
+                """)
+                if not col_exists:
+                    await conn.execute("ALTER TABLE excluded_rules ADD COLUMN namespace VARCHAR(255) NOT NULL DEFAULT ''")
+                    await conn.execute("ALTER TABLE excluded_rules DROP CONSTRAINT IF EXISTS excluded_rules_rule_title_key")
+                    await conn.execute("ALTER TABLE excluded_rules ADD CONSTRAINT excluded_rules_rule_title_namespace_key UNIQUE (rule_title, namespace)")
+                    logger.info("Migrated excluded_rules table: added namespace column")
+
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_excluded_rules_rule_title_namespace
+                    ON excluded_rules(rule_title, namespace)
+                """)
+
                 # Create notification_settings table
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS notification_settings (
@@ -742,6 +772,140 @@ class PostgreSQLDatabase(DatabaseInterface):
             )
             count = int(result.split()[-1]) if result else 0
             return count, deleted_pods
+
+    # Excluded rules methods (security rule exclusions)
+    async def add_excluded_rule(self, rule_title: str, namespace: str = '') -> dict:
+        """Add a rule to the security scan exclusion list (namespace='' for global)"""
+        async with self._acquire() as conn:
+            try:
+                result = await conn.fetchrow(
+                    """INSERT INTO excluded_rules (rule_title, namespace)
+                       VALUES ($1, $2)
+                       ON CONFLICT (rule_title, namespace) DO NOTHING
+                       RETURNING id, rule_title, namespace, created_at""",
+                    rule_title, namespace
+                )
+                if result:
+                    return {
+                        'id': result['id'],
+                        'rule_title': result['rule_title'],
+                        'namespace': result['namespace'] if result['namespace'] else None,
+                        'created_at': result['created_at'].isoformat()
+                    }
+                existing = await conn.fetchrow(
+                    "SELECT id, rule_title, namespace, created_at FROM excluded_rules WHERE rule_title = $1 AND namespace = $2",
+                    rule_title, namespace
+                )
+                return {
+                    'id': existing['id'],
+                    'rule_title': existing['rule_title'],
+                    'namespace': existing['namespace'] if existing['namespace'] else None,
+                    'created_at': existing['created_at'].isoformat()
+                }
+            except Exception as e:
+                logger.error(f"Error adding excluded rule: {e}")
+                raise
+
+    async def remove_excluded_rule(self, rule_title: str, namespace: str = '') -> bool:
+        """Remove a rule from the exclusion list (namespace='' for global)"""
+        async with self._acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM excluded_rules WHERE rule_title = $1 AND namespace = $2",
+                rule_title, namespace
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count > 0
+
+    async def get_excluded_rules(self) -> list:
+        """Get all excluded rules"""
+        async with self._acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, rule_title, namespace, created_at FROM excluded_rules ORDER BY rule_title, namespace"
+            )
+            return [
+                {
+                    'id': row['id'],
+                    'rule_title': row['rule_title'],
+                    'namespace': row['namespace'] if row['namespace'] else None,
+                    'created_at': row['created_at'].isoformat()
+                }
+                for row in rows
+            ]
+
+    async def is_rule_excluded(self, rule_title: str, namespace: str = '') -> bool:
+        """Check if a rule is excluded (globally or for a specific namespace)"""
+        async with self._acquire() as conn:
+            result = await conn.fetchrow(
+                "SELECT 1 FROM excluded_rules WHERE rule_title = $1 AND (namespace = '' OR namespace = $2)",
+                rule_title, namespace
+            )
+            return result is not None
+
+    async def get_all_rule_titles(self, namespace: str = None) -> list:
+        """Get all unique rule titles from security findings (for suggestions)
+
+        If namespace is provided, only return titles with findings in that namespace.
+        """
+        async with self._acquire() as conn:
+            if namespace:
+                rows = await conn.fetch("""
+                    SELECT DISTINCT title FROM security_findings
+                    WHERE dismissed = FALSE AND namespace = $1
+                    ORDER BY title
+                """, namespace)
+            else:
+                rows = await conn.fetch("""
+                    SELECT DISTINCT title FROM security_findings
+                    WHERE dismissed = FALSE
+                    ORDER BY title
+                """)
+            return [row['title'] for row in rows]
+
+    async def delete_findings_by_rule_title(self, rule_title: str, namespace: str = None) -> tuple:
+        """Delete security findings for a rule title. If namespace given, only in that namespace."""
+        async with self._acquire() as conn:
+            if namespace:
+                rows = await conn.fetch(
+                    """SELECT id, resource_type, resource_name, namespace, severity, category,
+                              title, description, remediation, timestamp
+                       FROM security_findings WHERE title = $1 AND namespace = $2 AND dismissed = FALSE""",
+                    rule_title, namespace
+                )
+            else:
+                rows = await conn.fetch(
+                    """SELECT id, resource_type, resource_name, namespace, severity, category,
+                              title, description, remediation, timestamp
+                       FROM security_findings WHERE title = $1 AND dismissed = FALSE""",
+                    rule_title
+                )
+            deleted_findings = [
+                {
+                    'id': row['id'],
+                    'resource_type': row['resource_type'],
+                    'resource_name': row['resource_name'],
+                    'namespace': row['namespace'],
+                    'severity': row['severity'],
+                    'category': row['category'],
+                    'title': row['title'],
+                    'description': row['description'],
+                    'remediation': row['remediation'],
+                    'timestamp': row['timestamp'].isoformat() if row['timestamp'] else None
+                }
+                for row in rows
+            ]
+
+            if namespace:
+                result = await conn.execute(
+                    "DELETE FROM security_findings WHERE title = $1 AND namespace = $2",
+                    rule_title, namespace
+                )
+            else:
+                result = await conn.execute(
+                    "DELETE FROM security_findings WHERE title = $1",
+                    rule_title
+                )
+            count = int(result.split()[-1]) if result else 0
+            return count, deleted_findings
 
     # Notification settings methods
     async def save_notification_setting(self, setting) -> NotificationSettingResponse:

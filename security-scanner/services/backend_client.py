@@ -150,3 +150,41 @@ class BackendClient:
             if "Backend returned" in str(e) or "Timeout" in str(e) or "HTTP client" in str(e):
                 raise
             raise Exception(f"Error fetching excluded namespaces: {e}")
+
+    async def get_excluded_rules(self) -> list:
+        """Get list of excluded rules from backend
+
+        Returns:
+            List of dicts with 'rule_title' and 'namespace' (None for global)
+
+        Raises:
+            Exception: If unable to fetch from backend
+        """
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                        f"{self.backend_url}/api/admin/excluded-rules",
+                        timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        rules = [
+                            {
+                                'rule_title': item.get('rule_title'),
+                                'namespace': item.get('namespace')
+                            }
+                            for item in data if item.get('rule_title')
+                        ]
+                        logger.debug(f"Fetched excluded rules: {rules}")
+                        return rules
+                    else:
+                        raise Exception(f"Backend returned HTTP {response.status}")
+
+        except asyncio.TimeoutError:
+            raise Exception("Timeout while fetching excluded rules (10s)")
+        except aiohttp.ClientError as e:
+            raise Exception(f"HTTP client error: {e}")
+        except Exception as e:
+            if "Backend returned" in str(e) or "Timeout" in str(e) or "HTTP client" in str(e):
+                raise
+            raise Exception(f"Error fetching excluded rules: {e}")

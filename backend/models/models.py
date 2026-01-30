@@ -73,6 +73,14 @@ class ExcludedPod(BaseModel):
 class ExcludedPodResponse(ExcludedPod):
     id: Optional[int] = None
 
+class ExcludedRule(BaseModel):
+    rule_title: str
+    namespace: Optional[str] = None  # None = global, "ns-name" = per-namespace
+    created_at: Optional[str] = None
+
+class ExcludedRuleResponse(ExcludedRule):
+    id: Optional[int] = None
+
 
 # Notification models
 class NotificationSettingCreate(BaseModel):
