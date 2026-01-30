@@ -25,6 +25,11 @@ from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
 from services.metrics_history import metrics_history_store, format_cpu, format_memory
+from services.prometheus_metrics import (
+    POD_FAILURES_TOTAL,
+    SECURITY_FINDINGS_TOTAL,
+    SECURITY_SCAN_DURATION_SECONDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +99,12 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
                 except Exception as notif_error:
                     logger.error(f"Error sending notifications: {notif_error}")
                     # Don't fail the request if notifications fail
+
+            # Record Prometheus metric
+            POD_FAILURES_TOTAL.labels(
+                namespace=report.namespace,
+                reason=report.failure_reason,
+            ).inc()
 
             logger.info(f"Successfully processed failed pod: {report.namespace}/{report.pod_name}")
             return response
@@ -276,6 +287,9 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
                 await websocket_manager.broadcast_security_finding(response)
             else:
                 logger.info(f"Updated existing security finding (not broadcasting): {report.resource_type}/{report.namespace}/{report.resource_name}")
+
+            # Record Prometheus metric
+            SECURITY_FINDINGS_TOTAL.labels(severity=report.severity).inc()
 
             logger.info(f"Successfully processed security finding: {report.resource_type}/{report.namespace}/{report.resource_name}")
             return response
@@ -566,6 +580,16 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
         except Exception as e:
             logger.error(f"Error processing cluster metrics: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/metrics/security-scan-duration")
+    async def report_security_scan_duration(data: dict):
+        """Receive security scan duration from scanner for Prometheus metrics"""
+        duration = data.get("duration_seconds")
+        if duration is not None:
+            SECURITY_SCAN_DURATION_SECONDS.set(float(duration))
+            logger.info(f"Security scan duration: {duration:.1f}s")
+            return {"message": "Scan duration recorded"}
+        raise HTTPException(status_code=400, detail="duration_seconds is required")
 
     @router.get("/metrics/cluster")
     async def get_cluster_metrics():

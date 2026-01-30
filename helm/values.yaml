@@ -212,6 +212,13 @@ postgresql:
     name: kure-postgresql
     automountServiceAccountToken: false
 
+# Prometheus metrics configuration
+prometheus:
+  enabled: false          # Enable Prometheus scraping network policy
+  namespace: monitoring   # Namespace where Prometheus is deployed
+  serviceMonitor:
+    enabled: false        # Create ServiceMonitor resource (requires Prometheus Operator)
+
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1001

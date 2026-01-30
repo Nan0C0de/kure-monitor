@@ -42,6 +42,16 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
+  {{- if .Values.prometheus.enabled }}
+  # Allow Prometheus scraping
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.prometheus.namespace }}
+    ports:
+    - protocol: TCP
+      port: 8000
+  {{- end }}
   {{- if .Values.ingress.enabled }}
   # Allow ingress traffic if ingress is enabled
   - from:

@@ -386,6 +386,32 @@
         }
       }
     },
+    "prometheus": {
+      "type": "object",
+      "description": "Prometheus metrics configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Prometheus scraping network policy",
+          "default": false
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace where Prometheus is deployed",
+          "default": "monitoring"
+        },
+        "serviceMonitor": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create ServiceMonitor resource (requires Prometheus Operator)",
+              "default": false
+            }
+          }
+        }
+      }
+    },
     "securityContext": {
       "type": "object",
       "properties": {

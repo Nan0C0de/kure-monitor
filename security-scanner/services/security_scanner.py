@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import Set, Tuple, List, Optional
@@ -880,6 +881,8 @@ class SecurityScanner:
 
     async def scan_cluster(self):
         """Run all security checks"""
+        start_time = time.monotonic()
+
         # Refresh excluded namespaces before full scan
         await self._refresh_excluded_namespaces()
 
@@ -898,6 +901,11 @@ class SecurityScanner:
         await self.scan_configmaps()
         await self.scan_cronjobs()
         await self.scan_persistent_volumes()
+
+        # Report scan duration to backend for Prometheus metrics
+        duration = time.monotonic() - start_time
+        logger.info(f"Security scan completed in {duration:.1f}s")
+        await self.backend_client.report_scan_duration(duration)
 
     async def scan_pods(self):
         """Scan pods for security issues based on Pod Security Standards and NSA/CISA guidelines"""

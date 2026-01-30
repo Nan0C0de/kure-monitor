@@ -13,3 +13,5 @@ setuptools>=78.1.1
 aiosmtplib>=3.0.0
 # Kubernetes client for pod logs
 kubernetes>=28.1.0
+# Prometheus metrics
+prometheus_client>=0.20.0

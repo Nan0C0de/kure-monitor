@@ -91,6 +91,8 @@ kind: Service
 metadata:
   name: kure-monitor-backend
   namespace: kure-system
+  labels:
+    app: kure-backend
 spec:
   selector:
     app: kure-backend

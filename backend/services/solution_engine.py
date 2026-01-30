@@ -1,7 +1,9 @@
 import logging
+import time
 from typing import Dict, List, Optional
 from models.models import PodEvent, ContainerStatus
 from .llm_factory import LLMFactory
+from .prometheus_metrics import LLM_REQUESTS_TOTAL, LLM_REQUEST_DURATION_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -108,9 +110,11 @@ class SolutionEngine:
 
         # Try LLM first if available
         if self.llm_provider:
+            provider_name = self.llm_provider.provider_name
+            start_time = time.monotonic()
             try:
-                logger.info(f"Generating AI solution for {reason} using {self.llm_provider.provider_name}")
-                
+                logger.info(f"Generating AI solution for {reason} using {provider_name}")
+
                 # Convert events to dict format for LLM
                 events_dict = []
                 if events:
@@ -122,7 +126,7 @@ class SolutionEngine:
                         }
                         for event in events
                     ]
-                
+
                 # Convert container statuses to dict format
                 container_statuses_dict = []
                 if container_statuses:
@@ -134,7 +138,7 @@ class SolutionEngine:
                         }
                         for status in container_statuses
                     ]
-                
+
                 llm_response = await self.llm_provider.generate_solution(
                     failure_reason=reason,
                     failure_message=message,
@@ -142,10 +146,20 @@ class SolutionEngine:
                     container_statuses=container_statuses_dict,
                     pod_context=pod_context
                 )
-                
+
+                # Record success metrics
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+
                 return llm_response.content
-                
+
             except Exception as e:
+                # Record error metrics
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+
                 logger.error(f"LLM solution generation failed: {e}, falling back to hardcoded solutions")
         
         # Fallback to hardcoded solutions

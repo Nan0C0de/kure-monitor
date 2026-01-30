@@ -1,6 +1,9 @@
 from fastapi import FastAPI
+from fastapi.responses import Response
 from contextlib import asynccontextmanager
 import logging
+
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from database.database import Database
 from services.solution_engine import SolutionEngine
@@ -44,6 +47,15 @@ def create_app() -> FastAPI:
     async def health_check():
         """Health check endpoint"""
         return {"status": "healthy"}
+
+    # Prometheus metrics endpoint
+    @app.get("/metrics")
+    async def prometheus_metrics():
+        """Prometheus metrics endpoint"""
+        return Response(
+            content=generate_latest(),
+            media_type=CONTENT_TYPE_LATEST,
+        )
 
     # Include routers
     api_router = create_api_router(db, solution_engine, websocket_manager, notification_service)

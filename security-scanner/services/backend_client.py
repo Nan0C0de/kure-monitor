@@ -98,6 +98,26 @@ class BackendClient:
             logger.warning(f"Could not delete findings for {resource_identifier}: {e}")
             return False
 
+    async def report_scan_duration(self, duration_seconds: float):
+        """Report security scan duration to backend for Prometheus metrics"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.backend_url}/api/metrics/security-scan-duration",
+                    json={"duration_seconds": duration_seconds},
+                    headers={'Content-Type': 'application/json'},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        logger.info(f"Reported scan duration: {duration_seconds:.1f}s")
+                        return True
+                    else:
+                        logger.warning(f"Failed to report scan duration: HTTP {response.status}")
+                        return False
+        except Exception as e:
+            logger.warning(f"Error reporting scan duration: {e}")
+            return False
+
     async def get_excluded_namespaces(self) -> list:
         """Get list of excluded namespaces from backend
 

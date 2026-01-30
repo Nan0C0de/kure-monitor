@@ -6,6 +6,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from .database_base import DatabaseInterface
 from models.models import PodFailureResponse, SecurityFindingResponse, ExcludedNamespaceResponse, NotificationSettingResponse
+from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,13 @@ class PostgreSQLDatabase(DatabaseInterface):
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
             raise ValueError("DATABASE_URL environment variable is required")
-        
+
         return database_url
+
+    def _acquire(self):
+        """Acquire a database connection and increment the query counter"""
+        DATABASE_QUERIES_TOTAL.inc()
+        return self.pool.acquire()
 
     async def init_database(self):
         """Initialize the PostgreSQL connection pool and create tables"""
@@ -62,9 +68,9 @@ class PostgreSQLDatabase(DatabaseInterface):
                 max_size=10,
                 command_timeout=60
             )
-            
+
             # Create tables
-            async with self.pool.acquire() as conn:
+            async with self._acquire() as conn:
                 # Create pod_failures table if it doesn't exist
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS pod_failures (
@@ -201,7 +207,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def save_pod_failure(self, failure: PodFailureResponse) -> int:
         """Save a pod failure to database, updating existing record if pod already exists"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             # Check if pod already exists and is not dismissed
             existing = await conn.fetchrow("""
                 SELECT id FROM pod_failures 
@@ -254,7 +260,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_pod_failures(self, include_dismissed: bool = False, dismissed_only: bool = False) -> List[PodFailureResponse]:
         """Get all pod failures from database (latest per pod)"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             # Get latest entry per pod (avoid duplicates) using PostgreSQL window functions
             query = """
                 SELECT * FROM (
@@ -303,7 +309,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_pod_failure_by_id(self, failure_id: int) -> Optional[PodFailureResponse]:
         """Get a single pod failure by ID"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM pod_failures WHERE id = $1",
                 failure_id
@@ -334,7 +340,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def update_pod_solution(self, failure_id: int, solution: str):
         """Update just the solution for a pod failure"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             await conn.execute(
                 "UPDATE pod_failures SET solution = $1 WHERE id = $2",
                 solution, failure_id
@@ -342,7 +348,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def dismiss_pod_failure(self, failure_id: int):
         """Mark a pod failure as dismissed"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             await conn.execute(
                 "UPDATE pod_failures SET dismissed = TRUE WHERE id = $1",
                 failure_id
@@ -350,7 +356,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def restore_pod_failure(self, failure_id: int):
         """Restore a dismissed pod failure (unignore)"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             await conn.execute(
                 "UPDATE pod_failures SET dismissed = FALSE WHERE id = $1",
                 failure_id
@@ -358,7 +364,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def dismiss_deleted_pod(self, namespace: str, pod_name: str):
         """Mark all entries for a deleted pod as dismissed"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             await conn.execute(
                 "UPDATE pod_failures SET dismissed = TRUE WHERE pod_name = $1 AND namespace = $2",
                 pod_name, namespace
@@ -370,7 +376,7 @@ class PostgreSQLDatabase(DatabaseInterface):
         Returns:
             tuple[int, bool]: (finding_id, is_new) where is_new indicates if this is a new finding
         """
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             timestamp = self._normalize_timestamp(finding.timestamp)
 
             # Check if finding already exists (same resource, title, and not dismissed)
@@ -410,7 +416,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_security_findings(self, include_dismissed: bool = False, dismissed_only: bool = False) -> List[SecurityFindingResponse]:
         """Get all security findings from database"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             query = "SELECT * FROM security_findings WHERE 1=1"
 
             if dismissed_only:
@@ -445,7 +451,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def dismiss_security_finding(self, finding_id: int):
         """Mark a security finding as dismissed"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             await conn.execute(
                 "UPDATE security_findings SET dismissed = TRUE WHERE id = $1",
                 finding_id
@@ -453,7 +459,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def restore_security_finding(self, finding_id: int):
         """Restore a dismissed security finding"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             await conn.execute(
                 "UPDATE security_findings SET dismissed = FALSE WHERE id = $1",
                 finding_id
@@ -461,7 +467,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def clear_security_findings(self):
         """Clear all security findings (for new scans)"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             await conn.execute("DELETE FROM security_findings WHERE dismissed = FALSE")
 
     async def delete_findings_by_resource(self, resource_type: str, namespace: str, resource_name: str) -> tuple[int, list]:
@@ -470,7 +476,7 @@ class PostgreSQLDatabase(DatabaseInterface):
         Returns:
             tuple[int, list]: (count, deleted_findings) - count of deleted findings and their details
         """
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             # First get the findings that will be deleted (for broadcasting)
             rows = await conn.fetch(
                 """SELECT resource_name, namespace, title FROM security_findings
@@ -500,7 +506,7 @@ class PostgreSQLDatabase(DatabaseInterface):
     # Excluded namespaces methods
     async def add_excluded_namespace(self, namespace: str) -> ExcludedNamespaceResponse:
         """Add a namespace to the exclusion list"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             try:
                 result = await conn.fetchrow(
                     """INSERT INTO excluded_namespaces (namespace)
@@ -531,7 +537,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def remove_excluded_namespace(self, namespace: str) -> bool:
         """Remove a namespace from the exclusion list"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             result = await conn.execute(
                 "DELETE FROM excluded_namespaces WHERE namespace = $1",
                 namespace
@@ -542,7 +548,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_excluded_namespaces(self) -> List[ExcludedNamespaceResponse]:
         """Get all excluded namespaces"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             rows = await conn.fetch(
                 "SELECT id, namespace, created_at FROM excluded_namespaces ORDER BY namespace"
             )
@@ -557,7 +563,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def is_namespace_excluded(self, namespace: str) -> bool:
         """Check if a namespace is in the exclusion list"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             result = await conn.fetchrow(
                 "SELECT 1 FROM excluded_namespaces WHERE namespace = $1",
                 namespace
@@ -566,7 +572,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_all_namespaces(self) -> List[str]:
         """Get all unique namespaces from security findings and pod failures"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             rows = await conn.fetch("""
                 SELECT DISTINCT namespace FROM (
                     SELECT namespace FROM security_findings WHERE dismissed = FALSE
@@ -579,7 +585,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def delete_findings_by_namespace(self, namespace: str) -> tuple[int, list]:
         """Delete all security findings for a namespace and return deleted findings"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             # First get the findings to return them for WebSocket broadcast
             rows = await conn.fetch(
                 """SELECT id, resource_type, resource_name, namespace, severity, category,
@@ -613,7 +619,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def delete_pod_failures_by_namespace(self, namespace: str) -> tuple[int, list]:
         """Delete all pod failures for a namespace and return deleted pods"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             # First get the pods to return them for WebSocket broadcast
             rows = await conn.fetch(
                 """SELECT id, pod_name, namespace FROM pod_failures
@@ -639,7 +645,7 @@ class PostgreSQLDatabase(DatabaseInterface):
     # Excluded pods methods (for pod monitoring exclusions - by pod name only)
     async def add_excluded_pod(self, pod_name: str) -> dict:
         """Add a pod to the monitoring exclusion list (by name only)"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             try:
                 result = await conn.fetchrow(
                     """INSERT INTO excluded_pods (pod_name)
@@ -670,7 +676,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def remove_excluded_pod(self, pod_name: str) -> bool:
         """Remove a pod from the monitoring exclusion list"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             result = await conn.execute(
                 "DELETE FROM excluded_pods WHERE pod_name = $1",
                 pod_name
@@ -680,7 +686,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_excluded_pods(self) -> List[dict]:
         """Get all excluded pods"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             rows = await conn.fetch(
                 "SELECT id, pod_name, created_at FROM excluded_pods ORDER BY pod_name"
             )
@@ -695,7 +701,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def is_pod_excluded(self, pod_name: str) -> bool:
         """Check if a pod is in the monitoring exclusion list (by name only)"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             result = await conn.fetchrow(
                 "SELECT 1 FROM excluded_pods WHERE pod_name = $1",
                 pod_name
@@ -704,7 +710,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_all_monitored_pods(self) -> List[dict]:
         """Get all unique pod names from pod failures (for suggestions), with namespace for display"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             rows = await conn.fetch("""
                 SELECT DISTINCT pod_name, namespace FROM pod_failures
                 WHERE dismissed = FALSE
@@ -714,7 +720,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def delete_pod_failure_by_pod(self, pod_name: str) -> tuple[int, list]:
         """Delete pod failures for a specific pod name (across all namespaces) and return deleted info"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             # First get the pods to return them for WebSocket broadcast
             rows = await conn.fetch(
                 """SELECT id, pod_name, namespace FROM pod_failures
@@ -740,7 +746,7 @@ class PostgreSQLDatabase(DatabaseInterface):
     # Notification settings methods
     async def save_notification_setting(self, setting) -> NotificationSettingResponse:
         """Create or update notification setting for a provider"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             config_json = json.dumps(setting.config)
 
             # Use upsert (INSERT ... ON CONFLICT ... UPDATE)
@@ -765,7 +771,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_notification_settings(self) -> List[NotificationSettingResponse]:
         """Get all notification settings"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             rows = await conn.fetch(
                 "SELECT id, provider, enabled, config, created_at, updated_at FROM notification_settings ORDER BY provider"
             )
@@ -783,7 +789,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_notification_setting(self, provider: str) -> Optional[NotificationSettingResponse]:
         """Get notification setting for a specific provider"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT id, provider, enabled, config, created_at, updated_at FROM notification_settings WHERE provider = $1",
                 provider
@@ -802,7 +808,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_enabled_notification_settings(self) -> List[NotificationSettingResponse]:
         """Get all enabled notification settings"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             rows = await conn.fetch(
                 "SELECT id, provider, enabled, config, created_at, updated_at FROM notification_settings WHERE enabled = TRUE"
             )
@@ -820,7 +826,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def update_notification_setting(self, provider: str, setting) -> Optional[NotificationSettingResponse]:
         """Update notification setting for a provider"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             config_json = json.dumps(setting.config)
 
             result = await conn.fetchrow("""
@@ -846,7 +852,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def delete_notification_setting(self, provider: str) -> bool:
         """Delete notification setting for a provider"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             result = await conn.execute(
                 "DELETE FROM notification_settings WHERE provider = $1",
                 provider
@@ -857,7 +863,7 @@ class PostgreSQLDatabase(DatabaseInterface):
     # LLM Configuration methods
     async def save_llm_config(self, provider: str, api_key: str, model: Optional[str] = None) -> dict:
         """Save or update LLM configuration (only one config allowed)"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             # Delete any existing config first (only one LLM config allowed)
             await conn.execute("DELETE FROM llm_config")
 
@@ -879,7 +885,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def get_llm_config(self) -> Optional[dict]:
         """Get the LLM configuration (returns None if not configured)"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT id, provider, api_key_encrypted, model, created_at, updated_at FROM llm_config LIMIT 1"
             )
@@ -898,7 +904,7 @@ class PostgreSQLDatabase(DatabaseInterface):
 
     async def delete_llm_config(self) -> bool:
         """Delete the LLM configuration"""
-        async with self.pool.acquire() as conn:
+        async with self._acquire() as conn:
             result = await conn.execute("DELETE FROM llm_config")
             count = int(result.split()[-1]) if result else 0
             return count > 0

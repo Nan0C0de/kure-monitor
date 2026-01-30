@@ -13,6 +13,10 @@ spec:
       app.kubernetes.io/component: backend
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.backend.service.targetPort }}"
+        prometheus.io/path: "/metrics"
       labels:
         {{- include "kure.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: backend
