@@ -198,14 +198,6 @@ kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/late
 
 ## License
 
-**Custom Non-Commercial License** — See [LICENSE](LICENSE) for full terms.
+Licensed under the [Apache License 2.0](LICENSE).
 
-| Use Case | Allowed? |
-|----------|----------|
-| Personal homelab or learning | Yes |
-| Internal company use (non-revenue) | Contact for permission |
-| Selling or reselling Kure | No |
-| Offering Kure as a managed service | No |
-| Including in commercial products | No |
-
-**Commercial licensing**: nano.code@outlook.com
+"Kure Monitor" is a trademark of Igor Koricanac. See [LICENSE](LICENSE) for trademark details.

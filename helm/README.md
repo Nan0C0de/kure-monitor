@@ -130,4 +130,6 @@ helm uninstall kure-monitor -n kure-system
 
 ## License
 
-Custom Non-Commercial License. See [LICENSE](https://github.com/Nan0C0de/kure-monitor/blob/main/LICENSE) for details.
+Licensed under the [Apache License 2.0](https://github.com/Nan0C0de/kure-monitor/blob/main/LICENSE).
+
+"Kure Monitor" is a trademark of Igor Koricanac.
