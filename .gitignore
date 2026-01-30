@@ -254,3 +254,6 @@ kind
 
 # GithubActions
 github_actions
+
+# Local
+LOCAL_TEST.md
