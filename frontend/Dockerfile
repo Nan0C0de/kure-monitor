@@ -1,37 +1,25 @@
 # Build stage
-FROM node:18-alpine as build
+FROM node:18-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --only=production
-
+RUN npm ci
 COPY . .
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Runtime stage - minimal nginx image
+FROM nginx:1.27-alpine
 
-# Create a non-root user (use different UIDs to avoid conflicts)
-RUN addgroup -g 1001 -S nginx-group && adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G nginx-group nginx-user
+RUN addgroup -g 1001 -S kure && \
+    adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G kure kure
 
-# Copy build files
 COPY --from=build /app/build /usr/share/nginx/html
-
-# Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Change ownership of necessary directories
-RUN chown -R nginx-user:nginx-group /var/cache/nginx && \
-    chown -R nginx-user:nginx-group /var/log/nginx && \
-    chown -R nginx-user:nginx-group /etc/nginx/conf.d && \
-    chown -R nginx-user:nginx-group /usr/share/nginx/html
+RUN chown -R kure:kure /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /usr/share/nginx/html && \
+    touch /var/run/nginx.pid && chown kure:kure /var/run/nginx.pid
 
-# Touch required files for nginx to run
-RUN touch /var/run/nginx.pid && \
-    chown -R nginx-user:nginx-group /var/run/nginx.pid
-
-# Switch to non-root user
-USER nginx-user
+USER kure
 
 EXPOSE 8080
 

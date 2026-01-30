@@ -1,29 +1,34 @@
-FROM python:3.11-slim
+# Build stage - install dependencies with build tools
+FROM python:3.11-slim AS builder
 
-# Update system packages to latest versions for security
-# Install build dependencies for asyncpg
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y build-essential libpq-dev && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Create a non-root user
-RUN groupadd -r kure && useradd -r -g kure kure
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
-# Copy application code and change ownership
-COPY . .
-RUN chown -R kure:kure /app
+# Runtime stage - slim image without build tools
+FROM python:3.11-slim
 
-# Switch to non-root user
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r kure && useradd -r -g kure -d /app -s /sbin/nologin kure
+
+WORKDIR /app
+
+COPY --from=builder /opt/venv /opt/venv
+COPY --chown=kure:kure . .
+
+ENV PATH="/opt/venv/bin:$PATH"
+
 USER kure
 
-# Expose port
 EXPOSE 8000
 
-# Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
