@@ -26,6 +26,7 @@ const AdminPanel = ({ isDark = false }) => {
   const [newRuleTitle, setNewRuleTitle] = useState('');
   const [showRuleSuggestions, setShowRuleSuggestions] = useState(false);
   const [ruleNamespaceScope, setRuleNamespaceScope] = useState('');
+  const [selectedRuleTitles, setSelectedRuleTitles] = useState([]);
 
   // General state
   const [loading, setLoading] = useState(true);
@@ -94,6 +95,7 @@ const AdminPanel = ({ isDark = false }) => {
       try {
         const titles = await api.getAllRuleTitles(ruleNamespaceScope || null);
         setAvailableRuleTitles(titles);
+        setSelectedRuleTitles([]);
       } catch (err) {
         console.error('Error fetching rule titles:', err);
       }
@@ -200,34 +202,52 @@ const AdminPanel = ({ isDark = false }) => {
     handleAddPod();
   };
 
-  const handleAddRule = async (ruleToAdd) => {
-    const ruleTitle = (ruleToAdd || newRuleTitle).trim();
+  const toggleRuleSelection = (title) => {
+    setSelectedRuleTitles(prev =>
+      prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]
+    );
+  };
 
-    if (!ruleTitle) {
-      setError('Please enter a rule title');
+  const handleAddRule = async () => {
+    const namespace = ruleNamespaceScope || null;
+
+    // Collect titles: from checkboxes, or fall back to text input
+    let titlesToExclude = [...selectedRuleTitles];
+    if (titlesToExclude.length === 0 && newRuleTitle.trim()) {
+      titlesToExclude = [newRuleTitle.trim()];
+    }
+
+    if (titlesToExclude.length === 0) {
+      setError('Please select or enter at least one rule');
       return;
     }
 
-    const namespace = ruleNamespaceScope || null;
+    // Filter out already excluded
+    titlesToExclude = titlesToExclude.filter(
+      title => !excludedRules.some(rule => rule.rule_title === title && (rule.namespace || null) === namespace)
+    );
 
-    if (excludedRules.some(rule => rule.rule_title === ruleTitle && (rule.namespace || null) === namespace)) {
-      setError('This rule is already excluded for this scope');
+    if (titlesToExclude.length === 0) {
+      setError('Selected rules are already excluded for this scope');
       return;
     }
 
     try {
-      const result = await api.addExcludedRule(ruleTitle, namespace);
-      setExcludedRules(prev => [...prev, result]);
+      const results = await Promise.all(
+        titlesToExclude.map(title => api.addExcludedRule(title, namespace))
+      );
+      setExcludedRules(prev => [...prev, ...results]);
       setNewRuleTitle('');
-      setRuleNamespaceScope('');
+      setSelectedRuleTitles([]);
       setShowRuleSuggestions(false);
       setError(null);
       const scope = namespace ? ` in namespace "${namespace}"` : ' globally';
-      setSuccessMessage(`Rule "${ruleTitle}" excluded${scope}.`);
+      const count = titlesToExclude.length;
+      setSuccessMessage(`${count} rule${count > 1 ? 's' : ''} excluded${scope}.`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      setError('Failed to add rule');
-      console.error('Error adding rule:', err);
+      setError('Failed to add rule(s)');
+      console.error('Error adding rules:', err);
     }
   };
 
@@ -251,6 +271,8 @@ const AdminPanel = ({ isDark = false }) => {
     e.preventDefault();
     handleAddRule();
   };
+
+  const selectedRuleCount = selectedRuleTitles.length;
 
   if (loading) {
     return (
@@ -524,19 +546,35 @@ const AdminPanel = ({ isDark = false }) => {
                     className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                   {showRuleSuggestions && filteredRuleSuggestions.length > 0 && (
-                    <div className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                      <div className={`px-3 py-2 text-xs border-b ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
-                        Active security rules
+                    <div
+                      className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      <div className={`px-3 py-2 text-xs border-b flex items-center justify-between ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
+                        <span>Active security rules</span>
+                        {selectedRuleCount > 0 && (
+                          <span className={`text-xs font-medium ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                            {selectedRuleCount} selected
+                          </span>
+                        )}
                       </div>
                       {filteredRuleSuggestions.map(title => (
-                        <button
+                        <label
                           key={title}
-                          type="button"
-                          onClick={() => handleAddRule(title)}
-                          className={`w-full px-3 py-2 text-left text-sm focus:outline-none ${isDark ? 'hover:bg-gray-700 hover:text-purple-400 focus:bg-gray-700' : 'hover:bg-purple-50 hover:text-purple-700 focus:bg-purple-50'}`}
+                          className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 cursor-pointer ${
+                            selectedRuleTitles.includes(title)
+                              ? isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'
+                              : isDark ? 'hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
+                          }`}
                         >
-                          {title}
-                        </button>
+                          <input
+                            type="checkbox"
+                            checked={selectedRuleTitles.includes(title)}
+                            onChange={() => toggleRuleSelection(title)}
+                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="truncate">{title}</span>
+                        </label>
                       ))}
                     </div>
                   )}
@@ -556,7 +594,7 @@ const AdminPanel = ({ isDark = false }) => {
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Exclude
+                  Exclude{selectedRuleCount > 0 ? ` (${selectedRuleCount})` : ''}
                 </button>
               </div>
             </form>
