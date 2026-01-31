@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
@@ -7,6 +7,7 @@ import MonitoringTab from './MonitoringTab';
 import SetupBanner from './SetupBanner';
 import { api } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { exportAsCSV, exportAsJSON, exportAsPDF } from '../utils/exportFindings';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('monitoring');
@@ -21,6 +22,7 @@ const Dashboard = () => {
   const [securityNamespaceFilter, setSecurityNamespaceFilter] = useState('');
   const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
 
   // Theme state - load from localStorage or default to 'light'
   const [theme, setTheme] = useState(() => {
@@ -398,6 +400,52 @@ const Dashboard = () => {
                       className="text-xs text-blue-600 hover:text-blue-800"
                     >
                       Select All
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Export - only show on security tab */}
+          {activeTab === 'security' && sortedSecurityFindings.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                onBlur={() => setTimeout(() => setShowExportDropdown(false), 200)}
+                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                  isDark
+                    ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200'
+                    : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                <Download className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                <span>Export</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isDark ? 'text-gray-400' : 'text-gray-500'} ${showExportDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showExportDropdown && (
+                <div className={`absolute right-0 mt-2 w-40 rounded-md shadow-lg border z-10 ${
+                  isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}>
+                  <div className="py-1">
+                    <button
+                      onClick={() => { exportAsCSV(sortedSecurityFindings); setShowExportDropdown(false); }}
+                      className={`w-full text-left px-4 py-2 text-sm ${isDark ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}
+                    >
+                      CSV
+                    </button>
+                    <button
+                      onClick={() => { exportAsJSON(sortedSecurityFindings); setShowExportDropdown(false); }}
+                      className={`w-full text-left px-4 py-2 text-sm ${isDark ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}
+                    >
+                      JSON
+                    </button>
+                    <button
+                      onClick={() => { exportAsPDF(sortedSecurityFindings); setShowExportDropdown(false); }}
+                      className={`w-full text-left px-4 py-2 text-sm ${isDark ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}
+                    >
+                      PDF
                     </button>
                   </div>
                 </div>
