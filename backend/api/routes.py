@@ -13,7 +13,7 @@ except ImportError:
     K8S_AVAILABLE = False
 
 from models.models import (
-    PodFailureReport, PodFailureResponse,
+    PodFailureReport, PodFailureResponse, PodStatusUpdate,
     SecurityFindingReport, SecurityFindingResponse,
     ExcludedNamespace, ExcludedNamespaceResponse,
     ExcludedPod, ExcludedPodResponse,
@@ -165,10 +165,67 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
     async def restore_pod_failure(pod_id: int):
         """Restore/un-ignore a dismissed pod failure"""
         try:
-            await db.restore_pod_failure(pod_id)
+            updated = await db.update_pod_status(pod_id, 'new')
+            if updated:
+                await websocket_manager.broadcast_pod_status_change(updated)
             return {"message": "Pod failure restored"}
         except Exception as e:
             logger.error(f"Error restoring pod failure: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.patch("/pods/failed/{pod_id}/status", response_model=PodFailureResponse)
+    async def update_pod_status(pod_id: int, request: PodStatusUpdate):
+        """Update the status of a pod failure (acknowledge, resolve, ignore)"""
+        valid_statuses = {'new', 'investigating', 'resolved', 'ignored'}
+        if request.status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+
+        valid_transitions = {
+            'new': {'investigating', 'ignored'},
+            'investigating': {'ignored'},
+            'ignored': {'new'},
+            'resolved': set(),
+        }
+
+        try:
+            pod_failure = await db.get_pod_failure_by_id(pod_id)
+            if not pod_failure:
+                raise HTTPException(status_code=404, detail="Pod failure not found")
+
+            current_status = pod_failure.status
+            if request.status not in valid_transitions.get(current_status, set()):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot transition from '{current_status}' to '{request.status}'"
+                )
+
+            updated = await db.update_pod_status(pod_id, request.status, request.resolution_note)
+
+            if updated:
+                await websocket_manager.broadcast_pod_status_change(updated)
+
+                # Send resolved notification when pod is resolved or ignored
+                if request.status in ('resolved', 'ignored') and notification_service:
+                    await notification_service.send_pod_resolved_notification(
+                        namespace=updated.namespace,
+                        pod_name=updated.pod_name
+                    )
+
+            return updated
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating pod status: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/pods/history", response_model=list[PodFailureResponse])
+    async def get_pod_history():
+        """Get resolved pod failures (history)"""
+        try:
+            return await db.get_pod_failures(status_filter=['resolved'])
+        except Exception as e:
+            logger.error(f"Error getting pod history: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.post("/pods/failed/{pod_id}/retry-solution", response_model=PodFailureResponse)
@@ -224,7 +281,7 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
 
     @router.post("/pods/dismiss-deleted")
     async def dismiss_deleted_pod(request: dict):
-        """Mark pods as dismissed when they're deleted from Kubernetes"""
+        """Auto-resolve pods when they recover or are deleted from Kubernetes"""
         try:
             namespace = request.get("namespace")
             pod_name = request.get("pod_name")
@@ -232,10 +289,15 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             if not namespace or not pod_name:
                 raise HTTPException(status_code=400, detail="namespace and pod_name required")
 
-            await db.dismiss_deleted_pod(namespace, pod_name)
+            resolved_pods = await db.dismiss_deleted_pod(namespace, pod_name)
 
-            # Notify frontend via WebSocket that pod was removed
-            await websocket_manager.broadcast_pod_deleted(namespace, pod_name)
+            # Broadcast status change for each auto-resolved pod so frontend moves them to History
+            for pod in resolved_pods:
+                await websocket_manager.broadcast_pod_status_change(pod)
+
+            # Fallback: also broadcast pod_deleted for frontend cleanup if no DB records matched
+            if not resolved_pods:
+                await websocket_manager.broadcast_pod_deleted(namespace, pod_name)
 
             # Send resolved notification
             if notification_service:
@@ -244,10 +306,10 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
                     pod_name=pod_name
                 )
 
-            logger.info(f"Dismissed deleted pod: {namespace}/{pod_name}")
-            return {"message": "Deleted pod dismissed"}
+            logger.info(f"Auto-resolved pod: {namespace}/{pod_name} ({len(resolved_pods)} records)")
+            return {"message": "Pod auto-resolved"}
         except Exception as e:
-            logger.error(f"Error dismissing deleted pod: {e}")
+            logger.error(f"Error auto-resolving pod: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/pods/{namespace}/{pod_name}/manifest")

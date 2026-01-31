@@ -32,14 +32,17 @@ class Database:
     async def save_pod_failure(self, failure):
         return await self._db.save_pod_failure(failure)
 
-    async def get_pod_failures(self, include_dismissed=False, dismissed_only=False):
-        return await self._db.get_pod_failures(include_dismissed, dismissed_only)
+    async def get_pod_failures(self, status_filter=None, include_dismissed=False, dismissed_only=False):
+        return await self._db.get_pod_failures(status_filter, include_dismissed, dismissed_only)
 
     async def get_pod_failure_by_id(self, failure_id):
         return await self._db.get_pod_failure_by_id(failure_id)
 
     async def update_pod_solution(self, failure_id, solution):
         return await self._db.update_pod_solution(failure_id, solution)
+
+    async def update_pod_status(self, failure_id, status, resolution_note=None):
+        return await self._db.update_pod_status(failure_id, status, resolution_note)
 
     async def dismiss_pod_failure(self, failure_id):
         return await self._db.dismiss_pod_failure(failure_id)
@@ -48,6 +51,7 @@ class Database:
         return await self._db.restore_pod_failure(failure_id)
 
     async def dismiss_deleted_pod(self, namespace, pod_name):
+        """Returns list of auto-resolved PodFailureResponse objects"""
         return await self._db.dismiss_deleted_pod(namespace, pod_name)
 
     async def save_security_finding(self, finding):

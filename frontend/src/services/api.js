@@ -24,6 +24,32 @@ export const api = {
     return response.json();
   },
 
+  updatePodStatus: async (podId, status, resolutionNote = null) => {
+    const body = { status };
+    if (resolutionNote) {
+      body.resolution_note = resolutionNote;
+    }
+    const response = await fetch(`${API_BASE}/api/pods/failed/${podId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getPodHistory: async () => {
+    const response = await fetch(`${API_BASE}/api/pods/history`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getIgnoredPods: async () => {
+    const response = await fetch(`${API_BASE}/api/pods/ignored`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   retrySolution: async (podId) => {
     const response = await fetch(`${API_BASE}/api/pods/failed/${podId}/retry-solution`, {
       method: 'POST'

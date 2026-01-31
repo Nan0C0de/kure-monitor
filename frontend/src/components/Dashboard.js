@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
@@ -23,6 +23,10 @@ const Dashboard = () => {
   const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+  // Pod sub-tab state
+  const [podSubTab, setPodSubTab] = useState('active');
+  const [podHistory, setPodHistory] = useState([]);
+  const [ignoredPods, setIgnoredPods] = useState([]);
 
   // Theme state - load from localStorage or default to 'light'
   const [theme, setTheme] = useState(() => {
@@ -122,6 +126,22 @@ const Dashboard = () => {
           pod.id === message.data.id ? message.data : pod
         );
       });
+    } else if (message.type === 'pod_status_change') {
+      // Move pod between lists based on new status
+      const pod = message.data;
+      const newStatus = pod.status;
+      // Remove from all lists first
+      setPods(prev => prev.filter(p => p.id !== pod.id));
+      setPodHistory(prev => prev.filter(p => p.id !== pod.id));
+      setIgnoredPods(prev => prev.filter(p => p.id !== pod.id));
+      // Add to appropriate list
+      if (newStatus === 'new' || newStatus === 'investigating') {
+        setPods(prev => [pod, ...prev.filter(p => p.id !== pod.id)]);
+      } else if (newStatus === 'resolved') {
+        setPodHistory(prev => [pod, ...prev.filter(p => p.id !== pod.id)]);
+      } else if (newStatus === 'ignored') {
+        setIgnoredPods(prev => [pod, ...prev.filter(p => p.id !== pod.id)]);
+      }
     } else if (message.type === 'cluster_metrics') {
       // Update cluster metrics
       setClusterMetrics(message.data);
@@ -137,12 +157,65 @@ const Dashboard = () => {
     });
   };
 
+  // Handle pod status change (acknowledge, resolve, ignore, restore)
+  const handleStatusChange = async (podId, newStatus) => {
+    try {
+      const updatedPod = await api.updatePodStatus(podId, newStatus);
+      // Remove from current list
+      setPods(prev => prev.filter(p => p.id !== podId));
+      setPodHistory(prev => prev.filter(p => p.id !== podId));
+      setIgnoredPods(prev => prev.filter(p => p.id !== podId));
+      // Add to appropriate list
+      if (newStatus === 'new' || newStatus === 'investigating') {
+        setPods(prev => [updatedPod, ...prev.filter(p => p.id !== updatedPod.id)]);
+      } else if (newStatus === 'resolved') {
+        setPodHistory(prev => [updatedPod, ...prev.filter(p => p.id !== updatedPod.id)]);
+      } else if (newStatus === 'ignored') {
+        setIgnoredPods(prev => [updatedPod, ...prev.filter(p => p.id !== updatedPod.id)]);
+      }
+    } catch (err) {
+      console.error('Failed to update pod status:', err);
+    }
+  };
+
+  // Load history/ignored pods on sub-tab change
+  const loadPodHistory = useCallback(async () => {
+    try {
+      const history = await api.getPodHistory();
+      setPodHistory(history);
+    } catch (err) {
+      console.error('Failed to load pod history:', err);
+    }
+  }, []);
+
+  const loadIgnoredPods = useCallback(async () => {
+    try {
+      const ignored = await api.getIgnoredPods();
+      setIgnoredPods(ignored);
+    } catch (err) {
+      console.error('Failed to load ignored pods:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (podSubTab === 'history') loadPodHistory();
+    else if (podSubTab === 'ignored') loadIgnoredPods();
+  }, [podSubTab, loadPodHistory, loadIgnoredPods]);
+
   const { connected } = useWebSocket(handleWebSocketMessage);
 
   // Filter pods based on pod-specific namespace filter
   const filteredPods = podNamespaceFilter.trim() === ''
     ? pods
     : pods.filter(pod => pod.namespace.toLowerCase().includes(podNamespaceFilter.toLowerCase().trim()));
+
+  const filteredHistory = podNamespaceFilter.trim() === ''
+    ? podHistory
+    : podHistory.filter(pod => pod.namespace.toLowerCase().includes(podNamespaceFilter.toLowerCase().trim()));
+
+  const filteredIgnored = podNamespaceFilter.trim() === ''
+    ? ignoredPods
+    : ignoredPods.filter(pod => pod.namespace.toLowerCase().includes(podNamespaceFilter.toLowerCase().trim()));
 
   // Severity order for sorting (Critical > High > Medium > Low)
   const severityOrder = { 'critical': 1, 'high': 2, 'medium': 3, 'low': 4 };
@@ -303,9 +376,9 @@ const Dashboard = () => {
                 >
                   <Activity className="w-5 h-5" />
                   <span>Pod Monitoring</span>
-                  {pods.length > 0 && (
+                  {pods.filter(p => p.status === 'new' || p.status === 'investigating' || !p.status).length > 0 && (
                     <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
-                      {pods.length}
+                      {pods.filter(p => p.status === 'new' || p.status === 'investigating' || !p.status).length}
                     </span>
                   )}
                 </button>
@@ -481,23 +554,118 @@ const Dashboard = () => {
         <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg`}>
           {activeTab === 'monitoring' && (
             <>
-              {filteredPods.length === 0 ? (
-                <div className="text-center py-12">
-                  <CheckCircle className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-green-400' : 'text-green-500'}`} />
-                  <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-                    {pods.length === 0 ? 'All Good!' : 'No Failures Found'}
-                  </h3>
-                  <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-                    {pods.length === 0
-                      ? 'No pod failures detected in your cluster.'
-                      : podNamespaceFilter.trim() === ''
-                        ? 'No pod failures found in your cluster.'
-                        : `No pod failures found matching namespace '${podNamespaceFilter}'.`
-                    }
-                  </p>
-                </div>
-              ) : (
-                <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} isDark={isDark} aiEnabled={aiEnabled} />
+              {/* Pod sub-tabs */}
+              <div className={`flex border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                <button
+                  onClick={() => setPodSubTab('active')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+                    podSubTab === 'active'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Activity className="w-4 h-4" />
+                  <span>Active</span>
+                  {pods.length > 0 && (
+                    <span className={`py-0.5 px-2 rounded-full text-xs font-medium ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
+                      {pods.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setPodSubTab('history')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+                    podSubTab === 'history'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Clock className="w-4 h-4" />
+                  <span>History</span>
+                  {podHistory.length > 0 && (
+                    <span className={`py-0.5 px-2 rounded-full text-xs font-medium ${isDark ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'}`}>
+                      {podHistory.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setPodSubTab('ignored')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+                    podSubTab === 'ignored'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <EyeOff className="w-4 h-4" />
+                  <span>Ignored</span>
+                  {ignoredPods.length > 0 && (
+                    <span className={`py-0.5 px-2 rounded-full text-xs font-medium ${isDark ? 'bg-gray-600 text-gray-200' : 'bg-gray-200 text-gray-700'}`}>
+                      {ignoredPods.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Active sub-tab */}
+              {podSubTab === 'active' && (
+                <>
+                  {filteredPods.length === 0 ? (
+                    <div className="text-center py-12">
+                      <CheckCircle className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-green-400' : 'text-green-500'}`} />
+                      <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                        {pods.length === 0 ? 'All Good!' : 'No Failures Found'}
+                      </h3>
+                      <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                        {pods.length === 0
+                          ? 'No pod failures detected in your cluster.'
+                          : podNamespaceFilter.trim() === ''
+                            ? 'No pod failures found in your cluster.'
+                            : `No pod failures found matching namespace '${podNamespaceFilter}'.`
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="active" />
+                  )}
+                </>
+              )}
+
+              {/* History sub-tab */}
+              {podSubTab === 'history' && (
+                <>
+                  {filteredHistory.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Clock className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                      <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                        No Resolved Pods
+                      </h3>
+                      <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                        Resolved pod failures will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <PodTable pods={filteredHistory} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="history" />
+                  )}
+                </>
+              )}
+
+              {/* Ignored sub-tab */}
+              {podSubTab === 'ignored' && (
+                <>
+                  {filteredIgnored.length === 0 ? (
+                    <div className="text-center py-12">
+                      <EyeOff className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                      <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                        No Ignored Pods
+                      </h3>
+                      <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                        Ignored pod failures will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <PodTable pods={filteredIgnored} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="ignored" />
+                  )}
+                </>
               )}
             </>
           )}

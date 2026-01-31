@@ -38,6 +38,14 @@ class PodFailureResponse(PodFailureReport):
     solution: str
     timestamp: str
     dismissed: bool = False
+    status: str = "new"  # new, investigating, resolved, ignored
+    resolved_at: Optional[str] = None
+    resolution_note: Optional[str] = None
+
+
+class PodStatusUpdate(BaseModel):
+    status: str  # investigating, resolved, ignored, new
+    resolution_note: Optional[str] = None
 
 class SecurityFinding(BaseModel):
     resource_type: str  # e.g., "Pod", "Deployment", "Service"

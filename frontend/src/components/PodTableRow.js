@@ -6,7 +6,21 @@ import ManifestModal from './ManifestModal';
 import PodLogsModal from './PodLogsModal';
 import { api } from '../services/api';
 
-const PodTableRow = ({ pod, onSolutionUpdated, isDark = false, aiEnabled = false }) => {
+const getWorkflowStatusBadge = (status) => {
+  switch (status) {
+    case 'investigating':
+      return { label: 'Investigating', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' };
+    case 'resolved':
+      return { label: 'Resolved', className: 'bg-green-100 text-green-800 border-green-300' };
+    case 'ignored':
+      return { label: 'Ignored', className: 'bg-gray-100 text-gray-600 border-gray-300' };
+    case 'new':
+    default:
+      return { label: 'New', className: 'bg-red-100 text-red-800 border-red-300' };
+  }
+};
+
+const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, isDark = false, aiEnabled = false, viewMode = 'active' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
@@ -70,13 +84,21 @@ const PodTableRow = ({ pod, onSolutionUpdated, isDark = false, aiEnabled = false
           </div>
         </td>
         <td className="px-6 py-3 align-top">
-          <div className="flex justify-start">
+          <div className="flex flex-col items-start gap-1">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className={`rounded transition-colors ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
             >
               <StatusBadge reason={pod.failure_reason} />
             </button>
+            {(() => {
+              const badge = getWorkflowStatusBadge(pod.status);
+              return (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badge.className}`}>
+                  {badge.label}
+                </span>
+              );
+            })()}
           </div>
         </td>
         <td className="px-6 py-3 align-top">
@@ -104,8 +126,18 @@ const PodTableRow = ({ pod, onSolutionUpdated, isDark = false, aiEnabled = false
         </td>
         <td className={`px-6 py-3 text-sm align-top ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
           <div>
-            {formatTimestamp(pod.timestamp)}
+            {viewMode === 'history' && pod.resolved_at
+              ? formatTimestamp(pod.resolved_at)
+              : formatTimestamp(pod.timestamp)
+            }
           </div>
+          {viewMode === 'history' && pod.resolution_note && (
+            <div className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              {pod.resolution_note.length > 50
+                ? pod.resolution_note.substring(0, 50) + '...'
+                : pod.resolution_note}
+            </div>
+          )}
         </td>
       </tr>
       {isExpanded && (
@@ -116,8 +148,10 @@ const PodTableRow = ({ pod, onSolutionUpdated, isDark = false, aiEnabled = false
               onViewManifest={() => setShowManifest(true)}
               onViewLogs={() => setShowLogs(true)}
               onSolutionUpdated={onSolutionUpdated}
+              onStatusChange={onStatusChange}
               isDark={isDark}
               aiEnabled={aiEnabled}
+              viewMode={viewMode}
             />
           </td>
         </tr>

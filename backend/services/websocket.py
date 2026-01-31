@@ -193,6 +193,26 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
+    async def broadcast_pod_status_change(self, pod_failure: PodFailureResponse):
+        """Broadcast pod status change to all connected clients"""
+        if self.active_connections:
+            message = {
+                "type": "pod_status_change",
+                "data": pod_failure.dict()
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send pod status change to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
     async def broadcast_cluster_metrics(self, metrics: ClusterMetrics):
         """Broadcast cluster metrics to all connected clients"""
         if self.active_connections:

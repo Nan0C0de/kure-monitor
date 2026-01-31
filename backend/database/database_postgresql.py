@@ -89,18 +89,35 @@ class PostgreSQLDatabase(DatabaseInterface):
                         solution TEXT NOT NULL,
                         timestamp TIMESTAMPTZ NOT NULL,
                         dismissed BOOLEAN DEFAULT FALSE,
+                        status VARCHAR(20) NOT NULL DEFAULT 'new',
+                        resolved_at TIMESTAMPTZ,
+                        resolution_note TEXT,
                         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
-                
+
+                # Migration: add status workflow columns if they don't exist (for existing deployments)
+                status_col_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'pod_failures' AND column_name = 'status'
+                    )
+                """)
+                if not status_col_exists:
+                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'new'")
+                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN resolved_at TIMESTAMPTZ")
+                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN resolution_note TEXT")
+                    await conn.execute("UPDATE pod_failures SET status = CASE WHEN dismissed = TRUE THEN 'ignored' ELSE 'new' END")
+                    logger.info("Migrated pod_failures table: added status workflow columns")
+
                 # Create indexes for better performance
                 await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_pod_failures_pod_namespace 
+                    CREATE INDEX IF NOT EXISTS idx_pod_failures_pod_namespace
                     ON pod_failures(pod_name, namespace)
                 """)
                 await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_pod_failures_dismissed 
-                    ON pod_failures(dismissed)
+                    CREATE INDEX IF NOT EXISTS idx_pod_failures_status
+                    ON pod_failures(status)
                 """)
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_pod_failures_created_at
@@ -235,13 +252,42 @@ class PostgreSQLDatabase(DatabaseInterface):
             logger.error(f"Failed to initialize PostgreSQL database: {e}")
             raise
 
+    def _row_to_pod_failure(self, row) -> PodFailureResponse:
+        """Convert a database row to a PodFailureResponse"""
+        creation_timestamp = row['creation_timestamp'].isoformat()
+        timestamp = row['timestamp'].isoformat()
+        resolved_at = row['resolved_at'].isoformat() if row.get('resolved_at') else None
+        status = row.get('status', 'new')
+        dismissed = status in ('resolved', 'ignored') or bool(row.get('dismissed', False))
+
+        return PodFailureResponse(
+            id=row['id'],
+            pod_name=row['pod_name'],
+            namespace=row['namespace'],
+            node_name=row['node_name'],
+            phase=row['phase'],
+            creation_timestamp=creation_timestamp,
+            failure_reason=row['failure_reason'],
+            failure_message=row['failure_message'],
+            container_statuses=json.loads(row['container_statuses']) if row['container_statuses'] else [],
+            events=json.loads(row['events']) if row['events'] else [],
+            logs=row['logs'],
+            manifest=row['manifest'] or '',
+            solution=row['solution'],
+            timestamp=timestamp,
+            dismissed=dismissed,
+            status=status,
+            resolved_at=resolved_at,
+            resolution_note=row.get('resolution_note'),
+        )
+
     async def save_pod_failure(self, failure: PodFailureResponse) -> int:
         """Save a pod failure to database, updating existing record if pod already exists"""
         async with self._acquire() as conn:
-            # Check if pod already exists and is not dismissed
+            # Check if pod already exists and is active (new or investigating)
             existing = await conn.fetchrow("""
-                SELECT id FROM pod_failures 
-                WHERE pod_name = $1 AND namespace = $2 AND dismissed = FALSE
+                SELECT id FROM pod_failures
+                WHERE pod_name = $1 AND namespace = $2 AND status IN ('new', 'investigating')
                 ORDER BY created_at DESC LIMIT 1
             """, failure.pod_name, failure.namespace)
             
@@ -288,10 +334,15 @@ class PostgreSQLDatabase(DatabaseInterface):
                 )
                 return result['id']
 
-    async def get_pod_failures(self, include_dismissed: bool = False, dismissed_only: bool = False) -> List[PodFailureResponse]:
-        """Get all pod failures from database (latest per pod)"""
+    async def get_pod_failures(self, status_filter: list = None, include_dismissed: bool = False, dismissed_only: bool = False) -> List[PodFailureResponse]:
+        """Get all pod failures from database (latest per pod)
+
+        Args:
+            status_filter: List of statuses to include (e.g. ['new', 'investigating']). Takes priority.
+            include_dismissed: Legacy compat. If True, include all.
+            dismissed_only: Legacy compat. If True, only ignored.
+        """
         async with self._acquire() as conn:
-            # Get latest entry per pod (avoid duplicates) using PostgreSQL window functions
             query = """
                 SELECT * FROM (
                     SELECT *,
@@ -300,42 +351,21 @@ class PostgreSQLDatabase(DatabaseInterface):
                 ) ranked
                 WHERE rn = 1
             """
-            
-            if dismissed_only:
-                query += " AND dismissed = TRUE"
+
+            params = []
+            if status_filter:
+                placeholders = ', '.join(f'${i+1}' for i in range(len(status_filter)))
+                query += f" AND status IN ({placeholders})"
+                params = list(status_filter)
+            elif dismissed_only:
+                query += " AND status = 'ignored'"
             elif not include_dismissed:
-                query += " AND dismissed = FALSE"
-                
+                query += " AND status IN ('new', 'investigating')"
+
             query += " ORDER BY created_at DESC"
 
-            rows = await conn.fetch(query)
-
-            failures = []
-            for row in rows:
-                # Convert timestamps to ISO format strings
-                creation_timestamp = row['creation_timestamp'].isoformat()
-                timestamp = row['timestamp'].isoformat()
-                
-                failure = PodFailureResponse(
-                    id=row['id'],
-                    pod_name=row['pod_name'],
-                    namespace=row['namespace'],
-                    node_name=row['node_name'],
-                    phase=row['phase'],
-                    creation_timestamp=creation_timestamp,
-                    failure_reason=row['failure_reason'],
-                    failure_message=row['failure_message'],
-                    container_statuses=json.loads(row['container_statuses']) if row['container_statuses'] else [],
-                    events=json.loads(row['events']) if row['events'] else [],
-                    logs=row['logs'],
-                    manifest=row['manifest'] or '',
-                    solution=row['solution'],
-                    timestamp=timestamp,
-                    dismissed=bool(row['dismissed'])
-                )
-                failures.append(failure)
-
-            return failures
+            rows = await conn.fetch(query, *params)
+            return [self._row_to_pod_failure(row) for row in rows]
 
     async def get_pod_failure_by_id(self, failure_id: int) -> Optional[PodFailureResponse]:
         """Get a single pod failure by ID"""
@@ -346,27 +376,7 @@ class PostgreSQLDatabase(DatabaseInterface):
             )
             if not row:
                 return None
-
-            creation_timestamp = row['creation_timestamp'].isoformat()
-            timestamp = row['timestamp'].isoformat()
-
-            return PodFailureResponse(
-                id=row['id'],
-                pod_name=row['pod_name'],
-                namespace=row['namespace'],
-                node_name=row['node_name'],
-                phase=row['phase'],
-                creation_timestamp=creation_timestamp,
-                failure_reason=row['failure_reason'],
-                failure_message=row['failure_message'],
-                container_statuses=json.loads(row['container_statuses']) if row['container_statuses'] else [],
-                events=json.loads(row['events']) if row['events'] else [],
-                logs=row['logs'],
-                manifest=row['manifest'] or '',
-                solution=row['solution'],
-                timestamp=timestamp,
-                dismissed=bool(row['dismissed'])
-            )
+            return self._row_to_pod_failure(row)
 
     async def update_pod_solution(self, failure_id: int, solution: str):
         """Update just the solution for a pod failure"""
@@ -376,29 +386,50 @@ class PostgreSQLDatabase(DatabaseInterface):
                 solution, failure_id
             )
 
-    async def dismiss_pod_failure(self, failure_id: int):
-        """Mark a pod failure as dismissed"""
+    async def update_pod_status(self, failure_id: int, status: str, resolution_note: str = None) -> Optional[PodFailureResponse]:
+        """Update the status of a pod failure and return the updated record"""
         async with self._acquire() as conn:
-            await conn.execute(
-                "UPDATE pod_failures SET dismissed = TRUE WHERE id = $1",
-                failure_id
-            )
+            dismissed = status in ('resolved', 'ignored')
+            if status == 'resolved':
+                await conn.execute(
+                    """UPDATE pod_failures
+                       SET status = $1, dismissed = $2, resolved_at = CURRENT_TIMESTAMP, resolution_note = $3
+                       WHERE id = $4""",
+                    status, dismissed, resolution_note, failure_id
+                )
+            else:
+                await conn.execute(
+                    """UPDATE pod_failures
+                       SET status = $1, dismissed = $2, resolved_at = NULL, resolution_note = NULL
+                       WHERE id = $3""",
+                    status, dismissed, failure_id
+                )
+            row = await conn.fetchrow("SELECT * FROM pod_failures WHERE id = $1", failure_id)
+            if not row:
+                return None
+            return self._row_to_pod_failure(row)
+
+    async def dismiss_pod_failure(self, failure_id: int):
+        """Mark a pod failure as ignored (backward compat)"""
+        await self.update_pod_status(failure_id, 'ignored')
 
     async def restore_pod_failure(self, failure_id: int):
-        """Restore a dismissed pod failure (unignore)"""
-        async with self._acquire() as conn:
-            await conn.execute(
-                "UPDATE pod_failures SET dismissed = FALSE WHERE id = $1",
-                failure_id
-            )
+        """Restore a pod failure back to new (backward compat)"""
+        await self.update_pod_status(failure_id, 'new')
 
     async def dismiss_deleted_pod(self, namespace: str, pod_name: str):
-        """Mark all entries for a deleted pod as dismissed"""
+        """Auto-resolve all active entries for a recovered/deleted pod"""
         async with self._acquire() as conn:
-            await conn.execute(
-                "UPDATE pod_failures SET dismissed = TRUE WHERE pod_name = $1 AND namespace = $2",
+            rows = await conn.fetch(
+                """UPDATE pod_failures
+                   SET status = 'resolved', dismissed = TRUE,
+                       resolved_at = CURRENT_TIMESTAMP,
+                       resolution_note = 'Auto-resolved: pod recovered'
+                   WHERE pod_name = $1 AND namespace = $2 AND status IN ('new', 'investigating')
+                   RETURNING *""",
                 pod_name, namespace
             )
+            return [self._row_to_pod_failure(row) for row in rows]
 
     async def save_security_finding(self, finding: SecurityFindingResponse) -> tuple[int, bool]:
         """Save a security finding to database

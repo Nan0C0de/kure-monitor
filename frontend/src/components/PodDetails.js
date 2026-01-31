@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, RefreshCw, Copy, Check, Terminal } from 'lucide-react';
+import { FileText, RefreshCw, Copy, Check, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../services/api';
 
@@ -38,8 +38,9 @@ const CodeBlock = ({ code, language }) => {
   );
 };
 
-const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, aiEnabled = false }) => {
+const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStatusChange, aiEnabled = false, viewMode = 'active' }) => {
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Check if solution is a fallback (AI unavailable)
   const isFallbackSolution = pod.solution && (
@@ -61,6 +62,16 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, aiEnab
       setIsRetrying(false);
     }
   };
+  const handleStatusAction = async (newStatus) => {
+    if (!onStatusChange) return;
+    setIsUpdatingStatus(true);
+    try {
+      await onStatusChange(pod.id, newStatus);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   const formatTimestamp = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -193,6 +204,75 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, aiEnab
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Workflow Actions */}
+      {onStatusChange && (
+        <div className="flex items-center flex-wrap gap-2">
+          {/* New status: Acknowledge + Ignore */}
+          {(pod.status === 'new' || !pod.status) && (
+            <>
+              <button
+                onClick={() => handleStatusAction('investigating')}
+                disabled={isUpdatingStatus}
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-100 border border-purple-300 rounded-md hover:bg-purple-200 disabled:opacity-50"
+              >
+                <Search className="w-3.5 h-3.5 mr-1" />
+                Acknowledge
+              </button>
+              <button
+                onClick={() => handleStatusAction('ignored')}
+                disabled={isUpdatingStatus}
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50"
+              >
+                <EyeOff className="w-3.5 h-3.5 mr-1" />
+                Ignore
+              </button>
+            </>
+          )}
+
+          {/* Investigating status: Ignore only (resolve is automatic) */}
+          {pod.status === 'investigating' && (
+            <>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
+                <Clock className="w-3 h-3 mr-1" />
+                Investigating — will auto-resolve when pod recovers
+              </span>
+              <button
+                onClick={() => handleStatusAction('ignored')}
+                disabled={isUpdatingStatus}
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50"
+              >
+                <EyeOff className="w-3.5 h-3.5 mr-1" />
+                Ignore
+              </button>
+            </>
+          )}
+
+          {/* Resolved status: show resolution info */}
+          {pod.status === 'resolved' && (
+            <div className="text-xs text-gray-600">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-300 font-medium mr-2">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Resolved
+              </span>
+              {pod.resolved_at && <span className="text-gray-500">on {new Date(pod.resolved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+              {pod.resolution_note && <span className="ml-2 italic text-gray-500">— {pod.resolution_note}</span>}
+            </div>
+          )}
+
+          {/* Ignored status: Restore button */}
+          {pod.status === 'ignored' && (
+            <button
+              onClick={() => handleStatusAction('new')}
+              disabled={isUpdatingStatus}
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 disabled:opacity-50"
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1" />
+              Restore
+            </button>
+          )}
         </div>
       )}
 

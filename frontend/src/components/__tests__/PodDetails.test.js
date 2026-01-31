@@ -14,6 +14,12 @@ jest.mock('lucide-react', () => ({
   RefreshCw: ({ className }) => <span data-testid="refresh-icon" className={className}>RefreshCw</span>,
   Copy: () => <span data-testid="copy-icon">Copy</span>,
   Check: () => <span data-testid="check-icon">Check</span>,
+  Terminal: () => <span data-testid="terminal-icon">Terminal</span>,
+  Search: () => <span data-testid="search-icon">Search</span>,
+  CheckCircle: () => <span data-testid="check-circle-icon">CheckCircle</span>,
+  EyeOff: () => <span data-testid="eye-off-icon">EyeOff</span>,
+  RotateCcw: () => <span data-testid="rotate-ccw-icon">RotateCcw</span>,
+  Clock: () => <span data-testid="clock-icon">Clock</span>,
 }));
 
 // Mock API
