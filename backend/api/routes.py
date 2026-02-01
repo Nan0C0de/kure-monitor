@@ -279,6 +279,63 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.error(f"Error details: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.delete("/pods/records/{pod_id}")
+    async def delete_pod_record(pod_id: int):
+        """Permanently delete a resolved or ignored pod failure record"""
+        try:
+            pod_failure = await db.get_pod_failure_by_id(pod_id)
+            if not pod_failure:
+                raise HTTPException(status_code=404, detail="Pod failure not found")
+
+            if pod_failure.status not in ('resolved', 'ignored'):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Can only delete resolved or ignored records (current status: {pod_failure.status})"
+                )
+
+            deleted = await db.delete_pod_failure(pod_id)
+            if not deleted:
+                raise HTTPException(status_code=500, detail="Failed to delete record")
+
+            # Broadcast deletion so frontend removes it from the list
+            await websocket_manager.broadcast_pod_record_deleted(pod_id)
+
+            logger.info(f"Deleted pod record: {pod_failure.namespace}/{pod_failure.pod_name} (id={pod_id})")
+            return {"message": "Pod record deleted"}
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting pod record: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/admin/settings/history-retention")
+    async def get_history_retention():
+        """Get the history auto-delete retention setting (minutes, 0 = disabled)"""
+        try:
+            value = await db.get_app_setting("history_retention_minutes")
+            return {"minutes": int(value) if value else 0}
+        except Exception as e:
+            logger.error(f"Error getting history retention: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.put("/admin/settings/history-retention")
+    async def set_history_retention(request: dict):
+        """Set the history auto-delete retention (minutes). 0 = disabled. Min 1, max 43200 (30 days)."""
+        try:
+            minutes = request.get("minutes", 0)
+            if not isinstance(minutes, int) or minutes < 0:
+                raise HTTPException(status_code=400, detail="minutes must be a non-negative integer")
+            if minutes > 43200:
+                raise HTTPException(status_code=400, detail="minutes must not exceed 43200 (30 days)")
+            await db.set_app_setting("history_retention_minutes", str(minutes))
+            logger.info(f"History retention set to {minutes} minutes")
+            return {"minutes": minutes}
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error setting history retention: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @router.post("/pods/dismiss-deleted")
     async def dismiss_deleted_pod(request: dict):
         """Auto-resolve pods when they recover or are deleted from Kubernetes"""

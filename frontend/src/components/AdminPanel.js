@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertCircle, CheckCircle, Shield, Activity, Bot, Bell, EyeOff } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, CheckCircle, Shield, Activity, Bot, Bell, EyeOff, Clock, Settings } from 'lucide-react';
 import { api } from '../services/api';
 import NotificationSettings from './NotificationSettings';
 import LLMSettings from './LLMSettings';
@@ -28,6 +28,11 @@ const AdminPanel = ({ isDark = false }) => {
   const [ruleNamespaceScope, setRuleNamespaceScope] = useState('');
   const [selectedRuleTitles, setSelectedRuleTitles] = useState([]);
 
+  // History retention state (stored as minutes in backend)
+  const [retentionEnabled, setRetentionEnabled] = useState(false);
+  const [retentionValue, setRetentionValue] = useState(7);
+  const [retentionUnit, setRetentionUnit] = useState('days');
+
   // General state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,6 +42,7 @@ const AdminPanel = ({ isDark = false }) => {
     { id: 'ai', label: 'AI Config', icon: Bot },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'exclusions', label: 'Exclusions', icon: EyeOff },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   useEffect(() => {
@@ -46,13 +52,14 @@ const AdminPanel = ({ isDark = false }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [excluded, available, excludedPodsData, monitoredPodsData, excludedRulesData, ruleTitlesData] = await Promise.all([
+      const [excluded, available, excludedPodsData, monitoredPodsData, excludedRulesData, ruleTitlesData, retentionData] = await Promise.all([
         api.getExcludedNamespaces(),
         api.getAllNamespaces(),
         api.getExcludedPods(),
         api.getMonitoredPods(),
         api.getExcludedRules(),
-        api.getAllRuleTitles()
+        api.getAllRuleTitles(),
+        api.getHistoryRetention().catch(() => ({ hours: 0 }))
       ]);
       setExcludedNamespaces(excluded);
       setAvailableNamespaces(available);
@@ -60,6 +67,24 @@ const AdminPanel = ({ isDark = false }) => {
       setMonitoredPods(monitoredPodsData);
       setExcludedRules(excludedRulesData);
       setAvailableRuleTitles(ruleTitlesData);
+      const mins = retentionData.minutes || 0;
+      if (mins > 0) {
+        setRetentionEnabled(true);
+        if (mins % 1440 === 0) {
+          setRetentionValue(mins / 1440);
+          setRetentionUnit('days');
+        } else if (mins % 60 === 0) {
+          setRetentionValue(mins / 60);
+          setRetentionUnit('hours');
+        } else {
+          setRetentionValue(mins);
+          setRetentionUnit('minutes');
+        }
+      } else {
+        setRetentionEnabled(false);
+        setRetentionValue(7);
+        setRetentionUnit('days');
+      }
       setError(null);
     } catch (err) {
       setError('Failed to load data');
@@ -272,6 +297,45 @@ const AdminPanel = ({ isDark = false }) => {
     handleAddRule();
   };
 
+  const toMinutes = (value, unit) => {
+    switch (unit) {
+      case 'minutes': return value;
+      case 'hours': return value * 60;
+      case 'days': return value * 1440;
+      default: return value;
+    }
+  };
+
+  const getMaxValue = (unit) => {
+    switch (unit) {
+      case 'minutes': return 43200;
+      case 'hours': return 720;
+      case 'days': return 30;
+      default: return 43200;
+    }
+  };
+
+  const handleRetentionSave = async (enabled, value, unit) => {
+    try {
+      const minutes = enabled ? toMinutes(value, unit) : 0;
+      if (enabled && (minutes < 1 || minutes > 43200)) {
+        setError('Retention must be between 1 minute and 30 days');
+        return;
+      }
+      await api.setHistoryRetention(minutes);
+      setError(null);
+      if (!enabled) {
+        setSuccessMessage('History auto-delete disabled.');
+      } else {
+        setSuccessMessage(`Resolved pods will be auto-deleted after ${value} ${unit}.`);
+      }
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError('Failed to update retention setting');
+      console.error('Error updating retention:', err);
+    }
+  };
+
   const selectedRuleCount = selectedRuleTitles.length;
 
   if (loading) {
@@ -336,6 +400,85 @@ const AdminPanel = ({ isDark = false }) => {
       {activeTab === 'ai' && <LLMSettings isDark={isDark} />}
 
       {activeTab === 'notifications' && <NotificationSettings isDark={isDark} />}
+
+      {activeTab === 'settings' && (
+        <div className="space-y-8">
+          {/* History Retention */}
+          <div>
+            <div className="mb-4 flex items-center">
+              <Clock className="w-5 h-5 text-green-500 mr-2" />
+              <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>History Retention</h2>
+            </div>
+            <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Automatically delete resolved pods from history after a set period. Ignored pods are not affected by this setting.
+            </p>
+
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={retentionEnabled}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setRetentionEnabled(enabled);
+                    handleRetentionSave(enabled, retentionValue, retentionUnit);
+                  }}
+                  className="h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                />
+                <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Auto-delete resolved pods after
+                </span>
+              </label>
+
+              <input
+                type="number"
+                min={1}
+                max={getMaxValue(retentionUnit)}
+                value={retentionValue}
+                disabled={!retentionEnabled}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 1;
+                  setRetentionValue(val);
+                }}
+                onBlur={() => {
+                  const clamped = Math.max(1, Math.min(retentionValue, getMaxValue(retentionUnit)));
+                  setRetentionValue(clamped);
+                  if (retentionEnabled) handleRetentionSave(true, clamped, retentionUnit);
+                }}
+                className={`w-20 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:opacity-50 ${
+                  isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              />
+
+              <select
+                value={retentionUnit}
+                disabled={!retentionEnabled}
+                onChange={(e) => {
+                  const newUnit = e.target.value;
+                  const maxVal = newUnit === 'minutes' ? 43200 : newUnit === 'hours' ? 720 : 30;
+                  const clamped = Math.min(retentionValue, maxVal);
+                  setRetentionUnit(newUnit);
+                  setRetentionValue(clamped);
+                  if (retentionEnabled) handleRetentionSave(true, clamped, newUnit);
+                }}
+                className={`px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:opacity-50 ${
+                  isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                <option value="minutes">minutes</option>
+                <option value="hours">hours</option>
+                <option value="days">days</option>
+              </select>
+            </div>
+
+            {retentionEnabled && (
+              <div className={`mt-3 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                The cleanup runs every minute. Resolved pods older than the configured period will be permanently deleted.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {activeTab === 'exclusions' && (
         <div className="space-y-8">

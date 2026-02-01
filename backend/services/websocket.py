@@ -193,6 +193,26 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
+    async def broadcast_pod_record_deleted(self, pod_id: int):
+        """Broadcast permanent pod record deletion to all connected clients"""
+        if self.active_connections:
+            message = {
+                "type": "pod_record_deleted",
+                "data": {"id": pod_id}
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send pod record deletion to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
     async def broadcast_pod_status_change(self, pod_failure: PodFailureResponse):
         """Broadcast pod status change to all connected clients"""
         if self.active_connections:

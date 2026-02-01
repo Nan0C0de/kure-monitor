@@ -164,3 +164,17 @@ class Database:
     async def delete_llm_config(self):
         return await self._db.delete_llm_config()
 
+    # App settings methods
+    async def get_app_setting(self, key):
+        return await self._db.get_app_setting(key)
+
+    async def set_app_setting(self, key, value):
+        return await self._db.set_app_setting(key, value)
+
+    # Pod record deletion methods
+    async def delete_pod_failure(self, failure_id):
+        return await self._db.delete_pod_failure(failure_id)
+
+    async def cleanup_old_resolved_pods(self, retention_minutes):
+        return await self._db.cleanup_old_resolved_pods(retention_minutes)
+

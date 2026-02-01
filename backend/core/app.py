@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import Response
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -13,6 +14,24 @@ from api.routes import create_api_router
 from api.middleware import configure_cors, configure_exception_handlers
 
 logger = logging.getLogger(__name__)
+
+
+async def history_cleanup_task(db: Database):
+    """Background task that periodically cleans up old resolved pods based on retention setting"""
+    while True:
+        try:
+            await asyncio.sleep(60)  # Check every minute
+            value = await db.get_app_setting("history_retention_minutes")
+            retention_minutes = int(value) if value else 0
+            if retention_minutes > 0:
+                count = await db.cleanup_old_resolved_pods(retention_minutes)
+                if count > 0:
+                    logger.info(f"History cleanup: deleted {count} resolved pods older than {retention_minutes}m")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error in history cleanup task: {e}")
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application"""
@@ -31,8 +50,19 @@ def create_app() -> FastAPI:
         # Initialize solution engine (loads LLM config from db or env)
         await solution_engine.initialize()
         logger.info("Solution engine initialized")
+
+        # Start background cleanup task
+        cleanup_task = asyncio.create_task(history_cleanup_task(db))
+        logger.info("History cleanup background task started")
+
         yield
+
         # Shutdown
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
         await db.close()
 
     # Create FastAPI app

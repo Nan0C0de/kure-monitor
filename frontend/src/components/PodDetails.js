@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, RefreshCw, Copy, Check, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock } from 'lucide-react';
+import { FileText, RefreshCw, Copy, Check, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../services/api';
 
@@ -38,9 +38,10 @@ const CodeBlock = ({ code, language }) => {
   );
 };
 
-const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStatusChange, aiEnabled = false, viewMode = 'active' }) => {
+const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStatusChange, onDeleteRecord, aiEnabled = false, viewMode = 'active' }) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Check if solution is a fallback (AI unavailable)
   const isFallbackSolution = pod.solution && (
@@ -69,6 +70,16 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStat
       await onStatusChange(pod.id, newStatus);
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDeleteRecord) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteRecord(pod.id);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -250,28 +261,50 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStat
             </>
           )}
 
-          {/* Resolved status: show resolution info */}
+          {/* Resolved status: show resolution info + delete */}
           {pod.status === 'resolved' && (
-            <div className="text-xs text-gray-600">
+            <div className="flex items-center text-xs text-gray-600">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-300 font-medium mr-2">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Resolved
               </span>
               {pod.resolved_at && <span className="text-gray-500">on {new Date(pod.resolved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
               {pod.resolution_note && <span className="ml-2 italic text-gray-500">— {pod.resolution_note}</span>}
+              {onDeleteRecord && (
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="ml-auto shrink-0 inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-300 rounded-md hover:bg-red-100 disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              )}
             </div>
           )}
 
-          {/* Ignored status: Restore button */}
+          {/* Ignored status: Restore + Delete buttons */}
           {pod.status === 'ignored' && (
-            <button
-              onClick={() => handleStatusAction('new')}
-              disabled={isUpdatingStatus}
-              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 disabled:opacity-50"
-            >
-              <RotateCcw className="w-3.5 h-3.5 mr-1" />
-              Restore
-            </button>
+            <>
+              <button
+                onClick={() => handleStatusAction('new')}
+                disabled={isUpdatingStatus}
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                Restore
+              </button>
+              {onDeleteRecord && (
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-300 rounded-md hover:bg-red-100 disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

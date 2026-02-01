@@ -50,6 +50,30 @@ export const api = {
     return response.json();
   },
 
+  deletePodRecord: async (podId) => {
+    const response = await fetch(`${API_BASE}/api/pods/records/${podId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getHistoryRetention: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/settings/history-retention`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  setHistoryRetention: async (minutes) => {
+    const response = await fetch(`${API_BASE}/api/admin/settings/history-retention`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ minutes })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   retrySolution: async (podId) => {
     const response = await fetch(`${API_BASE}/api/pods/failed/${podId}/retry-solution`, {
       method: 'POST'

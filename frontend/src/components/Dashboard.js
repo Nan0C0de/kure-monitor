@@ -142,6 +142,11 @@ const Dashboard = () => {
       } else if (newStatus === 'ignored') {
         setIgnoredPods(prev => [pod, ...prev.filter(p => p.id !== pod.id)]);
       }
+    } else if (message.type === 'pod_record_deleted') {
+      // Remove permanently deleted pod record from all lists
+      const deletedId = message.data.id;
+      setPodHistory(prev => prev.filter(p => p.id !== deletedId));
+      setIgnoredPods(prev => prev.filter(p => p.id !== deletedId));
     } else if (message.type === 'cluster_metrics') {
       // Update cluster metrics
       setClusterMetrics(message.data);
@@ -155,6 +160,17 @@ const Dashboard = () => {
         pod.id === updatedPod.id ? updatedPod : pod
       );
     });
+  };
+
+  // Handle permanent deletion of a pod record (history/ignored)
+  const handleDeletePodRecord = async (podId) => {
+    try {
+      await api.deletePodRecord(podId);
+      setPodHistory(prev => prev.filter(p => p.id !== podId));
+      setIgnoredPods(prev => prev.filter(p => p.id !== podId));
+    } catch (err) {
+      console.error('Failed to delete pod record:', err);
+    }
   };
 
   // Handle pod status change (acknowledge, resolve, ignore, restore)
@@ -644,7 +660,7 @@ const Dashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <PodTable pods={filteredHistory} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="history" />
+                    <PodTable pods={filteredHistory} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="history" />
                   )}
                 </>
               )}
@@ -663,7 +679,7 @@ const Dashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <PodTable pods={filteredIgnored} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="ignored" />
+                    <PodTable pods={filteredIgnored} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="ignored" />
                   )}
                 </>
               )}

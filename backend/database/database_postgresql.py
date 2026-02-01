@@ -247,6 +247,15 @@ class PostgreSQLDatabase(DatabaseInterface):
                     )
                 """)
 
+                # Create app_settings table (key-value store for general settings)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS app_settings (
+                        key VARCHAR(255) PRIMARY KEY,
+                        value TEXT NOT NULL,
+                        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
             logger.info("PostgreSQL database initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize PostgreSQL database: {e}")
@@ -1103,3 +1112,46 @@ class PostgreSQLDatabase(DatabaseInterface):
             result = await conn.execute("DELETE FROM llm_config")
             count = int(result.split()[-1]) if result else 0
             return count > 0
+
+    # App settings methods
+    async def get_app_setting(self, key: str) -> Optional[str]:
+        """Get an app setting value by key"""
+        async with self._acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT value FROM app_settings WHERE key = $1", key
+            )
+            return row['value'] if row else None
+
+    async def set_app_setting(self, key: str, value: str):
+        """Set an app setting (upsert)"""
+        async with self._acquire() as conn:
+            await conn.execute("""
+                INSERT INTO app_settings (key, value, updated_at)
+                VALUES ($1, $2, CURRENT_TIMESTAMP)
+                ON CONFLICT (key) DO UPDATE SET
+                    value = EXCLUDED.value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, key, value)
+
+    # Pod record deletion methods
+    async def delete_pod_failure(self, failure_id: int) -> bool:
+        """Hard delete a resolved or ignored pod failure record"""
+        async with self._acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM pod_failures WHERE id = $1 AND status IN ('resolved', 'ignored')",
+                failure_id
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count > 0
+
+    async def cleanup_old_resolved_pods(self, retention_minutes: int) -> int:
+        """Delete resolved pods older than the retention period (in minutes). Returns count of deleted records."""
+        async with self._acquire() as conn:
+            result = await conn.execute(
+                """DELETE FROM pod_failures
+                   WHERE status = 'resolved'
+                   AND resolved_at < NOW() - INTERVAL '1 minute' * $1""",
+                retention_minutes
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count
