@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from services.pod_monitor import PodMonitor
 
 
@@ -22,12 +22,13 @@ class TestPodMonitor:
 
     @pytest.fixture
     def mock_pod_failed(self):
-        """Create a mock failed pod"""
+        """Create a mock failed pod with ImagePullBackOff (definitive failure)"""
         pod = Mock()
         pod.metadata.name = "failed-pod"
         pod.metadata.namespace = "default"
-        pod.metadata.creation_timestamp = datetime.now()
+        pod.metadata.creation_timestamp = datetime.now(timezone.utc)
         pod.status.phase = "Pending"
+        pod.status.init_container_statuses = None
         pod.status.container_statuses = [Mock()]
         pod.status.container_statuses[0].ready = False
         pod.status.container_statuses[0].state.waiting = Mock()
@@ -38,12 +39,14 @@ class TestPodMonitor:
 
     @pytest.fixture
     def mock_pod_pending(self):
-        """Create a mock pending pod"""
+        """Create a mock pending pod that has exceeded the grace period"""
         pod = Mock()
         pod.metadata.name = "pending-pod"
         pod.metadata.namespace = "default"
-        pod.metadata.creation_timestamp = datetime.now()
+        # Created 5 minutes ago — well past the 120s grace period
+        pod.metadata.creation_timestamp = datetime.now(timezone.utc) - timedelta(minutes=5)
         pod.status.phase = "Pending"
+        pod.status.init_container_statuses = None
         pod.status.container_statuses = None
         return pod
 
@@ -104,6 +107,34 @@ class TestPodMonitor:
         pod.metadata.namespace = "default"
         pod.status.phase = "Failed"
         
+        assert pod_monitor._is_pod_failed(pod) == True
+
+    def test_is_pod_failed_pending_within_grace_period(self, pod_monitor):
+        """Test that newly created pending pods are NOT considered failed (grace period)"""
+        pod = Mock()
+        pod.metadata.name = "new-pending-pod"
+        pod.metadata.namespace = "default"
+        # Created 30 seconds ago — within the 120s grace period
+        pod.metadata.creation_timestamp = datetime.now(timezone.utc) - timedelta(seconds=30)
+        pod.status.phase = "Pending"
+        pod.status.init_container_statuses = None
+        pod.status.container_statuses = None
+
+        assert pod_monitor._is_pod_failed(pod) == False
+
+    def test_is_pod_failed_pending_with_definitive_failure(self, pod_monitor):
+        """Test that pending pods with definitive failures are flagged immediately regardless of age"""
+        pod = Mock()
+        pod.metadata.name = "new-failing-pod"
+        pod.metadata.namespace = "default"
+        # Created just 10 seconds ago — but has ImagePullBackOff
+        pod.metadata.creation_timestamp = datetime.now(timezone.utc) - timedelta(seconds=10)
+        pod.status.phase = "Pending"
+        pod.status.init_container_statuses = None
+        container = Mock()
+        container.state.waiting.reason = "ImagePullBackOff"
+        pod.status.container_statuses = [container]
+
         assert pod_monitor._is_pod_failed(pod) == True
 
     def test_should_report_pod_new_pod(self, pod_monitor):

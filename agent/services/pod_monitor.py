@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 class PodMonitor:
     # System namespaces that are always excluded
     SYSTEM_NAMESPACES = ["kube-system", "kube-public", "kube-node-lease", "local-path-storage", "kure-system"]
+
+    # Container failure reasons that indicate a definitive problem (not transient startup)
+    FAILURE_REASONS = frozenset([
+        "CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull",
+        "InvalidImageName", "ErrImageNeverPull", "CreateContainerError",
+    ])
 
     def __init__(self):
         self.config = Config()
@@ -225,30 +231,52 @@ class PodMonitor:
         if pod.status.phase == "Succeeded":
             return False
             
-        # Pending phase indicates the pod is not ready
+        # Pending phase - check for definitive failures or grace period
         if pod.status.phase == "Pending":
-            return True
-            
+            # Check init containers and regular containers for definitive failure reasons
+            all_statuses = []
+            if pod.status.init_container_statuses:
+                all_statuses.extend(pod.status.init_container_statuses)
+            if pod.status.container_statuses:
+                all_statuses.extend(pod.status.container_statuses)
+
+            for cs in all_statuses:
+                if cs.state and cs.state.waiting and cs.state.waiting.reason:
+                    if cs.state.waiting.reason in self.FAILURE_REASONS:
+                        return True  # Definitive failure, report immediately
+
+            # No definitive failure - only report if pod has been Pending beyond grace period
+            creation_time = pod.metadata.creation_timestamp
+            if creation_time:
+                now = datetime.now(timezone.utc)
+                # Ensure creation_time is timezone-aware
+                if creation_time.tzinfo is None:
+                    creation_time = creation_time.replace(tzinfo=timezone.utc)
+                age_seconds = (now - creation_time).total_seconds()
+                if age_seconds < self.config.pending_grace_period:
+                    return False  # Still within grace period
+
+            return True  # Grace period exceeded and still Pending
+
         # For Running phase, only report failures for containers that are actually failing
         if pod.status.phase == "Running":
             # If no container statuses yet, pod might still be starting - not necessarily failed
             if not pod.status.container_statuses:
                 return False
-                
+
             # Check for actual container failures (not just "not ready")
             for container_status in pod.status.container_statuses:
                 # Container terminated with failure (not due to completion)
-                if (container_status.state.terminated and 
+                if (container_status.state.terminated and
                     container_status.state.terminated.reason not in ["Completed"] and
                     container_status.state.terminated.exit_code != 0):
                     return True
-                    
+
                 # Container in crash loop or image pull issues
                 if container_status.state.waiting:
                     waiting_reason = container_status.state.waiting.reason
                     # Only report actual failures, not transitional states
-                    if waiting_reason in ["CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull", 
-                                         "InvalidImageName", "ErrImageNeverPull", "CreateContainerError"]:
+                    if waiting_reason in self.FAILURE_REASONS:
                         return True
             
             # Pod is running and containers are healthy or in normal transitional states

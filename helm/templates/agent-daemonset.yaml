@@ -54,6 +54,8 @@ spec:
           value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: PENDING_GRACE_PERIOD
+          value: "{{ .Values.agent.pendingGracePeriod }}"
         - name: CLUSTER_METRICS_ENABLED
           value: "{{ .Values.agent.clusterMetrics.enabled }}"
         volumeMounts:

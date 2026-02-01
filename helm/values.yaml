@@ -7,6 +7,11 @@ global:
 
 # Pod monitoring agent configuration
 agent:
+  # Grace period (seconds) before reporting Pending pods as failed.
+  # Pods in Pending phase with no definitive container failure are given
+  # this much time to start before being flagged. Default: 120 (2 minutes).
+  pendingGracePeriod: 120
+
   # Cluster metrics collection (CPU, memory, pod counts, etc.)
   clusterMetrics:
     enabled: true  # Set to false to disable cluster metrics collection

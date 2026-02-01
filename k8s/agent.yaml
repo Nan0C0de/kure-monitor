@@ -56,6 +56,8 @@ spec:
         env:
         - name: BACKEND_URL
           value: "http://kure-monitor-backend:8000"
+        - name: PENDING_GRACE_PERIOD
+          value: "30"
         - name: CLUSTER_METRICS_ENABLED
           value: "true"
         - name: PYTHONUNBUFFERED
