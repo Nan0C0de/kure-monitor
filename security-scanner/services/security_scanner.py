@@ -174,11 +174,26 @@ class SecurityScanner:
         return True
 
     def _is_rule_excluded(self, title: str, namespace: str = '') -> bool:
-        """Check if a rule title is excluded (globally or for given namespace)"""
+        """Check if a rule title is excluded (globally or for given namespace).
+        Supports base-name matching: excluding 'Privilege escalation allowed' also
+        matches 'Privilege escalation allowed: container-name'."""
+        # Check global exclusions (exact match)
         if title in self.globally_excluded_rules:
             return True
+        # Check global exclusions (base-name prefix match)
+        if ': ' in title:
+            base_name = title.split(': ', 1)[0]
+            if base_name in self.globally_excluded_rules:
+                return True
+        # Check namespace exclusions
         if namespace and namespace in self.namespace_excluded_rules:
-            return title in self.namespace_excluded_rules[namespace]
+            ns_rules = self.namespace_excluded_rules[namespace]
+            if title in ns_rules:
+                return True
+            if ': ' in title:
+                base_name = title.split(': ', 1)[0]
+                if base_name in ns_rules:
+                    return True
         return False
 
     async def _handle_rule_change(self, rule_title: str, action: str, namespace: str = None):

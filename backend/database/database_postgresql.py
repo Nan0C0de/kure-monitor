@@ -873,49 +873,72 @@ class PostgreSQLDatabase(DatabaseInterface):
             ]
 
     async def is_rule_excluded(self, rule_title: str, namespace: str = '') -> bool:
-        """Check if a rule is excluded (globally or for a specific namespace)"""
+        """Check if a rule is excluded (globally or for a specific namespace).
+        Supports base-name matching: excluding 'Privilege escalation allowed' also
+        matches 'Privilege escalation allowed: container-name'."""
         async with self._acquire() as conn:
             result = await conn.fetchrow(
-                "SELECT 1 FROM excluded_rules WHERE rule_title = $1 AND (namespace = '' OR namespace = $2)",
+                """SELECT 1 FROM excluded_rules
+                   WHERE (namespace = '' OR namespace = $2)
+                   AND (rule_title = $1 OR $1 LIKE rule_title || ': %')""",
                 rule_title, namespace
             )
             return result is not None
 
     async def get_all_rule_titles(self, namespace: str = None) -> list:
-        """Get all unique rule titles from security findings (for suggestions)
+        """Get all unique rule titles from security findings (for suggestions).
+
+        Also includes base rule names (without container suffix) for cluster-wide exclusion.
+        E.g. if findings exist for 'Privilege escalation allowed: container1' and
+        'Privilege escalation allowed: container2', the base name 'Privilege escalation allowed'
+        is also returned so users can exclude the entire rule family.
 
         If namespace is provided, only return titles with findings in that namespace.
         """
         async with self._acquire() as conn:
             if namespace:
                 rows = await conn.fetch("""
-                    SELECT DISTINCT title FROM security_findings
-                    WHERE dismissed = FALSE AND namespace = $1
+                    SELECT title FROM (
+                        SELECT DISTINCT title FROM security_findings
+                        WHERE dismissed = FALSE AND namespace = $1
+                        UNION
+                        SELECT DISTINCT split_part(title, ': ', 1) FROM security_findings
+                        WHERE dismissed = FALSE AND namespace = $1 AND title LIKE '%: %'
+                    ) sub
                     ORDER BY title
                 """, namespace)
             else:
                 rows = await conn.fetch("""
-                    SELECT DISTINCT title FROM security_findings
-                    WHERE dismissed = FALSE
+                    SELECT title FROM (
+                        SELECT DISTINCT title FROM security_findings
+                        WHERE dismissed = FALSE
+                        UNION
+                        SELECT DISTINCT split_part(title, ': ', 1) FROM security_findings
+                        WHERE dismissed = FALSE AND title LIKE '%: %'
+                    ) sub
                     ORDER BY title
                 """)
             return [row['title'] for row in rows]
 
     async def delete_findings_by_rule_title(self, rule_title: str, namespace: str = None) -> tuple:
-        """Delete security findings for a rule title. If namespace given, only in that namespace."""
+        """Delete security findings for a rule title. If namespace given, only in that namespace.
+        Supports base-name matching: 'Privilege escalation allowed' deletes all
+        findings with titles like 'Privilege escalation allowed: container-name'."""
         async with self._acquire() as conn:
+            # Match exact title OR base-name prefix (e.g. "Rule name" matches "Rule name: container")
+            title_condition = "(title = $1 OR title LIKE $1 || ': %')"
             if namespace:
                 rows = await conn.fetch(
-                    """SELECT id, resource_type, resource_name, namespace, severity, category,
+                    f"""SELECT id, resource_type, resource_name, namespace, severity, category,
                               title, description, remediation, timestamp
-                       FROM security_findings WHERE title = $1 AND namespace = $2 AND dismissed = FALSE""",
+                       FROM security_findings WHERE {title_condition} AND namespace = $2 AND dismissed = FALSE""",
                     rule_title, namespace
                 )
             else:
                 rows = await conn.fetch(
-                    """SELECT id, resource_type, resource_name, namespace, severity, category,
+                    f"""SELECT id, resource_type, resource_name, namespace, severity, category,
                               title, description, remediation, timestamp
-                       FROM security_findings WHERE title = $1 AND dismissed = FALSE""",
+                       FROM security_findings WHERE {title_condition} AND dismissed = FALSE""",
                     rule_title
                 )
             deleted_findings = [
@@ -936,12 +959,12 @@ class PostgreSQLDatabase(DatabaseInterface):
 
             if namespace:
                 result = await conn.execute(
-                    "DELETE FROM security_findings WHERE title = $1 AND namespace = $2",
+                    f"DELETE FROM security_findings WHERE {title_condition} AND namespace = $2",
                     rule_title, namespace
                 )
             else:
                 result = await conn.execute(
-                    "DELETE FROM security_findings WHERE title = $1",
+                    f"DELETE FROM security_findings WHERE {title_condition}",
                     rule_title
                 )
             count = int(result.split()[-1]) if result else 0
