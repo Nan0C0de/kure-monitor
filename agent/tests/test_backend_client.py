@@ -1,7 +1,7 @@
 import pytest
+import aiohttp
 from unittest.mock import Mock, AsyncMock, patch
 from clients.backend_client import BackendClient
-import aiohttp
 
 
 class TestBackendClient:

@@ -1,6 +1,6 @@
 import pytest
-from database.database import Database
 from models.models import PodFailureResponse
+from database.database import Database
 
 
 @pytest.mark.asyncio

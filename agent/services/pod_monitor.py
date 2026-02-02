@@ -155,9 +155,25 @@ class PodMonitor:
                 logger.error(f"Error in metrics loop: {e}")
                 await asyncio.sleep(self.metrics_interval)
 
+    async def _sync_failed_pods_from_backend(self):
+        """Sync reported_pods with backend on startup to detect recovered pods"""
+        try:
+            failed_pods = await self.backend_client.get_failed_pods()
+            for namespace, pod_name in failed_pods:
+                pod_key = f"{namespace}/{pod_name}"
+                # Add to reported_pods so recovery detection works
+                self.reported_pods[pod_key] = datetime.min  # old timestamp so re-reporting is allowed
+            if failed_pods:
+                logger.info(f"Synced {len(failed_pods)} failed pods from backend for recovery detection")
+        except Exception as e:
+            logger.error(f"Error syncing failed pods from backend: {e}")
+
     async def start_monitoring(self):
         """Start monitoring pods for failures"""
         logger.info("Starting pod monitoring")
+
+        # Sync failed pods from backend (for recovery detection after agent restart)
+        await self._sync_failed_pods_from_backend()
 
         # Initial refresh of excluded pods (namespace exclusions are for security scan only)
         await self._refresh_excluded_pods()
