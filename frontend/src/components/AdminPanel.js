@@ -23,10 +23,16 @@ const AdminPanel = ({ isDark = false }) => {
   // Security Rule Exclusions state
   const [excludedRules, setExcludedRules] = useState([]);
   const [availableRuleTitles, setAvailableRuleTitles] = useState([]);
+  const [allRuleTitles, setAllRuleTitles] = useState([]);
   const [newRuleTitle, setNewRuleTitle] = useState('');
   const [showRuleSuggestions, setShowRuleSuggestions] = useState(false);
   const [ruleNamespaceScope, setRuleNamespaceScope] = useState('');
   const [selectedRuleTitles, setSelectedRuleTitles] = useState([]);
+
+  // Global Rule Exclusions state
+  const [newGlobalRuleTitle, setNewGlobalRuleTitle] = useState('');
+  const [showGlobalRuleSuggestions, setShowGlobalRuleSuggestions] = useState(false);
+  const [selectedGlobalRuleTitles, setSelectedGlobalRuleTitles] = useState([]);
 
   // History retention state (stored as minutes in backend)
   const [retentionEnabled, setRetentionEnabled] = useState(false);
@@ -77,6 +83,7 @@ const AdminPanel = ({ isDark = false }) => {
       setMonitoredPods(monitoredPodsData);
       setExcludedRules(excludedRulesData);
       setAvailableRuleTitles(ruleTitlesData);
+      setAllRuleTitles(ruleTitlesData);
       const mins = retentionData.minutes || 0;
       if (mins > 0) {
         setRetentionEnabled(true);
@@ -158,27 +165,35 @@ const AdminPanel = ({ isDark = false }) => {
     fetchRuleTitles();
   }, [ruleNamespaceScope]);
 
-  // Rule suggestions: available rule titles that are not already excluded (for current scope)
-  // Also hides titles covered by a base-name exclusion (e.g. "Rule: container" hidden when "Rule" is excluded)
-  const ruleSuggestions = availableRuleTitles.filter(title => {
+  // Global rule suggestions: base names (without ': ') that have container-specific variants
+  // Uses allRuleTitles (unfiltered by namespace) since global exclusions are cluster-wide
+  const globalRuleSuggestions = allRuleTitles.filter(title => {
+    if (title.includes(': ')) return false;
+    if (!allRuleTitles.some(t => t.startsWith(title + ': '))) return false;
+    if (excludedRules.some(r => r.rule_title === title && !r.namespace)) return false;
+    return true;
+  });
+
+  const filteredGlobalRuleSuggestions = newGlobalRuleTitle.trim()
+    ? globalRuleSuggestions.filter(t => t.toLowerCase().includes(newGlobalRuleTitle.toLowerCase()))
+    : globalRuleSuggestions;
+
+  // Per-resource rule suggestions: specific titles (with ': ') and standalone rules
+  // Uses availableRuleTitles (filtered by ruleNamespaceScope)
+  const perResourceRuleSuggestions = availableRuleTitles.filter(title => {
+    if (!title.includes(': ') && availableRuleTitles.some(t => t.startsWith(title + ': '))) return false;
     const scope = ruleNamespaceScope || null;
-    // Check exact match
-    if (excludedRules.some(excluded => excluded.rule_title === title && (excluded.namespace || null) === scope)) {
-      return false;
-    }
-    // Check if covered by a base-name exclusion
+    if (excludedRules.some(r => r.rule_title === title && (r.namespace || null) === scope)) return false;
     if (title.includes(': ')) {
       const baseName = title.split(': ')[0];
-      if (excludedRules.some(excluded => excluded.rule_title === baseName && (excluded.namespace || null) === scope)) {
-        return false;
-      }
+      if (excludedRules.some(r => r.rule_title === baseName && (r.namespace || null) === scope)) return false;
     }
     return true;
   });
 
-  const filteredRuleSuggestions = newRuleTitle.trim()
-    ? ruleSuggestions.filter(title => title.toLowerCase().includes(newRuleTitle.toLowerCase()))
-    : ruleSuggestions;
+  const filteredPerResourceRuleSuggestions = newRuleTitle.trim()
+    ? perResourceRuleSuggestions.filter(t => t.toLowerCase().includes(newRuleTitle.toLowerCase()))
+    : perResourceRuleSuggestions;
 
   const handleAddNamespace = async (namespaceToAdd) => {
     const namespace = (namespaceToAdd || newNamespace).trim();
@@ -339,6 +354,57 @@ const AdminPanel = ({ isDark = false }) => {
     e.preventDefault();
     handleAddRule();
   };
+
+  const toggleGlobalRuleSelection = (title) => {
+    setSelectedGlobalRuleTitles(prev =>
+      prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]
+    );
+  };
+
+  const handleAddGlobalRule = async () => {
+    let titlesToExclude = [...selectedGlobalRuleTitles];
+    if (titlesToExclude.length === 0 && newGlobalRuleTitle.trim()) {
+      titlesToExclude = [newGlobalRuleTitle.trim()];
+    }
+
+    if (titlesToExclude.length === 0) {
+      setError('Please select or enter at least one rule');
+      return;
+    }
+
+    titlesToExclude = titlesToExclude.filter(
+      title => !excludedRules.some(rule => rule.rule_title === title && !rule.namespace)
+    );
+
+    if (titlesToExclude.length === 0) {
+      setError('Selected rules are already excluded globally');
+      return;
+    }
+
+    try {
+      const results = await Promise.all(
+        titlesToExclude.map(title => api.addExcludedRule(title, null))
+      );
+      setExcludedRules(prev => [...prev, ...results]);
+      setNewGlobalRuleTitle('');
+      setSelectedGlobalRuleTitles([]);
+      setShowGlobalRuleSuggestions(false);
+      setError(null);
+      const count = titlesToExclude.length;
+      setSuccessMessage(`${count} rule${count > 1 ? 's' : ''} excluded globally (all resources).`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError('Failed to add rule(s)');
+      console.error('Error adding global rules:', err);
+    }
+  };
+
+  const handleGlobalRuleSubmit = (e) => {
+    e.preventDefault();
+    handleAddGlobalRule();
+  };
+
+  const selectedGlobalRuleCount = selectedGlobalRuleTitles.length;
 
   const toMinutes = (value, unit) => {
     switch (unit) {
@@ -852,75 +918,153 @@ const AdminPanel = ({ isDark = false }) => {
               Exclude specific security rules from scanning. Findings for excluded rules will be removed.
             </p>
 
-            <form onSubmit={handleRuleSubmit} className="mb-4">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={newRuleTitle}
-                    onChange={(e) => {
-                      setNewRuleTitle(e.target.value);
-                      setShowRuleSuggestions(true);
-                    }}
-                    onFocus={() => setShowRuleSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowRuleSuggestions(false), 200)}
-                    placeholder="Enter or select security rule"
-                    className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
-                  />
-                  {showRuleSuggestions && filteredRuleSuggestions.length > 0 && (
-                    <div
-                      className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
-                      onMouseDown={(e) => e.preventDefault()}
-                    >
-                      <div className={`px-3 py-2 text-xs border-b flex items-center justify-between ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
-                        <span>Active security rules</span>
-                        {selectedRuleCount > 0 && (
-                          <span className={`text-xs font-medium ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
-                            {selectedRuleCount} selected
-                          </span>
-                        )}
+            {/* Global Rule Exclusions */}
+            <div className={`mb-4 p-4 border rounded-md ${isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50/50'}`}>
+              <h3 className={`text-sm font-semibold mb-1 ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>
+                Global (all resources)
+              </h3>
+              <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                Exclude a rule across all containers and resources cluster-wide.
+              </p>
+              <form onSubmit={handleGlobalRuleSubmit}>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={newGlobalRuleTitle}
+                      onChange={(e) => {
+                        setNewGlobalRuleTitle(e.target.value);
+                        setShowGlobalRuleSuggestions(true);
+                      }}
+                      onFocus={() => setShowGlobalRuleSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowGlobalRuleSuggestions(false), 200)}
+                      placeholder="Enter or select rule to exclude globally"
+                      className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                    />
+                    {showGlobalRuleSuggestions && filteredGlobalRuleSuggestions.length > 0 && (
+                      <div
+                        className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        <div className={`px-3 py-2 text-xs border-b flex items-center justify-between ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
+                          <span>Rules with multiple resources</span>
+                          {selectedGlobalRuleCount > 0 && (
+                            <span className={`text-xs font-medium ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                              {selectedGlobalRuleCount} selected
+                            </span>
+                          )}
+                        </div>
+                        {filteredGlobalRuleSuggestions.map(title => (
+                          <label
+                            key={title}
+                            className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 cursor-pointer ${
+                              selectedGlobalRuleTitles.includes(title)
+                                ? isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'
+                                : isDark ? 'hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedGlobalRuleTitles.includes(title)}
+                              onChange={() => toggleGlobalRuleSelection(title)}
+                              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                            />
+                            <span className="truncate font-medium">{title}</span>
+                          </label>
+                        ))}
                       </div>
-                      {filteredRuleSuggestions.map(title => (
-                        <label
-                          key={title}
-                          className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 cursor-pointer ${
-                            selectedRuleTitles.includes(title)
-                              ? isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'
-                              : isDark ? 'hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedRuleTitles.includes(title)}
-                            onChange={() => toggleRuleSelection(title)}
-                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                          />
-                          <span className="truncate">{title}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Exclude{selectedGlobalRuleCount > 0 ? ` (${selectedGlobalRuleCount})` : ''}
+                  </button>
                 </div>
-                <select
-                  value={ruleNamespaceScope}
-                  onChange={(e) => setRuleNamespaceScope(e.target.value)}
-                  className={`px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
-                >
-                  <option value="">All namespaces</option>
-                  {availableNamespaces.map(ns => (
-                    <option key={ns} value={ns}>{ns}</option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Exclude{selectedRuleCount > 0 ? ` (${selectedRuleCount})` : ''}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
 
+            {/* Per Resource Rule Exclusions */}
+            <div className={`mb-4 p-4 border rounded-md ${isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50/50'}`}>
+              <h3 className={`text-sm font-semibold mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Per resource
+              </h3>
+              <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                Exclude a specific rule for a single container or resource.
+              </p>
+              <form onSubmit={handleRuleSubmit}>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={newRuleTitle}
+                      onChange={(e) => {
+                        setNewRuleTitle(e.target.value);
+                        setShowRuleSuggestions(true);
+                      }}
+                      onFocus={() => setShowRuleSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowRuleSuggestions(false), 200)}
+                      placeholder="Enter or select specific rule"
+                      className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                    />
+                    {showRuleSuggestions && filteredPerResourceRuleSuggestions.length > 0 && (
+                      <div
+                        className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        <div className={`px-3 py-2 text-xs border-b flex items-center justify-between ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
+                          <span>Active security rules</span>
+                          {selectedRuleCount > 0 && (
+                            <span className={`text-xs font-medium ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                              {selectedRuleCount} selected
+                            </span>
+                          )}
+                        </div>
+                        {filteredPerResourceRuleSuggestions.map(title => (
+                          <label
+                            key={title}
+                            className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 cursor-pointer ${
+                              selectedRuleTitles.includes(title)
+                                ? isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'
+                                : isDark ? 'hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedRuleTitles.includes(title)}
+                              onChange={() => toggleRuleSelection(title)}
+                              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                            />
+                            <span className="truncate">{title}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <select
+                    value={ruleNamespaceScope}
+                    onChange={(e) => setRuleNamespaceScope(e.target.value)}
+                    className={`px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+                  >
+                    <option value="">All namespaces</option>
+                    {availableNamespaces.map(ns => (
+                      <option key={ns} value={ns}>{ns}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Exclude{selectedRuleCount > 0 ? ` (${selectedRuleCount})` : ''}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Combined Excluded Rules List */}
             <div className={`border rounded-md ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
               <div className={`px-4 py-3 border-b ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                 <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
