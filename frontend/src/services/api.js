@@ -238,6 +238,33 @@ export const api = {
     return response.json();
   },
 
+  // Admin API - Trusted Container Registries
+  getTrustedRegistries: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/trusted-registries`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  addTrustedRegistry: async (registry) => {
+    const response = await fetch(`${API_BASE}/api/admin/trusted-registries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ registry })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  removeTrustedRegistry: async (registry) => {
+    const response = await fetch(`${API_BASE}/api/admin/trusted-registries/${encodeURIComponent(registry)}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // Notification Settings API
   getNotificationSettings: async () => {
     const response = await fetch(`${API_BASE}/api/admin/notifications`);

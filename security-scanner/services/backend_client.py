@@ -188,3 +188,38 @@ class BackendClient:
             if "Backend returned" in str(e) or "Timeout" in str(e) or "HTTP client" in str(e):
                 raise
             raise Exception(f"Error fetching excluded rules: {e}")
+
+    async def get_trusted_registries(self) -> list:
+        """Get list of admin-added trusted container registries from backend
+
+        Returns:
+            List of registry strings (e.g. ['my-registry.example.com'])
+
+        Raises:
+            Exception: If unable to fetch from backend
+        """
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                        f"{self.backend_url}/api/admin/trusted-registries",
+                        timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        registries = [
+                            item.get('registry')
+                            for item in data if item.get('registry')
+                        ]
+                        logger.debug(f"Fetched trusted registries: {registries}")
+                        return registries
+                    else:
+                        raise Exception(f"Backend returned HTTP {response.status}")
+
+        except asyncio.TimeoutError:
+            raise Exception("Timeout while fetching trusted registries (10s)")
+        except aiohttp.ClientError as e:
+            raise Exception(f"HTTP client error: {e}")
+        except Exception as e:
+            if "Backend returned" in str(e) or "Timeout" in str(e) or "HTTP client" in str(e):
+                raise
+            raise Exception(f"Error fetching trusted registries: {e}")

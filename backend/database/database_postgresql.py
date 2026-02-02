@@ -5,7 +5,7 @@ import json
 from typing import List, Optional
 from datetime import datetime, timezone
 from .database_base import DatabaseInterface
-from models.models import PodFailureResponse, SecurityFindingResponse, ExcludedNamespaceResponse, NotificationSettingResponse
+from models.models import PodFailureResponse, SecurityFindingResponse, ExcludedNamespaceResponse, TrustedRegistryResponse, NotificationSettingResponse
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
 logger = logging.getLogger(__name__)
@@ -224,6 +224,20 @@ class PostgreSQLDatabase(DatabaseInterface):
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_excluded_rules_rule_title_namespace
                     ON excluded_rules(rule_title, namespace)
+                """)
+
+                # Create trusted_registries table for admin-managed trusted container registries
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS trusted_registries (
+                        id SERIAL PRIMARY KEY,
+                        registry VARCHAR(255) NOT NULL UNIQUE,
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_trusted_registries_registry
+                    ON trusted_registries(registry)
                 """)
 
                 # Create notification_settings table
@@ -1008,6 +1022,62 @@ class PostgreSQLDatabase(DatabaseInterface):
                 )
             count = int(result.split()[-1]) if result else 0
             return count, deleted_findings
+
+    # Trusted registries methods (admin-managed trusted container registries)
+    async def add_trusted_registry(self, registry: str) -> TrustedRegistryResponse:
+        """Add a trusted container registry"""
+        async with self._acquire() as conn:
+            try:
+                result = await conn.fetchrow(
+                    """INSERT INTO trusted_registries (registry)
+                       VALUES ($1)
+                       ON CONFLICT (registry) DO NOTHING
+                       RETURNING id, registry, created_at""",
+                    registry
+                )
+                if result:
+                    return TrustedRegistryResponse(
+                        id=result['id'],
+                        registry=result['registry'],
+                        created_at=result['created_at'].isoformat()
+                    )
+                existing = await conn.fetchrow(
+                    "SELECT id, registry, created_at FROM trusted_registries WHERE registry = $1",
+                    registry
+                )
+                return TrustedRegistryResponse(
+                    id=existing['id'],
+                    registry=existing['registry'],
+                    created_at=existing['created_at'].isoformat()
+                )
+            except Exception as e:
+                logger.error(f"Error adding trusted registry: {e}")
+                raise
+
+    async def remove_trusted_registry(self, registry: str) -> bool:
+        """Remove a trusted container registry"""
+        async with self._acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM trusted_registries WHERE registry = $1",
+                registry
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count > 0
+
+    async def get_trusted_registries(self) -> list:
+        """Get all admin-added trusted registries"""
+        async with self._acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, registry, created_at FROM trusted_registries ORDER BY registry"
+            )
+            return [
+                TrustedRegistryResponse(
+                    id=row['id'],
+                    registry=row['registry'],
+                    created_at=row['created_at'].isoformat()
+                )
+                for row in rows
+            ]
 
     # Notification settings methods
     async def save_notification_setting(self, setting) -> NotificationSettingResponse:

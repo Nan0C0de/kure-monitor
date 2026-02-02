@@ -90,6 +90,13 @@ class ExcludedRule(BaseModel):
 class ExcludedRuleResponse(ExcludedRule):
     id: Optional[int] = None
 
+class TrustedRegistry(BaseModel):
+    registry: str
+    created_at: Optional[str] = None
+
+class TrustedRegistryResponse(TrustedRegistry):
+    id: Optional[int] = None
+
 
 # Notification models
 class NotificationSettingCreate(BaseModel):

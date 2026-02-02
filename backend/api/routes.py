@@ -19,6 +19,7 @@ from models.models import (
     ExcludedNamespace, ExcludedNamespaceResponse,
     ExcludedPod, ExcludedPodResponse,
     ExcludedRule, ExcludedRuleResponse,
+    TrustedRegistry, TrustedRegistryResponse,
     NotificationSettingCreate, NotificationSettingResponse,
     ClusterMetrics, PodMetricsHistory, PodMetricsPoint,
     LLMConfigCreate, LLMConfigResponse, LLMConfigStatus
@@ -818,6 +819,63 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             raise
         except Exception as e:
             logger.error(f"Error removing excluded rule: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Trusted registries endpoints (admin-managed trusted container registries)
+    @router.get("/admin/trusted-registries")
+    async def get_trusted_registries():
+        """Get all admin-added trusted container registries"""
+        try:
+            registries = await db.get_trusted_registries()
+            return [r.model_dump() if hasattr(r, 'model_dump') else r for r in registries]
+        except Exception as e:
+            logger.error(f"Error getting trusted registries: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/trusted-registries")
+    async def add_trusted_registry(data: TrustedRegistry):
+        """Add a trusted container registry"""
+        try:
+            registry = data.registry.strip().lower()
+            if not registry:
+                raise HTTPException(status_code=400, detail="Registry name is required")
+
+            result = await db.add_trusted_registry(registry)
+            logger.info(f"Added trusted registry: {registry}")
+
+            # Broadcast change to connected clients
+            await websocket_manager.broadcast({
+                "type": "trusted_registry_change",
+                "action": "added",
+                "registry": registry
+            })
+
+            return result.model_dump() if hasattr(result, 'model_dump') else result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error adding trusted registry: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/admin/trusted-registries/{registry}")
+    async def remove_trusted_registry(registry: str):
+        """Remove a trusted container registry"""
+        try:
+            removed = await db.remove_trusted_registry(registry)
+            if removed:
+                logger.info(f"Removed trusted registry: {registry}")
+                await websocket_manager.broadcast({
+                    "type": "trusted_registry_change",
+                    "action": "removed",
+                    "registry": registry
+                })
+                return {"message": f"Registry '{registry}' removed from trusted list"}
+            else:
+                raise HTTPException(status_code=404, detail=f"Registry '{registry}' not found in trusted list")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error removing trusted registry: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     # Notification settings endpoints

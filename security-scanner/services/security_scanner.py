@@ -35,7 +35,7 @@ class SecurityScanner:
     ALLOWED_CAPABILITIES = ['NET_BIND_SERVICE']
 
     # System namespaces to skip
-    SYSTEM_NAMESPACES = ['kube-system', 'kube-public', 'kube-node-lease', 'kube-flannel']
+    SYSTEM_NAMESPACES = ['kube-system', 'kube-public', 'kube-node-lease', 'kube-flannel', 'kure-system']
 
     # Trusted container registries (can be customized via config)
     TRUSTED_REGISTRIES = [
@@ -74,6 +74,10 @@ class SecurityScanner:
         self.namespace_excluded_rules: Dict[str, Set[str]] = {}
         self.excluded_rules_last_refresh: Optional[datetime] = None
         self.excluded_rules_refresh_interval = timedelta(minutes=1)
+        # Cache for admin-configured trusted registries
+        self._admin_trusted_registries: List[str] = []
+        self._trusted_registries_last_refresh: Optional[datetime] = None
+        self._trusted_registries_refresh_interval = timedelta(minutes=1)
 
     def _init_kubernetes_client(self):
         """Initialize Kubernetes client"""
@@ -171,6 +175,30 @@ class SecurityScanner:
                 return True
             except Exception as e:
                 logger.warning(f"Failed to refresh excluded rules: {e}")
+                return False
+        return True
+
+    async def _refresh_trusted_registries(self, force: bool = False) -> bool:
+        """Refresh the admin-added trusted registries cache from backend
+
+        Args:
+            force: If True, refresh regardless of cache age
+
+        Returns:
+            True if refresh was successful, False otherwise
+        """
+        now = datetime.utcnow()
+        if (force or self._trusted_registries_last_refresh is None or
+                now - self._trusted_registries_last_refresh > self._trusted_registries_refresh_interval):
+            try:
+                registries = await self.backend_client.get_trusted_registries()
+                self._admin_trusted_registries = registries
+                self._trusted_registries_last_refresh = now
+                if self._admin_trusted_registries:
+                    logger.info(f"Refreshed admin trusted registries: {self._admin_trusted_registries}")
+                return True
+            except Exception as e:
+                logger.warning(f"Failed to refresh trusted registries: {e}")
                 return False
         return True
 
@@ -1018,6 +1046,68 @@ class SecurityScanner:
                     "timestamp": timestamp
                 })
 
+            # Check for secrets in environment variables
+            if container.env:
+                for env in container.env:
+                    if env.value_from and env.value_from.secret_key_ref:
+                        await self.report_finding({
+                            "resource_type": "Pod",
+                            "resource_name": pod_name,
+                            "namespace": namespace,
+                            "severity": "low",
+                            "category": "Best Practice",
+                            "title": f"Secret exposed as environment variable: {env.name}",
+                            "description": f"Container '{container_name}' exposes secret '{env.value_from.secret_key_ref.name}' as environment variable '{env.name}'. Env vars can be leaked in logs, error messages, or child processes.",
+                            "remediation": "Mount secrets as files using volumes instead of environment variables.",
+                            "timestamp": timestamp
+                        })
+
+            # Check for :latest image tag
+            image = container.image or ""
+            if image.endswith(':latest') or (':' not in image.split('/')[-1]):
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "medium",
+                    "category": "Best Practice",
+                    "title": f"Image uses :latest or no tag: {container_name}",
+                    "description": f"Container '{container_name}' uses image '{image}' with :latest or no tag. Mutable tags can introduce unexpected changes and make rollbacks difficult.",
+                    "remediation": "Use immutable image tags (e.g., specific versions or SHA digests) for reproducible deployments.",
+                    "timestamp": timestamp
+                })
+
+            # Check for untrusted registry
+            image_registry = self._get_image_registry(image)
+            await self._refresh_trusted_registries()
+            if image_registry and image_registry not in self.TRUSTED_REGISTRIES and image_registry not in self._admin_trusted_registries:
+                await self.report_finding({
+                    "resource_type": "Pod",
+                    "resource_name": pod_name,
+                    "namespace": namespace,
+                    "severity": "high",
+                    "category": "Security",
+                    "title": f"Image from untrusted registry: {container_name}",
+                    "description": f"Container '{container_name}' uses image from registry '{image_registry}' which is not in the trusted registry list.",
+                    "remediation": f"Use images from trusted registries: {', '.join(self.TRUSTED_REGISTRIES[:4])}. Or add the registry to the trusted list via the Admin panel.",
+                    "timestamp": timestamp
+                })
+
+            # Check for missing imagePullPolicy with mutable tag
+            if not container.image_pull_policy or container.image_pull_policy == "IfNotPresent":
+                if image.endswith(':latest') or (':' not in image.split('/')[-1]):
+                    await self.report_finding({
+                        "resource_type": "Pod",
+                        "resource_name": pod_name,
+                        "namespace": namespace,
+                        "severity": "low",
+                        "category": "Best Practice",
+                        "title": f"Missing imagePullPolicy with mutable tag: {container_name}",
+                        "description": f"Container '{container_name}' uses a mutable image tag without imagePullPolicy: Always. Cached vulnerable images may be used.",
+                        "remediation": "Set imagePullPolicy: Always when using mutable tags, or use immutable image tags.",
+                        "timestamp": timestamp
+                    })
+
     async def _scan_single_deployment(self, deployment):
         """Scan a single deployment for security issues (used by real-time watch)"""
         namespace = deployment.metadata.namespace
@@ -1710,7 +1800,8 @@ class SecurityScanner:
 
                     # Check for untrusted registry
                     image_registry = self._get_image_registry(image)
-                    if image_registry and image_registry not in self.TRUSTED_REGISTRIES:
+                    await self._refresh_trusted_registries()
+                    if image_registry and image_registry not in self.TRUSTED_REGISTRIES and image_registry not in self._admin_trusted_registries:
                         await self.report_finding({
                             "resource_type": "Pod",
                             "resource_name": pod_name,
@@ -1719,7 +1810,7 @@ class SecurityScanner:
                             "category": "Security",
                             "title": f"Image from untrusted registry: {container_name}",
                             "description": f"Container '{container_name}' uses image from registry '{image_registry}' which is not in the trusted registry list.",
-                            "remediation": f"Use images from trusted registries: {', '.join(self.TRUSTED_REGISTRIES[:4])}. Or add the registry to the trusted list if it's an internal registry.",
+                            "remediation": f"Use images from trusted registries: {', '.join(self.TRUSTED_REGISTRIES[:4])}. Or add the registry to the trusted list via the Admin panel.",
                             "timestamp": timestamp
                         })
 

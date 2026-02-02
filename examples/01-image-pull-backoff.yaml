@@ -17,6 +17,6 @@ spec:
     spec:
       containers:
       - name: app-container
-        image: nginxinc/xyz
+        image: nginxinc/nginx-unprivileged:latest
         ports:
         - containerPort: 8080
