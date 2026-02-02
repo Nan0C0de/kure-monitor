@@ -178,3 +178,6 @@ class Database:
     async def cleanup_old_resolved_pods(self, retention_minutes):
         return await self._db.cleanup_old_resolved_pods(retention_minutes)
 
+    async def cleanup_old_ignored_pods(self, retention_minutes):
+        return await self._db.cleanup_old_ignored_pods(retention_minutes)
+

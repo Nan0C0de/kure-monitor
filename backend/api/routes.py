@@ -336,6 +336,34 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.error(f"Error setting history retention: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.get("/admin/settings/ignored-retention")
+    async def get_ignored_retention():
+        """Get the ignored pods auto-delete retention setting (minutes, 0 = disabled)"""
+        try:
+            value = await db.get_app_setting("ignored_retention_minutes")
+            return {"minutes": int(value) if value else 0}
+        except Exception as e:
+            logger.error(f"Error getting ignored retention: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.put("/admin/settings/ignored-retention")
+    async def set_ignored_retention(request: dict):
+        """Set the ignored pods auto-delete retention (minutes). 0 = disabled. Min 1, max 43200 (30 days)."""
+        try:
+            minutes = request.get("minutes", 0)
+            if not isinstance(minutes, int) or minutes < 0:
+                raise HTTPException(status_code=400, detail="minutes must be a non-negative integer")
+            if minutes > 43200:
+                raise HTTPException(status_code=400, detail="minutes must not exceed 43200 (30 days)")
+            await db.set_app_setting("ignored_retention_minutes", str(minutes))
+            logger.info(f"Ignored retention set to {minutes} minutes")
+            return {"minutes": minutes}
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error setting ignored retention: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @router.post("/pods/dismiss-deleted")
     async def dismiss_deleted_pod(request: dict):
         """Auto-resolve pods when they recover or are deleted from Kubernetes"""

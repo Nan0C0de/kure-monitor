@@ -74,6 +74,22 @@ export const api = {
     return response.json();
   },
 
+  getIgnoredRetention: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/settings/ignored-retention`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  setIgnoredRetention: async (minutes) => {
+    const response = await fetch(`${API_BASE}/api/admin/settings/ignored-retention`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ minutes })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   retrySolution: async (podId) => {
     const response = await fetch(`${API_BASE}/api/pods/failed/${podId}/retry-solution`, {
       method: 'POST'

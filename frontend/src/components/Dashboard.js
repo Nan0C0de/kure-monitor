@@ -288,11 +288,13 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [activePods, findings, config, metrics] = await Promise.all([
+      const [activePods, findings, config, metrics, history, ignored] = await Promise.all([
         api.getFailedPods(),
         api.getSecurityFindings(),
         api.getConfig(),
-        api.getClusterMetrics().catch(() => null)
+        api.getClusterMetrics().catch(() => null),
+        api.getPodHistory().catch(() => []),
+        api.getIgnoredPods().catch(() => [])
       ]);
       setPods(activePods);
       setSecurityFindings(findings);
@@ -300,6 +302,8 @@ const Dashboard = () => {
       if (metrics && metrics.node_count) {
         setClusterMetrics(metrics);
       }
+      setPodHistory(history);
+      setIgnoredPods(ignored);
       setError(null);
     } catch (err) {
       setError('Failed to load data');

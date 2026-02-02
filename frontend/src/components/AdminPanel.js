@@ -33,6 +33,11 @@ const AdminPanel = ({ isDark = false }) => {
   const [retentionValue, setRetentionValue] = useState(7);
   const [retentionUnit, setRetentionUnit] = useState('days');
 
+  // Ignored retention state (stored as minutes in backend)
+  const [ignoredRetentionEnabled, setIgnoredRetentionEnabled] = useState(false);
+  const [ignoredRetentionValue, setIgnoredRetentionValue] = useState(7);
+  const [ignoredRetentionUnit, setIgnoredRetentionUnit] = useState('days');
+
   // General state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,14 +57,15 @@ const AdminPanel = ({ isDark = false }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [excluded, available, excludedPodsData, monitoredPodsData, excludedRulesData, ruleTitlesData, retentionData] = await Promise.all([
+      const [excluded, available, excludedPodsData, monitoredPodsData, excludedRulesData, ruleTitlesData, retentionData, ignoredRetentionData] = await Promise.all([
         api.getExcludedNamespaces(),
         api.getAllNamespaces(),
         api.getExcludedPods(),
         api.getMonitoredPods(),
         api.getExcludedRules(),
         api.getAllRuleTitles(),
-        api.getHistoryRetention().catch(() => ({ hours: 0 }))
+        api.getHistoryRetention().catch(() => ({ minutes: 0 })),
+        api.getIgnoredRetention().catch(() => ({ minutes: 0 }))
       ]);
       setExcludedNamespaces(excluded);
       setAvailableNamespaces(available);
@@ -84,6 +90,24 @@ const AdminPanel = ({ isDark = false }) => {
         setRetentionEnabled(false);
         setRetentionValue(7);
         setRetentionUnit('days');
+      }
+      const ignoredMins = ignoredRetentionData.minutes || 0;
+      if (ignoredMins > 0) {
+        setIgnoredRetentionEnabled(true);
+        if (ignoredMins % 1440 === 0) {
+          setIgnoredRetentionValue(ignoredMins / 1440);
+          setIgnoredRetentionUnit('days');
+        } else if (ignoredMins % 60 === 0) {
+          setIgnoredRetentionValue(ignoredMins / 60);
+          setIgnoredRetentionUnit('hours');
+        } else {
+          setIgnoredRetentionValue(ignoredMins);
+          setIgnoredRetentionUnit('minutes');
+        }
+      } else {
+        setIgnoredRetentionEnabled(false);
+        setIgnoredRetentionValue(7);
+        setIgnoredRetentionUnit('days');
       }
       setError(null);
     } catch (err) {
@@ -336,6 +360,27 @@ const AdminPanel = ({ isDark = false }) => {
     }
   };
 
+  const handleIgnoredRetentionSave = async (enabled, value, unit) => {
+    try {
+      const minutes = enabled ? toMinutes(value, unit) : 0;
+      if (enabled && (minutes < 1 || minutes > 43200)) {
+        setError('Retention must be between 1 minute and 30 days');
+        return;
+      }
+      await api.setIgnoredRetention(minutes);
+      setError(null);
+      if (!enabled) {
+        setSuccessMessage('Ignored pods auto-delete disabled.');
+      } else {
+        setSuccessMessage(`Ignored pods will be auto-deleted after ${value} ${unit}.`);
+      }
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError('Failed to update ignored retention setting');
+      console.error('Error updating ignored retention:', err);
+    }
+  };
+
   const selectedRuleCount = selectedRuleTitles.length;
 
   if (loading) {
@@ -474,6 +519,81 @@ const AdminPanel = ({ isDark = false }) => {
             {retentionEnabled && (
               <div className={`mt-3 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                 The cleanup runs every minute. Resolved pods older than the configured period will be permanently deleted.
+              </div>
+            )}
+          </div>
+
+          {/* Ignored Pods Retention */}
+          <div>
+            <div className="mb-4 flex items-center">
+              <EyeOff className="w-5 h-5 text-gray-500 mr-2" />
+              <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Ignored Pods Retention</h2>
+            </div>
+            <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Automatically delete ignored pods after a set period.
+            </p>
+
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ignoredRetentionEnabled}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setIgnoredRetentionEnabled(enabled);
+                    handleIgnoredRetentionSave(enabled, ignoredRetentionValue, ignoredRetentionUnit);
+                  }}
+                  className="h-4 w-4 text-gray-600 rounded border-gray-300 focus:ring-gray-500"
+                />
+                <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Auto-delete ignored pods after
+                </span>
+              </label>
+
+              <input
+                type="number"
+                min={1}
+                max={getMaxValue(ignoredRetentionUnit)}
+                value={ignoredRetentionValue}
+                disabled={!ignoredRetentionEnabled}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 1;
+                  setIgnoredRetentionValue(val);
+                }}
+                onBlur={() => {
+                  const clamped = Math.max(1, Math.min(ignoredRetentionValue, getMaxValue(ignoredRetentionUnit)));
+                  setIgnoredRetentionValue(clamped);
+                  if (ignoredRetentionEnabled) handleIgnoredRetentionSave(true, clamped, ignoredRetentionUnit);
+                }}
+                className={`w-20 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 disabled:opacity-50 ${
+                  isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              />
+
+              <select
+                value={ignoredRetentionUnit}
+                disabled={!ignoredRetentionEnabled}
+                onChange={(e) => {
+                  const newUnit = e.target.value;
+                  const maxVal = newUnit === 'minutes' ? 43200 : newUnit === 'hours' ? 720 : 30;
+                  const clamped = Math.min(ignoredRetentionValue, maxVal);
+                  setIgnoredRetentionUnit(newUnit);
+                  setIgnoredRetentionValue(clamped);
+                  if (ignoredRetentionEnabled) handleIgnoredRetentionSave(true, clamped, newUnit);
+                }}
+                className={`px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 disabled:opacity-50 ${
+                  isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                <option value="minutes">minutes</option>
+                <option value="hours">hours</option>
+                <option value="days">days</option>
+              </select>
+            </div>
+
+            {ignoredRetentionEnabled && (
+              <div className={`mt-3 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                The cleanup runs every minute. Ignored pods older than the configured period will be permanently deleted.
               </div>
             )}
           </div>

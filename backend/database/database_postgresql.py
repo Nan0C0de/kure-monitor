@@ -1155,3 +1155,15 @@ class PostgreSQLDatabase(DatabaseInterface):
             )
             count = int(result.split()[-1]) if result else 0
             return count
+
+    async def cleanup_old_ignored_pods(self, retention_minutes: int) -> int:
+        """Delete ignored pods older than the retention period (in minutes). Returns count of deleted records."""
+        async with self._acquire() as conn:
+            result = await conn.execute(
+                """DELETE FROM pod_failures
+                   WHERE status = 'ignored'
+                   AND created_at < NOW() - INTERVAL '1 minute' * $1""",
+                retention_minutes
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count

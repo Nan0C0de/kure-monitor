@@ -17,16 +17,26 @@ logger = logging.getLogger(__name__)
 
 
 async def history_cleanup_task(db: Database):
-    """Background task that periodically cleans up old resolved pods based on retention setting"""
+    """Background task that periodically cleans up old resolved and ignored pods based on retention settings"""
     while True:
         try:
             await asyncio.sleep(60)  # Check every minute
+
+            # Cleanup resolved pods
             value = await db.get_app_setting("history_retention_minutes")
             retention_minutes = int(value) if value else 0
             if retention_minutes > 0:
                 count = await db.cleanup_old_resolved_pods(retention_minutes)
                 if count > 0:
                     logger.info(f"History cleanup: deleted {count} resolved pods older than {retention_minutes}m")
+
+            # Cleanup ignored pods
+            ignored_value = await db.get_app_setting("ignored_retention_minutes")
+            ignored_minutes = int(ignored_value) if ignored_value else 0
+            if ignored_minutes > 0:
+                count = await db.cleanup_old_ignored_pods(ignored_minutes)
+                if count > 0:
+                    logger.info(f"Ignored cleanup: deleted {count} ignored pods older than {ignored_minutes}m")
         except asyncio.CancelledError:
             break
         except Exception as e:
