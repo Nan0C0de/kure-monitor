@@ -78,3 +78,47 @@ class GroqProvider(LLMProvider):
             logger.error(f"Error calling Groq API: {e}")
             # Re-raise to let solution engine use its better fallback
             raise
+
+    async def generate_raw(self, system_prompt: str, user_prompt: str) -> LLMResponse:
+        """Generate a raw response with custom prompts using Groq API"""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.1
+        }
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"Groq API error {response.status}: {error_text}")
+                        raise Exception(f"Groq API error: {response.status}")
+
+                    data = await response.json()
+                    content = data["choices"][0]["message"]["content"]
+                    tokens_used = data.get("usage", {}).get("total_tokens")
+
+                    return LLMResponse(
+                        content=content,
+                        provider=self.provider_name,
+                        model=self.model,
+                        tokens_used=tokens_used
+                    )
+
+        except Exception as e:
+            logger.error(f"Error calling Groq API (generate_raw): {e}")
+            raise

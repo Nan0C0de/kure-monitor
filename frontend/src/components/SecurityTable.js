@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Shield, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { Shield, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info, FileText } from 'lucide-react';
+import SecurityFixModal from './SecurityFixModal';
 
-const SecurityTable = ({ findings, isDark = false }) => {
+const SecurityTable = ({ findings, isDark = false, aiEnabled = false }) => {
   const [expandedFinding, setExpandedFinding] = useState(null);
+  const [selectedFinding, setSelectedFinding] = useState(null);
+  const [showFixModal, setShowFixModal] = useState(false);
 
   // Create a stable key for each finding
   const getFindingKey = (finding) => {
@@ -124,6 +127,23 @@ const SecurityTable = ({ findings, isDark = false }) => {
                           <h4 className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Detected At</h4>
                           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{new Date(finding.timestamp).toLocaleString()}</p>
                         </div>
+                        <div className="pt-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFinding(finding);
+                              setShowFixModal(true);
+                            }}
+                            className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                              isDark
+                                ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
+                                : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4 mr-1" />
+                            Manifest
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -133,6 +153,17 @@ const SecurityTable = ({ findings, isDark = false }) => {
           })}
         </tbody>
       </table>
+
+      <SecurityFixModal
+        isOpen={showFixModal}
+        onClose={() => {
+          setShowFixModal(false);
+          setSelectedFinding(null);
+        }}
+        finding={selectedFinding}
+        isDark={isDark}
+        aiEnabled={aiEnabled}
+      />
     </div>
   );
 };

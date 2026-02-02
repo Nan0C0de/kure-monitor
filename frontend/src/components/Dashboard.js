@@ -708,7 +708,7 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <SecurityTable findings={sortedSecurityFindings} isDark={isDark} />
+                <SecurityTable findings={sortedSecurityFindings} isDark={isDark} aiEnabled={aiEnabled} />
               )}
             </>
           )}

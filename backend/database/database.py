@@ -60,6 +60,9 @@ class Database:
     async def get_security_findings(self, include_dismissed=False, dismissed_only=False):
         return await self._db.get_security_findings(include_dismissed, dismissed_only)
 
+    async def get_security_finding_by_id(self, finding_id):
+        return await self._db.get_security_finding_by_id(finding_id)
+
     async def dismiss_security_finding(self, finding_id):
         return await self._db.dismiss_security_finding(finding_id)
 

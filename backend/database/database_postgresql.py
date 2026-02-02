@@ -138,6 +138,7 @@ class PostgreSQLDatabase(DatabaseInterface):
                         remediation TEXT NOT NULL,
                         timestamp TIMESTAMPTZ NOT NULL,
                         dismissed BOOLEAN DEFAULT FALSE,
+                        manifest TEXT DEFAULT '',
                         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -155,6 +156,17 @@ class PostgreSQLDatabase(DatabaseInterface):
                     CREATE INDEX IF NOT EXISTS idx_security_findings_dismissed
                     ON security_findings(dismissed)
                 """)
+
+                # Migration: add manifest column if it doesn't exist (for existing deployments)
+                manifest_col_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'security_findings' AND column_name = 'manifest'
+                    )
+                """)
+                if not manifest_col_exists:
+                    await conn.execute("ALTER TABLE security_findings ADD COLUMN manifest TEXT DEFAULT ''")
+                    logger.info("Migrated security_findings table: added manifest column")
 
                 # Create excluded_namespaces table for admin settings
                 await conn.execute("""
@@ -461,12 +473,13 @@ class PostgreSQLDatabase(DatabaseInterface):
                 await conn.execute("""
                     UPDATE security_findings SET
                         resource_type = $1, severity = $2, category = $3,
-                        description = $4, remediation = $5, timestamp = $6
-                    WHERE id = $7
+                        description = $4, remediation = $5, timestamp = $6,
+                        manifest = $7
+                    WHERE id = $8
                 """,
                     finding.resource_type, finding.severity, finding.category,
                     finding.description, finding.remediation, timestamp,
-                    existing['id']
+                    finding.manifest, existing['id']
                 )
                 return existing['id'], False
             else:
@@ -474,13 +487,14 @@ class PostgreSQLDatabase(DatabaseInterface):
                 result = await conn.fetchrow("""
                     INSERT INTO security_findings (
                         resource_type, resource_name, namespace, severity, category,
-                        title, description, remediation, timestamp, dismissed
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                        title, description, remediation, timestamp, dismissed, manifest
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     RETURNING id
                 """,
                     finding.resource_type, finding.resource_name, finding.namespace,
                     finding.severity, finding.category, finding.title,
-                    finding.description, finding.remediation, timestamp, finding.dismissed
+                    finding.description, finding.remediation, timestamp, finding.dismissed,
+                    finding.manifest
                 )
                 return result['id'], True
 
@@ -513,11 +527,36 @@ class PostgreSQLDatabase(DatabaseInterface):
                     description=row['description'],
                     remediation=row['remediation'],
                     timestamp=timestamp,
-                    dismissed=bool(row['dismissed'])
+                    dismissed=bool(row['dismissed']),
+                    manifest=row.get('manifest', '')
                 )
                 findings.append(finding)
 
             return findings
+
+    async def get_security_finding_by_id(self, finding_id: int) -> Optional[SecurityFindingResponse]:
+        """Get a single security finding by ID"""
+        async with self._acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM security_findings WHERE id = $1", finding_id
+            )
+            if not row:
+                return None
+            timestamp = row['timestamp'].isoformat()
+            return SecurityFindingResponse(
+                id=row['id'],
+                resource_type=row['resource_type'],
+                resource_name=row['resource_name'],
+                namespace=row['namespace'],
+                severity=row['severity'],
+                category=row['category'],
+                title=row['title'],
+                description=row['description'],
+                remediation=row['remediation'],
+                timestamp=timestamp,
+                dismissed=bool(row['dismissed']),
+                manifest=row.get('manifest', '')
+            )
 
     async def dismiss_security_finding(self, finding_id: int):
         """Mark a security finding as dismissed"""

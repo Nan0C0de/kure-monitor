@@ -43,6 +43,15 @@ class LLMProvider(ABC):
     ) -> LLMResponse:
         """Generate a solution for the Kubernetes issue"""
         pass
+
+    @abstractmethod
+    async def generate_raw(
+        self,
+        system_prompt: str,
+        user_prompt: str
+    ) -> LLMResponse:
+        """Generate a raw response with custom system and user prompts"""
+        pass
     
     def _build_prompt(
         self,

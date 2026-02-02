@@ -1,14 +1,29 @@
-# Test Case 1: Image Pull BackOff - Non-existent image
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: failed-pod-image-pull
-  namespace: default
+  name: failed-deploy-image-pull
+  namespace: test1
   labels:
     test-case: "image-pull-backoff"
 spec:
-  containers:
-  - name: app-container
-    image: nonexistent/fake-image:latest
-    ports:
-    - containerPort: 8080
+  replicas: 1
+  selector:
+    matchLabels:
+      app: image-pull-fail
+  template:
+    metadata:
+      labels:
+        app: image-pull-fail
+    spec:
+      containers:
+      - name: app-container
+        image: nginx:latest
+        ports:
+        - containerPort: 8080
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 101
+          allowPrivilegeEscalation: false
+#          capabilities:
+#            drop:
+#              - ALL

@@ -57,6 +57,7 @@ class SecurityFinding(BaseModel):
     description: str
     remediation: str
     timestamp: str
+    manifest: str = ""
 
 class SecurityFindingReport(SecurityFinding):
     pass

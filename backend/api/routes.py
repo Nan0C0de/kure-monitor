@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
+import difflib
 import logging
 import traceback
 import asyncio
@@ -506,6 +507,118 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             return {"message": f"Deleted {count} findings for resource", "count": count}
         except Exception as e:
             logger.error(f"Error deleting findings by resource: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Security fix endpoints
+    def compute_manifest_diff(original: str, fixed: str) -> list:
+        """Compute a structured diff between original and fixed manifests"""
+        original_lines = original.splitlines(keepends=True)
+        fixed_lines = fixed.splitlines(keepends=True)
+        diff_result = []
+
+        matcher = difflib.SequenceMatcher(None, original_lines, fixed_lines)
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == 'equal':
+                for line in original_lines[i1:i2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'unchanged'
+                    })
+            elif tag == 'replace':
+                for line in original_lines[i1:i2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'removed'
+                    })
+                for line in fixed_lines[j1:j2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'added'
+                    })
+            elif tag == 'delete':
+                for line in original_lines[i1:i2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'removed'
+                    })
+            elif tag == 'insert':
+                for line in fixed_lines[j1:j2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'added'
+                    })
+
+        return diff_result
+
+    @router.get("/security/findings/{finding_id}/manifest")
+    async def get_security_finding_manifest(finding_id: int):
+        """Get the manifest and metadata for a security finding"""
+        try:
+            finding = await db.get_security_finding_by_id(finding_id)
+            if not finding:
+                raise HTTPException(status_code=404, detail="Finding not found")
+            return {
+                "id": finding.id,
+                "manifest": finding.manifest,
+                "resource_type": finding.resource_type,
+                "resource_name": finding.resource_name,
+                "namespace": finding.namespace,
+                "title": finding.title,
+                "description": finding.description,
+                "remediation": finding.remediation,
+                "severity": finding.severity
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting security finding manifest: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/security/findings/{finding_id}/fix")
+    async def generate_security_fix(finding_id: int):
+        """Generate an AI-powered security fix for a finding"""
+        try:
+            finding = await db.get_security_finding_by_id(finding_id)
+            if not finding:
+                raise HTTPException(status_code=404, detail="Finding not found")
+
+            if not finding.manifest:
+                return {
+                    "finding_id": finding_id,
+                    "original_manifest": "",
+                    "fixed_manifest": "",
+                    "diff": [],
+                    "explanation": finding.remediation,
+                    "is_fallback": True
+                }
+
+            result = await solution_engine.generate_security_fix(
+                manifest=finding.manifest,
+                title=finding.title,
+                description=finding.description,
+                remediation=finding.remediation,
+                resource_type=finding.resource_type,
+                resource_name=finding.resource_name,
+                namespace=finding.namespace,
+                severity=finding.severity
+            )
+
+            diff = []
+            if result['fixed_manifest']:
+                diff = compute_manifest_diff(finding.manifest, result['fixed_manifest'])
+
+            return {
+                "finding_id": finding_id,
+                "original_manifest": finding.manifest,
+                "fixed_manifest": result['fixed_manifest'],
+                "diff": diff,
+                "explanation": result['explanation'],
+                "is_fallback": result['is_fallback']
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error generating security fix: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     # Admin endpoints - Excluded namespaces

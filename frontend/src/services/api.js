@@ -113,6 +113,20 @@ export const api = {
     return response.json();
   },
 
+  getSecurityFindingManifest: async (findingId) => {
+    const response = await fetch(`${API_BASE}/api/security/findings/${findingId}/manifest`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  generateSecurityFix: async (findingId) => {
+    const response = await fetch(`${API_BASE}/api/security/findings/${findingId}/fix`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // Admin API - Excluded Namespaces
   getExcludedNamespaces: async () => {
     const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces`);
