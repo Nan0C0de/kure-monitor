@@ -73,7 +73,8 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
                 message=report.failure_message,
                 events=report.events,
                 container_statuses=report.container_statuses,
-                pod_context=pod_context
+                pod_context=pod_context,
+                use_llm=False  # AI generates on-demand when user expands the pod
             )
 
             # Create response

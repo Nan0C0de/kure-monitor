@@ -106,11 +106,12 @@ class SolutionEngine:
     async def get_solution(self, reason: str, message: Optional[str] = None,
                      events: List[PodEvent] = None,
                      container_statuses: List[ContainerStatus] = None,
-                     pod_context: Dict = None) -> str:
+                     pod_context: Dict = None,
+                     use_llm: bool = True) -> str:
         """Generate solution based on failure reason and additional context"""
 
         # Try LLM first if available
-        if self.llm_provider:
+        if use_llm and self.llm_provider:
             provider_name = self.llm_provider.provider_name
             start_time = time.monotonic()
             try:

@@ -17,13 +17,6 @@ spec:
     spec:
       containers:
       - name: app-container
-        image: nginx:latest
+        image: nginxinc/xyz
         ports:
         - containerPort: 8080
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 101
-          allowPrivilegeEscalation: false
-#          capabilities:
-#            drop:
-#              - ALL

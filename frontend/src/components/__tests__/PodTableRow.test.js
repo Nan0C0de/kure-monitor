@@ -45,7 +45,7 @@ describe('PodTableRow', () => {
     expect(screen.getByText('test-pod')).toBeInTheDocument();
     expect(screen.getByText('default')).toBeInTheDocument();
     expect(screen.getByText('ImagePullBackOff')).toBeInTheDocument();
-    expect(screen.getByText('AI Solution Available')).toBeInTheDocument();
+    expect(screen.getByText('Click to expand')).toBeInTheDocument();
   });
 
   test('pod name is bold', () => {
@@ -150,7 +150,6 @@ describe('PodTableRow', () => {
       </table>
     );
     
-    expect(screen.getByText('AI Solution Available')).toBeInTheDocument();
-    expect(screen.getByText('Click to expand for detailed solution')).toBeInTheDocument();
+    expect(screen.getByText('Click to expand')).toBeInTheDocument();
   });
 });
