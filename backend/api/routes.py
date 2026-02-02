@@ -844,11 +844,7 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.info(f"Added trusted registry: {registry}")
 
             # Broadcast change to connected clients
-            await websocket_manager.broadcast({
-                "type": "trusted_registry_change",
-                "action": "added",
-                "registry": registry
-            })
+            await websocket_manager.broadcast_trusted_registry_change(registry, "added")
 
             return result.model_dump() if hasattr(result, 'model_dump') else result
         except HTTPException:
@@ -864,11 +860,7 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             removed = await db.remove_trusted_registry(registry)
             if removed:
                 logger.info(f"Removed trusted registry: {registry}")
-                await websocket_manager.broadcast({
-                    "type": "trusted_registry_change",
-                    "action": "removed",
-                    "registry": registry
-                })
+                await websocket_manager.broadcast_trusted_registry_change(registry, "removed")
                 return {"message": f"Registry '{registry}' removed from trusted list"}
             else:
                 raise HTTPException(status_code=404, detail=f"Registry '{registry}' not found in trusted list")

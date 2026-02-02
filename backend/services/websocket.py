@@ -193,6 +193,27 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
+    async def broadcast_trusted_registry_change(self, registry: str, action: str):
+        """Broadcast trusted registry change to all connected clients (including scanners)"""
+        if self.active_connections:
+            message = {
+                "type": "trusted_registry_change",
+                "data": {"registry": registry, "action": action}
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send trusted registry change to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            # Remove disconnected connections
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
     async def broadcast_pod_record_deleted(self, pod_id: int):
         """Broadcast permanent pod record deletion to all connected clients"""
         if self.active_connections:
