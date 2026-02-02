@@ -14,6 +14,7 @@ class WebSocketClient:
         self.ws_url = f"{ws_url}/ws"
         self.on_namespace_change: Optional[Callable] = None
         self.on_rule_change: Optional[Callable] = None
+        self.on_registry_change: Optional[Callable] = None
         self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
         self._session: Optional[aiohttp.ClientSession] = None
         self._running = False
@@ -25,6 +26,10 @@ class WebSocketClient:
     def set_rule_change_handler(self, handler: Callable):
         """Set the callback for rule exclusion changes"""
         self.on_rule_change = handler
+
+    def set_registry_change_handler(self, handler: Callable):
+        """Set the callback for trusted registry changes"""
+        self.on_registry_change = handler
 
     async def connect(self):
         """Connect to the backend WebSocket"""
@@ -84,6 +89,14 @@ class WebSocketClient:
 
                 if self.on_rule_change:
                     await self.on_rule_change(rule_title, action, namespace)
+
+            elif msg_type == 'trusted_registry_change':
+                registry = message['data'].get('registry')
+                action = message['data'].get('action')
+                logger.info(f"Received trusted registry change: {registry} -> {action}")
+
+                if self.on_registry_change:
+                    await self.on_registry_change(registry, action)
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse WebSocket message: {e}")

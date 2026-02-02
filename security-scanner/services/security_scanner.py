@@ -297,6 +297,29 @@ class SecurityScanner:
         except Exception as e:
             logger.error(f"Error handling rule change: {e}")
 
+    async def _handle_registry_change(self, registry: str, action: str):
+        """Handle real-time trusted registry changes from WebSocket"""
+        try:
+            # Refresh trusted registries immediately
+            await self._refresh_trusted_registries(force=True)
+
+            # Re-scan all pods so untrusted registry findings are added/removed
+            logger.info(f"Trusted registry '{registry}' {action} - rescanning all pods...")
+            await self._rescan_all_pods()
+        except Exception as e:
+            logger.error(f"Error handling registry change: {e}")
+
+    async def _rescan_all_pods(self):
+        """Re-scan all pods across all non-excluded namespaces"""
+        try:
+            pods = self.v1.list_pod_for_all_namespaces()
+            for pod in pods.items:
+                namespace = pod.metadata.namespace
+                if not self._is_namespace_excluded(namespace):
+                    await self._scan_single_pod(pod)
+        except Exception as e:
+            logger.error(f"Error rescanning all pods: {e}")
+
     async def _handle_namespace_change(self, namespace: str, action: str):
         """Handle real-time namespace exclusion changes from WebSocket"""
         try:
@@ -364,9 +387,10 @@ class SecurityScanner:
         # Clear all findings on startup (after loading exclusions)
         await self.backend_client.clear_security_findings()
 
-        # Set up WebSocket client for real-time exclusion changes
+        # Set up WebSocket client for real-time exclusion/registry changes
         self.websocket_client.set_namespace_change_handler(self._handle_namespace_change)
         self.websocket_client.set_rule_change_handler(self._handle_rule_change)
+        self.websocket_client.set_registry_change_handler(self._handle_registry_change)
 
         # Run initial scan to populate findings
         logger.info("Running initial security scan...")
