@@ -118,6 +118,26 @@ class BackendClient:
             logger.warning(f"Error reporting scan duration: {e}")
             return False
 
+    async def report_rescan_status(self, status: str, reason: str = None):
+        """Report security rescan status to backend (started/completed)"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.backend_url}/api/security/rescan-status",
+                    json={"status": status, "reason": reason},
+                    headers={'Content-Type': 'application/json'},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        logger.info(f"Reported rescan status: {status}")
+                        return True
+                    else:
+                        logger.warning(f"Failed to report rescan status: HTTP {response.status}")
+                        return False
+        except Exception as e:
+            logger.warning(f"Error reporting rescan status: {e}")
+            return False
+
     async def get_excluded_namespaces(self) -> list:
         """Get list of excluded namespaces from backend
 

@@ -973,6 +973,17 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             return {"message": "Scan duration recorded"}
         raise HTTPException(status_code=400, detail="duration_seconds is required")
 
+    @router.post("/security/rescan-status")
+    async def report_security_rescan_status(data: dict):
+        """Report security rescan status from scanner (started/completed)"""
+        status = data.get("status")  # "started" or "completed"
+        reason = data.get("reason")  # e.g., "trusted_registry_change"
+        if status not in ["started", "completed"]:
+            raise HTTPException(status_code=400, detail="status must be 'started' or 'completed'")
+        logger.info(f"Security rescan {status}" + (f" (reason: {reason})" if reason else ""))
+        await ws_manager.broadcast_security_rescan_status(status, reason)
+        return {"message": f"Rescan status '{status}' broadcasted"}
+
     @router.get("/metrics/cluster")
     async def get_cluster_metrics():
         """Get latest cluster metrics"""

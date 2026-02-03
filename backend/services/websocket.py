@@ -299,6 +299,27 @@ class WebSocketManager:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
 
+    async def broadcast_security_rescan_status(self, status: str, reason: str = None):
+        """Broadcast security rescan status to all connected clients (started/completed)"""
+        if self.active_connections:
+            message = {
+                "type": "security_rescan_status",
+                "data": {"status": status, "reason": reason}
+            }
+
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send security rescan status to WebSocket: {e}")
+                    disconnected.append(connection)
+
+            # Remove disconnected connections
+            for conn in disconnected:
+                if conn in self.active_connections:
+                    self.active_connections.remove(conn)
+
     async def websocket_endpoint(self, websocket: WebSocket):
         await self.connect(websocket)
         try:

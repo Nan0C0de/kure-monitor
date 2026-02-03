@@ -121,21 +121,24 @@ const Dashboard = () => {
             finding.title === message.data.title)
         )
       );
-    } else if (message.type === 'trusted_registry_change') {
-      // Show updating notification
-      setSecurityScanUpdating(true);
-      // Reload security findings after registry change (scanner will rescan)
-      // Delay to allow scanner to complete rescan
-      setTimeout(async () => {
-        try {
-          const findings = await api.getSecurityFindings();
-          setSecurityFindings(findings);
-        } catch (err) {
-          console.error('Error reloading security findings after registry change:', err);
-        } finally {
-          setSecurityScanUpdating(false);
-        }
-      }, 5000);
+    } else if (message.type === 'security_rescan_status') {
+      // Show/hide banner based on scanner rescan status
+      const status = message.data.status;
+      if (status === 'started') {
+        setSecurityScanUpdating(true);
+      } else if (status === 'completed') {
+        // Reload findings when rescan is complete
+        (async () => {
+          try {
+            const findings = await api.getSecurityFindings();
+            setSecurityFindings(findings);
+          } catch (err) {
+            console.error('Error reloading security findings after rescan:', err);
+          } finally {
+            setSecurityScanUpdating(false);
+          }
+        })();
+      }
     } else if (message.type === 'pod_solution_updated') {
       // Update pod with new solution
       setPods(prevPods => {
