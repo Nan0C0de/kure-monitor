@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff, RefreshCw } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
@@ -27,8 +27,25 @@ const Dashboard = () => {
   const [podSubTab, setPodSubTab] = useState('active');
   const [podHistory, setPodHistory] = useState([]);
   const [ignoredPods, setIgnoredPods] = useState([]);
-  // Security scan rescan notification
+  // Security scan rescan notification (only for registry changes)
   const [securityScanUpdating, setSecurityScanUpdating] = useState(false);
+  const securityScanTimeoutRef = useRef(null);
+  const registryRescanActiveRef = useRef(false);
+
+  // Helper to show banner and reset hide timer (only during registry rescans)
+  const showSecurityBanner = useCallback(() => {
+    if (!registryRescanActiveRef.current) return; // Only show during registry rescans
+    setSecurityScanUpdating(true);
+    // Clear any existing timeout
+    if (securityScanTimeoutRef.current) {
+      clearTimeout(securityScanTimeoutRef.current);
+    }
+    // Set timeout to hide banner after 2 seconds of inactivity
+    securityScanTimeoutRef.current = setTimeout(() => {
+      setSecurityScanUpdating(false);
+      registryRescanActiveRef.current = false;
+    }, 2000);
+  }, []);
 
   // Theme state - load from localStorage or default to 'light'
   const [theme, setTheme] = useState(() => {
@@ -47,6 +64,15 @@ const Dashboard = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  // Cleanup security scan timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (securityScanTimeoutRef.current) {
+        clearTimeout(securityScanTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -89,6 +115,8 @@ const Dashboard = () => {
         )
       );
     } else if (message.type === 'security_finding') {
+      // Show banner when findings are being added/updated (rescan in progress)
+      showSecurityBanner();
       // Update or add security finding (deduplicate by id OR by resource_name+namespace+title)
       setSecurityFindings(prevFindings => {
         const existingByIdIndex = message.data.id
@@ -113,6 +141,8 @@ const Dashboard = () => {
         }
       });
     } else if (message.type === 'security_finding_deleted') {
+      // Show banner when findings are being deleted (rescan in progress)
+      showSecurityBanner();
       // Remove deleted security finding from list
       setSecurityFindings(prevFindings =>
         prevFindings.filter(finding =>
@@ -122,20 +152,21 @@ const Dashboard = () => {
         )
       );
     } else if (message.type === 'security_rescan_status') {
-      // Show/hide banner based on scanner rescan status
+      // Show banner only for registry changes
       const status = message.data.status;
-      if (status === 'started') {
-        setSecurityScanUpdating(true);
+      const reason = message.data.reason;
+      if (status === 'started' && reason === 'trusted_registry_change') {
+        registryRescanActiveRef.current = true;
+        showSecurityBanner();
       } else if (status === 'completed') {
-        // Reload findings when rescan is complete
+        // Rescan complete - reload findings to ensure we have the latest state
+        // Banner will auto-hide after timeout if no more findings arrive
         (async () => {
           try {
             const findings = await api.getSecurityFindings();
             setSecurityFindings(findings);
           } catch (err) {
             console.error('Error reloading security findings after rescan:', err);
-          } finally {
-            setSecurityScanUpdating(false);
           }
         })();
       }
@@ -171,7 +202,7 @@ const Dashboard = () => {
       // Update cluster metrics
       setClusterMetrics(message.data);
     }
-  }, []);
+  }, [showSecurityBanner]);
 
   // Handle solution update from retry button
   const handleSolutionUpdated = (updatedPod) => {
