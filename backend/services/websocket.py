@@ -196,31 +196,47 @@ class WebSocketManager:
 
     async def broadcast_trusted_registry_change(self, registry: str, action: str):
         """Broadcast trusted registry change to all connected clients (including scanners)"""
+        logger.info(f"Broadcasting trusted registry change: {registry} -> {action} to {len(self.active_connections)} clients")
         if self.active_connections:
-            message = {
+            message = json.dumps({
                 "type": "trusted_registry_change",
                 "data": {"registry": registry, "action": action}
-            }
+            }, default=str)
 
-            disconnected = []
-            for connection in self.active_connections:
+            # Send to all clients in parallel without blocking
+            async def send_to_client(connection):
                 try:
-                    # Use timeout to prevent blocking if a client is slow
-                    await asyncio.wait_for(
-                        connection.send_text(json.dumps(message, default=str)),
-                        timeout=5.0
-                    )
+                    await asyncio.wait_for(connection.send_text(message), timeout=10.0)
+                    return True, connection
                 except asyncio.TimeoutError:
                     logger.warning("Timeout sending trusted registry change to WebSocket client")
-                    disconnected.append(connection)
+                    return False, connection
                 except Exception as e:
                     logger.warning(f"Failed to send trusted registry change to WebSocket: {e}")
-                    disconnected.append(connection)
+                    return False, connection
+
+            # Send to all clients concurrently
+            results = await asyncio.gather(*[send_to_client(conn) for conn in self.active_connections], return_exceptions=True)
+
+            # Count successes and collect disconnected clients
+            sent_count = 0
+            disconnected = []
+            for result in results:
+                if isinstance(result, tuple):
+                    success, conn = result
+                    if success:
+                        sent_count += 1
+                    else:
+                        disconnected.append(conn)
+
+            logger.info(f"Sent trusted registry change to {sent_count} clients")
 
             # Remove disconnected connections
             for conn in disconnected:
                 if conn in self.active_connections:
                     self.active_connections.remove(conn)
+        else:
+            logger.warning("No active WebSocket connections to broadcast trusted registry change")
 
     async def broadcast_pod_record_deleted(self, pod_id: int):
         """Broadcast permanent pod record deletion to all connected clients"""

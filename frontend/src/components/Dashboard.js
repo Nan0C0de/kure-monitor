@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff, RefreshCw } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
@@ -27,6 +27,8 @@ const Dashboard = () => {
   const [podSubTab, setPodSubTab] = useState('active');
   const [podHistory, setPodHistory] = useState([]);
   const [ignoredPods, setIgnoredPods] = useState([]);
+  // Security scan rescan notification
+  const [securityScanUpdating, setSecurityScanUpdating] = useState(false);
 
   // Theme state - load from localStorage or default to 'light'
   const [theme, setTheme] = useState(() => {
@@ -119,6 +121,21 @@ const Dashboard = () => {
             finding.title === message.data.title)
         )
       );
+    } else if (message.type === 'trusted_registry_change') {
+      // Show updating notification
+      setSecurityScanUpdating(true);
+      // Reload security findings after registry change (scanner will rescan)
+      // Delay to allow scanner to complete rescan
+      setTimeout(async () => {
+        try {
+          const findings = await api.getSecurityFindings();
+          setSecurityFindings(findings);
+        } catch (err) {
+          console.error('Error reloading security findings after registry change:', err);
+        } finally {
+          setSecurityScanUpdating(false);
+        }
+      }, 5000);
     } else if (message.type === 'pod_solution_updated') {
       // Update pod with new solution
       setPods(prevPods => {
@@ -692,6 +709,18 @@ const Dashboard = () => {
 
           {activeTab === 'security' && (
             <>
+              {/* Security scan updating notification */}
+              {securityScanUpdating && (
+                <div className={`mb-4 p-4 rounded-lg border flex items-center ${isDark ? 'bg-blue-900/30 border-blue-700 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                  <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
+                  <div>
+                    <p className="font-medium">Security scan is updating...</p>
+                    <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
+                      Trusted registries changed. Rescanning cluster for security issues.
+                    </p>
+                  </div>
+                </div>
+              )}
               {sortedSecurityFindings.length === 0 ? (
                 <div className="text-center py-12">
                   <Shield className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-green-400' : 'text-green-500'}`} />
