@@ -981,7 +981,7 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
         if status not in ["started", "completed"]:
             raise HTTPException(status_code=400, detail="status must be 'started' or 'completed'")
         logger.info(f"Security rescan {status}" + (f" (reason: {reason})" if reason else ""))
-        await ws_manager.broadcast_security_rescan_status(status, reason)
+        await websocket_manager.broadcast_security_rescan_status(status, reason)
         return {"message": f"Rescan status '{status}' broadcasted"}
 
     @router.get("/metrics/cluster")

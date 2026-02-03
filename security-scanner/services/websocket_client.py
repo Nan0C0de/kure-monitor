@@ -31,6 +31,18 @@ class WebSocketClient:
         """Set the callback for trusted registry changes"""
         self.on_registry_change = handler
 
+    async def _send_keepalive(self):
+        """Send periodic keepalive pings to keep connection alive"""
+        while self._running and self._ws and not self._ws.closed:
+            try:
+                await asyncio.sleep(30)  # Send ping every 30 seconds
+                if self._ws and not self._ws.closed:
+                    await self._ws.ping()
+                    logger.debug("Sent WebSocket keepalive ping")
+            except Exception as e:
+                logger.warning(f"Failed to send keepalive ping: {e}")
+                break
+
     async def connect(self):
         """Connect to the backend WebSocket"""
         self._running = True
@@ -38,19 +50,26 @@ class WebSocketClient:
             try:
                 logger.info(f"Connecting to WebSocket: {self.ws_url}")
                 self._session = aiohttp.ClientSession()
-                self._ws = await self._session.ws_connect(self.ws_url)
+                self._ws = await self._session.ws_connect(self.ws_url, heartbeat=30)
                 logger.info("WebSocket connected successfully")
 
+                # Start keepalive task
+                keepalive_task = asyncio.create_task(self._send_keepalive())
+
                 # Listen for messages
-                async for msg in self._ws:
-                    if msg.type == aiohttp.WSMsgType.TEXT:
-                        await self._handle_message(msg.data)
-                    elif msg.type == aiohttp.WSMsgType.ERROR:
-                        logger.error(f"WebSocket error: {self._ws.exception()}")
-                        break
-                    elif msg.type == aiohttp.WSMsgType.CLOSED:
-                        logger.info("WebSocket closed by server")
-                        break
+                try:
+                    async for msg in self._ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            logger.debug(f"Received WebSocket message: {msg.data[:100]}...")
+                            await self._handle_message(msg.data)
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            logger.error(f"WebSocket error: {self._ws.exception()}")
+                            break
+                        elif msg.type == aiohttp.WSMsgType.CLOSED:
+                            logger.info("WebSocket closed by server")
+                            break
+                finally:
+                    keepalive_task.cancel()
 
             except aiohttp.ClientError as e:
                 logger.warning(f"WebSocket connection error: {e}")
