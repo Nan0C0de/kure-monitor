@@ -435,8 +435,6 @@ const AdminPanel = ({ isDark = false }) => {
       setTrustedRegistries(prev => [...prev, result]);
       setNewRegistry('');
       setError(null);
-      setSuccessMessage(`Registry "${registry}" added to trusted list.`);
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError('Failed to add registry');
       console.error('Error adding trusted registry:', err);
@@ -451,8 +449,6 @@ const AdminPanel = ({ isDark = false }) => {
       await api.removeTrustedRegistry(registry);
       setTrustedRegistries(prev => prev.filter(r => r.registry !== registry));
       setError(null);
-      setSuccessMessage(`Registry "${registry}" removed from trusted list.`);
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError('Failed to remove registry');
       console.error('Error removing trusted registry:', err);
