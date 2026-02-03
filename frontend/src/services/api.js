@@ -262,7 +262,8 @@ export const api = {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
+    // Return true on success - no need to parse JSON response
+    return true;
   },
 
   // Notification Settings API

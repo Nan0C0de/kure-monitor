@@ -1,4 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import asyncio
 import json
 import logging
 from typing import List
@@ -204,7 +205,14 @@ class WebSocketManager:
             disconnected = []
             for connection in self.active_connections:
                 try:
-                    await connection.send_text(json.dumps(message, default=str))
+                    # Use timeout to prevent blocking if a client is slow
+                    await asyncio.wait_for(
+                        connection.send_text(json.dumps(message, default=str)),
+                        timeout=5.0
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning("Timeout sending trusted registry change to WebSocket client")
+                    disconnected.append(connection)
                 except Exception as e:
                     logger.warning(f"Failed to send trusted registry change to WebSocket: {e}")
                     disconnected.append(connection)
