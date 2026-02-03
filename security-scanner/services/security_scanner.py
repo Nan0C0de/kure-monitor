@@ -299,19 +299,25 @@ class SecurityScanner:
 
     async def _handle_registry_change(self, registry: str, action: str):
         """Handle real-time trusted registry changes from WebSocket"""
+        logger.info(f"Handling registry change: {registry} -> {action}")
         try:
             # Refresh trusted registries immediately
             await self._refresh_trusted_registries(force=True)
+            logger.info("Refreshed trusted registries")
 
             # Notify frontend that rescan is starting
-            await self.backend_client.report_rescan_status("started", "trusted_registry_change")
+            logger.info("Sending rescan status: started")
+            result = await self.backend_client.report_rescan_status("started", "trusted_registry_change")
+            logger.info(f"Rescan status 'started' sent, result: {result}")
 
             # Re-scan all pods so untrusted registry findings are added/removed
             logger.info(f"Trusted registry '{registry}' {action} - rescanning all pods...")
             await self._rescan_all_pods()
 
             # Notify frontend that rescan is complete
+            logger.info("Sending rescan status: completed")
             await self.backend_client.report_rescan_status("completed", "trusted_registry_change")
+            logger.info("Rescan status 'completed' sent")
         except Exception as e:
             logger.error(f"Error handling registry change: {e}")
             # Still notify completion on error so banner disappears
