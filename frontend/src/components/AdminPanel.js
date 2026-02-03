@@ -38,6 +38,7 @@ const AdminPanel = ({ isDark = false }) => {
   const DEFAULT_REGISTRIES = ['docker.io', 'gcr.io', 'ghcr.io', 'quay.io', 'registry.k8s.io', 'mcr.microsoft.com', 'public.ecr.aws'];
   const [trustedRegistries, setTrustedRegistries] = useState([]);
   const [newRegistry, setNewRegistry] = useState('');
+  const [registryLoading, setRegistryLoading] = useState(null); // Track which registry is loading (registry name or 'add')
 
   // History retention state (stored as minutes in backend)
   const [retentionEnabled, setRetentionEnabled] = useState(false);
@@ -428,6 +429,7 @@ const AdminPanel = ({ isDark = false }) => {
       setError('This registry is already in the trusted list');
       return;
     }
+    setRegistryLoading('add');
     try {
       const result = await api.addTrustedRegistry(registry);
       setTrustedRegistries(prev => [...prev, result]);
@@ -438,10 +440,13 @@ const AdminPanel = ({ isDark = false }) => {
     } catch (err) {
       setError('Failed to add registry');
       console.error('Error adding trusted registry:', err);
+    } finally {
+      setRegistryLoading(null);
     }
   };
 
   const handleRemoveRegistry = async (registry) => {
+    setRegistryLoading(registry);
     try {
       await api.removeTrustedRegistry(registry);
       setTrustedRegistries(prev => prev.filter(r => r.registry !== registry));
@@ -451,6 +456,8 @@ const AdminPanel = ({ isDark = false }) => {
     } catch (err) {
       setError('Failed to remove registry');
       console.error('Error removing trusted registry:', err);
+    } finally {
+      setRegistryLoading(null);
     }
   };
 
@@ -1183,10 +1190,23 @@ const AdminPanel = ({ isDark = false }) => {
                 />
                 <button
                   type="submit"
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  disabled={registryLoading === 'add'}
+                  className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${registryLoading === 'add' ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
                 >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add
+                  {registryLoading === 'add' ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -1221,10 +1241,23 @@ const AdminPanel = ({ isDark = false }) => {
                     </div>
                     <button
                       onClick={() => handleRemoveRegistry(reg.registry)}
-                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      disabled={registryLoading === reg.registry}
+                      className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${registryLoading === reg.registry ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed' : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'}`}
                     >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Remove
+                      {registryLoading === reg.registry ? (
+                        <>
+                          <svg className="animate-spin -ml-0.5 mr-1 h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Removing...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Remove
+                        </>
+                      )}
                     </button>
                   </li>
                 ))}
