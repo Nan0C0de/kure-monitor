@@ -152,7 +152,7 @@ const Dashboard = () => {
         )
       );
     } else if (message.type === 'security_rescan_status') {
-      // Show banner only for registry changes
+      // Show banner only for registry changes (from updated scanner)
       const status = message.data.status;
       const reason = message.data.reason;
       if (status === 'started' && reason === 'trusted_registry_change') {
