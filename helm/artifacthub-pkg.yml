@@ -1,23 +1,23 @@
 # Artifact Hub package metadata file
-version: 1.5.0
+version: 1.6.0
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
-createdAt: 2025-08-30T00:00:00Z
+createdAt: 2026-02-04T00:00:00Z
 description: |
   Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks: privileged containers, dangerous capabilities, missing seccomp/AppArmor profiles, RBAC issues, untrusted registries, and more. No Prometheus dependency required.
 license: Apache-2.0
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "1.5.0"
+appVersion: "1.6.0"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:1.5.0
+    image: ghcr.io/nan0c0de/kure-monitor/agent:1.6.0
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:1.5.0
+    image: ghcr.io/nan0c0de/kure-monitor/backend:1.6.0
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:1.5.0
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:1.6.0
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:1.5.0
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:1.6.0
 operator: false
 deprecated: false
 prerelease: false
@@ -40,18 +40,30 @@ provider:
   name: Nan0C0de
 changes:
   - kind: added
-    description: Google Gemini LLM provider support with Gemini 2.5 Pro, 2.0 Flash, and 2.0 Flash Lite models
+    description: Trusted Container Registries - mark registries as trusted to filter untrusted registry findings with auto-rescan
+  - kind: added
+    description: AI-generated security fixes - get LLM-powered remediation suggestions for security findings
+  - kind: added
+    description: Export findings to CSV, JSON, and PDF formats
+  - kind: added
+    description: Prometheus metrics endpoint with ServiceMonitor support
+  - kind: added
+    description: Pod lifecycle management - track pods through investigating, resolved, and ignored states
+  - kind: added
+    description: History retention settings for automatic cleanup of resolved and ignored pods
+  - kind: added
+    description: Multi-select security rule exclusions with global and per-namespace scopes
+  - kind: added
+    description: Configurable pending pod grace period before reporting as failed
   - kind: changed
-    description: Redesigned Admin Panel with tabbed interface (AI Config, Notifications, Exclusions)
-  - kind: changed
-    description: Merged Security and Monitoring exclusions into single Exclusions tab
+    description: Security scanner expanded with additional Kubernetes resource scanning
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 1.5.0 \
+  helm install kure-monitor kure-monitor/kure --version 1.6.0 \
     --create-namespace --namespace kure-system
 
   # After installation, configure LLM provider via the Admin panel

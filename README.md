@@ -31,11 +31,15 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
-## What's New in v1.5.0
+## What's New in v1.6.0
 
-- **Google Gemini Support** - New LLM provider with Gemini 2.5 Pro, 2.0 Flash, and 2.0 Flash Lite models
-- **Redesigned Admin Panel** - New tabbed interface for better navigation (AI Config, Notifications, Exclusions)
-- **Simplified Exclusions** - Security and Monitoring exclusions merged into single Exclusions tab
+- **Trusted Container Registries** - Mark registries as trusted to filter untrusted registry findings with auto-rescan
+- **AI Security Fixes** - Get LLM-powered remediation suggestions for security findings
+- **Export Findings** - Export security findings to CSV, JSON, and PDF formats
+- **Prometheus Metrics** - New `/metrics` endpoint with ServiceMonitor support for Prometheus integration
+- **Pod Lifecycle Management** - Track pods through investigating, resolved, and ignored states with history retention
+- **Enhanced Exclusions** - Multi-select security rule exclusions with global and per-namespace scopes
+- **Pending Grace Period** - Configure how long to wait before reporting pending pods as failed
 
 ## Architecture
 

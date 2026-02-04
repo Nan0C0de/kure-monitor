@@ -9,7 +9,15 @@ jest.mock('lucide-react', () => ({
   AlertTriangle: () => <span data-testid="alert-triangle">AlertTriangle</span>,
   AlertCircle: () => <span data-testid="alert-circle">AlertCircle</span>,
   Info: () => <span data-testid="info-icon">Info</span>,
+  FileText: () => <span data-testid="file-text-icon">FileText</span>,
 }));
+
+// Mock SecurityFixModal
+jest.mock('../SecurityFixModal', () => {
+  return function MockSecurityFixModal() {
+    return null;
+  };
+});
 
 const mockFindings = [
   {

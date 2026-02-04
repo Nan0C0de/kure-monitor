@@ -34,11 +34,11 @@ After installation, access the dashboard and configure your LLM provider via the
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `agent.clusterMetrics.enabled` | Enable cluster metrics collection | `true` |
-| `agent.image.tag` | Agent image tag | `1.5.0` |
-| `securityScanner.image.tag` | Security scanner image tag | `1.5.0` |
+| `agent.image.tag` | Agent image tag | `1.6.0` |
+| `securityScanner.image.tag` | Security scanner image tag | `1.6.0` |
 | `backend.replicaCount` | Backend replica count | `1` |
-| `backend.image.tag` | Backend image tag | `1.5.0` |
-| `frontend.image.tag` | Frontend image tag | `1.5.0` |
+| `backend.image.tag` | Backend image tag | `1.6.0` |
+| `frontend.image.tag` | Frontend image tag | `1.6.0` |
 
 ### LLM Configuration
 
@@ -119,7 +119,7 @@ Then open http://localhost:8080 and configure your LLM provider in the Admin pan
 
 ```bash
 helm repo update
-helm upgrade kure-monitor kure-monitor/kure --version 1.5.0 -n kure-system
+helm upgrade kure-monitor kure-monitor/kure --version 1.6.0 -n kure-system
 ```
 
 ## Uninstall

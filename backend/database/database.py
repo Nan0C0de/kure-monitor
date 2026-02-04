@@ -60,6 +60,9 @@ class Database:
     async def get_security_findings(self, include_dismissed=False, dismissed_only=False):
         return await self._db.get_security_findings(include_dismissed, dismissed_only)
 
+    async def get_security_finding_by_id(self, finding_id):
+        return await self._db.get_security_finding_by_id(finding_id)
+
     async def dismiss_security_finding(self, finding_id):
         return await self._db.dismiss_security_finding(finding_id)
 
@@ -134,6 +137,16 @@ class Database:
 
     async def delete_findings_by_rule_title(self, rule_title, namespace=None):
         return await self._db.delete_findings_by_rule_title(rule_title, namespace)
+
+    # Trusted registries methods (admin-managed trusted container registries)
+    async def add_trusted_registry(self, registry):
+        return await self._db.add_trusted_registry(registry)
+
+    async def remove_trusted_registry(self, registry):
+        return await self._db.remove_trusted_registry(registry)
+
+    async def get_trusted_registries(self):
+        return await self._db.get_trusted_registries()
 
     # Notification settings methods
     async def save_notification_setting(self, setting):

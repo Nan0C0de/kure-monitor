@@ -57,6 +57,7 @@ class SecurityFinding(BaseModel):
     description: str
     remediation: str
     timestamp: str
+    manifest: str = ""
 
 class SecurityFindingReport(SecurityFinding):
     pass
@@ -87,6 +88,13 @@ class ExcludedRule(BaseModel):
     created_at: Optional[str] = None
 
 class ExcludedRuleResponse(ExcludedRule):
+    id: Optional[int] = None
+
+class TrustedRegistry(BaseModel):
+    registry: str
+    created_at: Optional[str] = None
+
+class TrustedRegistryResponse(TrustedRegistry):
     id: Optional[int] = None
 
 

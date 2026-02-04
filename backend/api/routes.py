@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
+import difflib
 import logging
 import traceback
 import asyncio
@@ -18,6 +19,7 @@ from models.models import (
     ExcludedNamespace, ExcludedNamespaceResponse,
     ExcludedPod, ExcludedPodResponse,
     ExcludedRule, ExcludedRuleResponse,
+    TrustedRegistry, TrustedRegistryResponse,
     NotificationSettingCreate, NotificationSettingResponse,
     ClusterMetrics, PodMetricsHistory, PodMetricsPoint,
     LLMConfigCreate, LLMConfigResponse, LLMConfigStatus
@@ -72,7 +74,8 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
                 message=report.failure_message,
                 events=report.events,
                 container_statuses=report.container_statuses,
-                pod_context=pod_context
+                pod_context=pod_context,
+                use_llm=False  # AI generates on-demand when user expands the pod
             )
 
             # Create response
@@ -508,6 +511,118 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.error(f"Error deleting findings by resource: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    # Security fix endpoints
+    def compute_manifest_diff(original: str, fixed: str) -> list:
+        """Compute a structured diff between original and fixed manifests"""
+        original_lines = original.splitlines(keepends=True)
+        fixed_lines = fixed.splitlines(keepends=True)
+        diff_result = []
+
+        matcher = difflib.SequenceMatcher(None, original_lines, fixed_lines)
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == 'equal':
+                for line in original_lines[i1:i2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'unchanged'
+                    })
+            elif tag == 'replace':
+                for line in original_lines[i1:i2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'removed'
+                    })
+                for line in fixed_lines[j1:j2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'added'
+                    })
+            elif tag == 'delete':
+                for line in original_lines[i1:i2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'removed'
+                    })
+            elif tag == 'insert':
+                for line in fixed_lines[j1:j2]:
+                    diff_result.append({
+                        'content': line.rstrip('\n'),
+                        'type': 'added'
+                    })
+
+        return diff_result
+
+    @router.get("/security/findings/{finding_id}/manifest")
+    async def get_security_finding_manifest(finding_id: int):
+        """Get the manifest and metadata for a security finding"""
+        try:
+            finding = await db.get_security_finding_by_id(finding_id)
+            if not finding:
+                raise HTTPException(status_code=404, detail="Finding not found")
+            return {
+                "id": finding.id,
+                "manifest": finding.manifest,
+                "resource_type": finding.resource_type,
+                "resource_name": finding.resource_name,
+                "namespace": finding.namespace,
+                "title": finding.title,
+                "description": finding.description,
+                "remediation": finding.remediation,
+                "severity": finding.severity
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting security finding manifest: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/security/findings/{finding_id}/fix")
+    async def generate_security_fix(finding_id: int):
+        """Generate an AI-powered security fix for a finding"""
+        try:
+            finding = await db.get_security_finding_by_id(finding_id)
+            if not finding:
+                raise HTTPException(status_code=404, detail="Finding not found")
+
+            if not finding.manifest:
+                return {
+                    "finding_id": finding_id,
+                    "original_manifest": "",
+                    "fixed_manifest": "",
+                    "diff": [],
+                    "explanation": finding.remediation,
+                    "is_fallback": True
+                }
+
+            result = await solution_engine.generate_security_fix(
+                manifest=finding.manifest,
+                title=finding.title,
+                description=finding.description,
+                remediation=finding.remediation,
+                resource_type=finding.resource_type,
+                resource_name=finding.resource_name,
+                namespace=finding.namespace,
+                severity=finding.severity
+            )
+
+            diff = []
+            if result['fixed_manifest']:
+                diff = compute_manifest_diff(finding.manifest, result['fixed_manifest'])
+
+            return {
+                "finding_id": finding_id,
+                "original_manifest": finding.manifest,
+                "fixed_manifest": result['fixed_manifest'],
+                "diff": diff,
+                "explanation": result['explanation'],
+                "is_fallback": result['is_fallback']
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error generating security fix: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     # Admin endpoints - Excluded namespaces
     @router.get("/admin/excluded-namespaces", response_model=list[ExcludedNamespaceResponse])
     async def get_excluded_namespaces():
@@ -706,6 +821,55 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.error(f"Error removing excluded rule: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    # Trusted registries endpoints (admin-managed trusted container registries)
+    @router.get("/admin/trusted-registries")
+    async def get_trusted_registries():
+        """Get all admin-added trusted container registries"""
+        try:
+            registries = await db.get_trusted_registries()
+            return [r.model_dump() if hasattr(r, 'model_dump') else r for r in registries]
+        except Exception as e:
+            logger.error(f"Error getting trusted registries: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/admin/trusted-registries")
+    async def add_trusted_registry(data: TrustedRegistry):
+        """Add a trusted container registry"""
+        try:
+            registry = data.registry.strip().lower()
+            if not registry:
+                raise HTTPException(status_code=400, detail="Registry name is required")
+
+            result = await db.add_trusted_registry(registry)
+            logger.info(f"Added trusted registry: {registry}")
+
+            # Broadcast change to connected clients
+            await websocket_manager.broadcast_trusted_registry_change(registry, "added")
+
+            return result.model_dump() if hasattr(result, 'model_dump') else result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error adding trusted registry: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/admin/trusted-registries/{registry}")
+    async def remove_trusted_registry(registry: str):
+        """Remove a trusted container registry"""
+        try:
+            removed = await db.remove_trusted_registry(registry)
+            if removed:
+                logger.info(f"Removed trusted registry: {registry}")
+                await websocket_manager.broadcast_trusted_registry_change(registry, "removed")
+                return {"message": f"Registry '{registry}' removed from trusted list"}
+            else:
+                raise HTTPException(status_code=404, detail=f"Registry '{registry}' not found in trusted list")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error removing trusted registry: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     # Notification settings endpoints
     @router.get("/admin/notifications", response_model=list[NotificationSettingResponse])
     async def get_notification_settings():
@@ -808,6 +972,17 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             logger.info(f"Security scan duration: {duration:.1f}s")
             return {"message": "Scan duration recorded"}
         raise HTTPException(status_code=400, detail="duration_seconds is required")
+
+    @router.post("/security/rescan-status")
+    async def report_security_rescan_status(data: dict):
+        """Report security rescan status from scanner (started/completed)"""
+        status = data.get("status")  # "started" or "completed"
+        reason = data.get("reason")  # e.g., "trusted_registry_change"
+        if status not in ["started", "completed"]:
+            raise HTTPException(status_code=400, detail="status must be 'started' or 'completed'")
+        logger.info(f"Security rescan {status}" + (f" (reason: {reason})" if reason else ""))
+        await websocket_manager.broadcast_security_rescan_status(status, reason)
+        return {"message": f"Rescan status '{status}' broadcasted"}
 
     @router.get("/metrics/cluster")
     async def get_cluster_metrics():

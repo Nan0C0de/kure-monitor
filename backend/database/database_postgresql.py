@@ -5,7 +5,7 @@ import json
 from typing import List, Optional
 from datetime import datetime, timezone
 from .database_base import DatabaseInterface
-from models.models import PodFailureResponse, SecurityFindingResponse, ExcludedNamespaceResponse, NotificationSettingResponse
+from models.models import PodFailureResponse, SecurityFindingResponse, ExcludedNamespaceResponse, TrustedRegistryResponse, NotificationSettingResponse
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
 logger = logging.getLogger(__name__)
@@ -138,6 +138,7 @@ class PostgreSQLDatabase(DatabaseInterface):
                         remediation TEXT NOT NULL,
                         timestamp TIMESTAMPTZ NOT NULL,
                         dismissed BOOLEAN DEFAULT FALSE,
+                        manifest TEXT DEFAULT '',
                         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -155,6 +156,17 @@ class PostgreSQLDatabase(DatabaseInterface):
                     CREATE INDEX IF NOT EXISTS idx_security_findings_dismissed
                     ON security_findings(dismissed)
                 """)
+
+                # Migration: add manifest column if it doesn't exist (for existing deployments)
+                manifest_col_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'security_findings' AND column_name = 'manifest'
+                    )
+                """)
+                if not manifest_col_exists:
+                    await conn.execute("ALTER TABLE security_findings ADD COLUMN manifest TEXT DEFAULT ''")
+                    logger.info("Migrated security_findings table: added manifest column")
 
                 # Create excluded_namespaces table for admin settings
                 await conn.execute("""
@@ -212,6 +224,20 @@ class PostgreSQLDatabase(DatabaseInterface):
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_excluded_rules_rule_title_namespace
                     ON excluded_rules(rule_title, namespace)
+                """)
+
+                # Create trusted_registries table for admin-managed trusted container registries
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS trusted_registries (
+                        id SERIAL PRIMARY KEY,
+                        registry VARCHAR(255) NOT NULL UNIQUE,
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_trusted_registries_registry
+                    ON trusted_registries(registry)
                 """)
 
                 # Create notification_settings table
@@ -461,12 +487,13 @@ class PostgreSQLDatabase(DatabaseInterface):
                 await conn.execute("""
                     UPDATE security_findings SET
                         resource_type = $1, severity = $2, category = $3,
-                        description = $4, remediation = $5, timestamp = $6
-                    WHERE id = $7
+                        description = $4, remediation = $5, timestamp = $6,
+                        manifest = $7
+                    WHERE id = $8
                 """,
                     finding.resource_type, finding.severity, finding.category,
                     finding.description, finding.remediation, timestamp,
-                    existing['id']
+                    finding.manifest, existing['id']
                 )
                 return existing['id'], False
             else:
@@ -474,13 +501,14 @@ class PostgreSQLDatabase(DatabaseInterface):
                 result = await conn.fetchrow("""
                     INSERT INTO security_findings (
                         resource_type, resource_name, namespace, severity, category,
-                        title, description, remediation, timestamp, dismissed
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                        title, description, remediation, timestamp, dismissed, manifest
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     RETURNING id
                 """,
                     finding.resource_type, finding.resource_name, finding.namespace,
                     finding.severity, finding.category, finding.title,
-                    finding.description, finding.remediation, timestamp, finding.dismissed
+                    finding.description, finding.remediation, timestamp, finding.dismissed,
+                    finding.manifest
                 )
                 return result['id'], True
 
@@ -513,11 +541,36 @@ class PostgreSQLDatabase(DatabaseInterface):
                     description=row['description'],
                     remediation=row['remediation'],
                     timestamp=timestamp,
-                    dismissed=bool(row['dismissed'])
+                    dismissed=bool(row['dismissed']),
+                    manifest=row.get('manifest', '')
                 )
                 findings.append(finding)
 
             return findings
+
+    async def get_security_finding_by_id(self, finding_id: int) -> Optional[SecurityFindingResponse]:
+        """Get a single security finding by ID"""
+        async with self._acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM security_findings WHERE id = $1", finding_id
+            )
+            if not row:
+                return None
+            timestamp = row['timestamp'].isoformat()
+            return SecurityFindingResponse(
+                id=row['id'],
+                resource_type=row['resource_type'],
+                resource_name=row['resource_name'],
+                namespace=row['namespace'],
+                severity=row['severity'],
+                category=row['category'],
+                title=row['title'],
+                description=row['description'],
+                remediation=row['remediation'],
+                timestamp=timestamp,
+                dismissed=bool(row['dismissed']),
+                manifest=row.get('manifest', '')
+            )
 
     async def dismiss_security_finding(self, finding_id: int):
         """Mark a security finding as dismissed"""
@@ -969,6 +1022,62 @@ class PostgreSQLDatabase(DatabaseInterface):
                 )
             count = int(result.split()[-1]) if result else 0
             return count, deleted_findings
+
+    # Trusted registries methods (admin-managed trusted container registries)
+    async def add_trusted_registry(self, registry: str) -> TrustedRegistryResponse:
+        """Add a trusted container registry"""
+        async with self._acquire() as conn:
+            try:
+                result = await conn.fetchrow(
+                    """INSERT INTO trusted_registries (registry)
+                       VALUES ($1)
+                       ON CONFLICT (registry) DO NOTHING
+                       RETURNING id, registry, created_at""",
+                    registry
+                )
+                if result:
+                    return TrustedRegistryResponse(
+                        id=result['id'],
+                        registry=result['registry'],
+                        created_at=result['created_at'].isoformat()
+                    )
+                existing = await conn.fetchrow(
+                    "SELECT id, registry, created_at FROM trusted_registries WHERE registry = $1",
+                    registry
+                )
+                return TrustedRegistryResponse(
+                    id=existing['id'],
+                    registry=existing['registry'],
+                    created_at=existing['created_at'].isoformat()
+                )
+            except Exception as e:
+                logger.error(f"Error adding trusted registry: {e}")
+                raise
+
+    async def remove_trusted_registry(self, registry: str) -> bool:
+        """Remove a trusted container registry"""
+        async with self._acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM trusted_registries WHERE registry = $1",
+                registry
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count > 0
+
+    async def get_trusted_registries(self) -> list:
+        """Get all admin-added trusted registries"""
+        async with self._acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, registry, created_at FROM trusted_registries ORDER BY registry"
+            )
+            return [
+                TrustedRegistryResponse(
+                    id=row['id'],
+                    registry=row['registry'],
+                    created_at=row['created_at'].isoformat()
+                )
+                for row in rows
+            ]
 
     # Notification settings methods
     async def save_notification_setting(self, setting) -> NotificationSettingResponse:

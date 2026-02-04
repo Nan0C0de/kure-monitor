@@ -118,6 +118,26 @@ class BackendClient:
             logger.warning(f"Error reporting scan duration: {e}")
             return False
 
+    async def report_rescan_status(self, status: str, reason: str = None):
+        """Report security rescan status to backend (started/completed)"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.backend_url}/api/security/rescan-status",
+                    json={"status": status, "reason": reason},
+                    headers={'Content-Type': 'application/json'},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        logger.info(f"Reported rescan status: {status}")
+                        return True
+                    else:
+                        logger.warning(f"Failed to report rescan status: HTTP {response.status}")
+                        return False
+        except Exception as e:
+            logger.warning(f"Error reporting rescan status: {e}")
+            return False
+
     async def get_excluded_namespaces(self) -> list:
         """Get list of excluded namespaces from backend
 
@@ -188,3 +208,38 @@ class BackendClient:
             if "Backend returned" in str(e) or "Timeout" in str(e) or "HTTP client" in str(e):
                 raise
             raise Exception(f"Error fetching excluded rules: {e}")
+
+    async def get_trusted_registries(self) -> list:
+        """Get list of admin-added trusted container registries from backend
+
+        Returns:
+            List of registry strings (e.g. ['my-registry.example.com'])
+
+        Raises:
+            Exception: If unable to fetch from backend
+        """
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                        f"{self.backend_url}/api/admin/trusted-registries",
+                        timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        registries = [
+                            item.get('registry')
+                            for item in data if item.get('registry')
+                        ]
+                        logger.debug(f"Fetched trusted registries: {registries}")
+                        return registries
+                    else:
+                        raise Exception(f"Backend returned HTTP {response.status}")
+
+        except asyncio.TimeoutError:
+            raise Exception("Timeout while fetching trusted registries (10s)")
+        except aiohttp.ClientError as e:
+            raise Exception(f"HTTP client error: {e}")
+        except Exception as e:
+            if "Backend returned" in str(e) or "Timeout" in str(e) or "HTTP client" in str(e):
+                raise
+            raise Exception(f"Error fetching trusted registries: {e}")

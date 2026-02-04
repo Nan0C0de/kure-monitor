@@ -2,3 +2,4 @@ kubernetes==28.1.0
 aiohttp>=3.9.4
 asyncio==4.0.0
 setuptools>=78.1.1
+PyYAML>=6.0.1

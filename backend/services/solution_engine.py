@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from typing import Dict, List, Optional
 from models.models import PodEvent, ContainerStatus
@@ -105,11 +106,12 @@ class SolutionEngine:
     async def get_solution(self, reason: str, message: Optional[str] = None,
                      events: List[PodEvent] = None,
                      container_statuses: List[ContainerStatus] = None,
-                     pod_context: Dict = None) -> str:
+                     pod_context: Dict = None,
+                     use_llm: bool = True) -> str:
         """Generate solution based on failure reason and additional context"""
 
         # Try LLM first if available
-        if self.llm_provider:
+        if use_llm and self.llm_provider:
             provider_name = self.llm_provider.provider_name
             start_time = time.monotonic()
             try:
@@ -251,3 +253,91 @@ class SolutionEngine:
             return base_solution + " Additional info: " + " ".join(enhancements)
 
         return base_solution
+
+    async def generate_security_fix(self, manifest: str, title: str, description: str,
+                                     remediation: str, resource_type: str, resource_name: str,
+                                     namespace: str, severity: str) -> dict:
+        """Generate an AI-powered security fix for a Kubernetes resource manifest.
+
+        Returns:
+            dict with keys: fixed_manifest, explanation, is_fallback
+        """
+        if not self.llm_provider or not manifest:
+            return {
+                'fixed_manifest': '',
+                'explanation': remediation,
+                'is_fallback': True
+            }
+
+        system_prompt = """You are a Kubernetes security expert. You will be given a Kubernetes resource YAML manifest and a security finding.
+Your task is to produce a FIXED version of the manifest that resolves the security issue.
+
+Rules:
+- Return the COMPLETE fixed YAML manifest (not a partial patch)
+- Only change what is necessary to fix the security issue
+- Preserve all existing functionality
+- Use best practices from Pod Security Standards and NSA/CISA guidelines
+- Do NOT add comments to the YAML
+
+Output format (follow EXACTLY):
+```yaml
+<complete fixed manifest here>
+```
+---EXPLANATION---
+<brief explanation of what was changed and why, 2-4 sentences>"""
+
+        user_prompt = f"""Security Finding:
+- Title: {title}
+- Severity: {severity}
+- Description: {description}
+- Remediation Guidance: {remediation}
+- Resource: {resource_type}/{resource_name} in namespace {namespace}
+
+Current Manifest:
+```yaml
+{manifest}
+```
+
+Please provide the fixed manifest and explanation."""
+
+        try:
+            provider_name = self.llm_provider.provider_name
+            start_time = time.monotonic()
+
+            llm_response = await self.llm_provider.generate_raw(system_prompt, user_prompt)
+
+            duration = time.monotonic() - start_time
+            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+
+            # Parse the response
+            content = llm_response.content
+            fixed_manifest = ''
+            explanation = remediation
+
+            # Extract YAML block
+            yaml_match = re.search(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
+            if yaml_match:
+                fixed_manifest = yaml_match.group(1).strip()
+
+            # Extract explanation
+            explanation_match = re.search(r'---EXPLANATION---\s*\n(.*?)$', content, re.DOTALL)
+            if explanation_match:
+                explanation = explanation_match.group(1).strip()
+            elif not yaml_match:
+                # If no structured output, use the whole response as explanation
+                explanation = content
+
+            return {
+                'fixed_manifest': fixed_manifest,
+                'explanation': explanation,
+                'is_fallback': False
+            }
+
+        except Exception as e:
+            logger.error(f"Security fix generation failed: {e}")
+            return {
+                'fixed_manifest': '',
+                'explanation': remediation,
+                'is_fallback': True
+            }

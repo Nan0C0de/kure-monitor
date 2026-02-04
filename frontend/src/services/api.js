@@ -113,6 +113,20 @@ export const api = {
     return response.json();
   },
 
+  getSecurityFindingManifest: async (findingId) => {
+    const response = await fetch(`${API_BASE}/api/security/findings/${findingId}/manifest`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  generateSecurityFix: async (findingId) => {
+    const response = await fetch(`${API_BASE}/api/security/findings/${findingId}/fix`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // Admin API - Excluded Namespaces
   getExcludedNamespaces: async () => {
     const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces`);
@@ -222,6 +236,34 @@ export const api = {
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
+  },
+
+  // Admin API - Trusted Container Registries
+  getTrustedRegistries: async () => {
+    const response = await fetch(`${API_BASE}/api/admin/trusted-registries`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  addTrustedRegistry: async (registry) => {
+    const response = await fetch(`${API_BASE}/api/admin/trusted-registries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ registry })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  removeTrustedRegistry: async (registry) => {
+    const response = await fetch(`${API_BASE}/api/admin/trusted-registries/${encodeURIComponent(registry)}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    // Return true on success - no need to parse JSON response
+    return true;
   },
 
   // Notification Settings API

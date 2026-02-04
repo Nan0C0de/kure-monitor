@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileText, RefreshCw, Copy, Check, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../services/api';
@@ -42,6 +42,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStat
   const [isRetrying, setIsRetrying] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const hasAutoTriggered = useRef(false);
 
   // Check if solution is a fallback (AI unavailable)
   const isFallbackSolution = pod.solution && (
@@ -63,6 +64,15 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStat
       setIsRetrying(false);
     }
   };
+
+  // Auto-trigger AI generation when expanded with a fallback solution
+  useEffect(() => {
+    if (isFallbackSolution && aiEnabled && !hasAutoTriggered.current) {
+      hasAutoTriggered.current = true;
+      handleRetrySolution();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleStatusAction = async (newStatus) => {
     if (!onStatusChange) return;
     setIsUpdatingStatus(true);

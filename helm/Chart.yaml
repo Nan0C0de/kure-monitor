@@ -2,8 +2,8 @@ apiVersion: v2
 name: kure
 description: Kubernetes failure diagnosis tool with AI-powered troubleshooting
 type: application
-version: 1.5.0
-appVersion: "1.5.0"
+version: 1.6.0
+appVersion: "1.6.0"
 keywords:
   - kubernetes
   - monitoring
@@ -18,11 +18,23 @@ maintainers:
 annotations:
   artifacthub.io/changes: |
     - kind: added
-      description: Google Gemini LLM provider support with Gemini 2.5 Pro, 2.0 Flash, and 2.0 Flash Lite models
+      description: Trusted Container Registries - mark registries as trusted to filter untrusted registry findings with auto-rescan
+    - kind: added
+      description: AI-generated security fixes - get LLM-powered remediation suggestions for security findings
+    - kind: added
+      description: Export findings to CSV, JSON, and PDF formats
+    - kind: added
+      description: Prometheus metrics endpoint with ServiceMonitor support
+    - kind: added
+      description: Pod lifecycle management - track pods through investigating, resolved, and ignored states
+    - kind: added
+      description: History retention settings for automatic cleanup of resolved and ignored pods
+    - kind: added
+      description: Multi-select security rule exclusions with global and per-namespace scopes
+    - kind: added
+      description: Configurable pending pod grace period before reporting as failed
     - kind: changed
-      description: Admin panel redesigned with tabbed interface for better navigation
-    - kind: changed
-      description: Merged Security and Monitoring exclusion settings into single Exclusions tab
+      description: Security scanner expanded with additional Kubernetes resource scanning
   artifacthub.io/category: monitoring-logging
   artifacthub.io/displayName: Kure - Kubernetes Failure Diagnosis
   artifacthub.io/license: Apache-2.0
@@ -42,7 +54,7 @@ annotations:
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
     # Install Kure Monitor
-    helm install kure-monitor kure-monitor/kure --version 1.5.0 \
+    helm install kure-monitor kure-monitor/kure --version 1.6.0 \
       --create-namespace --namespace kure-system
 
     # After installation, configure LLM provider via the Admin panel

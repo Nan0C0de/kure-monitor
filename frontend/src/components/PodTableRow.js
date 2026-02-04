@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import PodDetails from './PodDetails';
 import ManifestModal from './ManifestModal';
@@ -34,13 +34,6 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
       minute: '2-digit'
     });
   };
-
-  // Check if solution is a fallback (AI unavailable)
-  const isFallbackSolution = pod.solution && (
-    pod.solution.includes('AI solution temporarily unavailable') ||
-    pod.solution.includes('Failed to generate AI solution') ||
-    pod.solution.includes('Basic troubleshooting')
-  );
 
   // Retry handler for ManifestModal
   const handleRetrySolutionFromModal = async () => {
@@ -107,20 +100,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
               onClick={() => setIsExpanded(!isExpanded)}
               className={`text-sm text-left rounded transition-colors w-full ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
             >
-              {isFallbackSolution ? (
-                <>
-                  <div className="font-medium text-yellow-500 mb-1 flex items-center">
-                    <AlertTriangle className="w-4 h-4 mr-1" />
-                    Basic Solution Available
-                  </div>
-                  <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Click to expand and retry AI</div>
-                </>
-              ) : (
-                <>
-                  <div className={`font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>AI Solution Available</div>
-                  <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Click to expand for detailed solution</div>
-                </>
-              )}
+              <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Click to expand</div>
             </button>
           </div>
         </td>

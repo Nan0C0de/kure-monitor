@@ -153,6 +153,35 @@ class BackendClient:
             logger.warning(f"Error fetching excluded pods: {e}")
             return []
 
+    async def get_failed_pods(self) -> list:
+        """Get list of currently failed pods from backend (for startup sync)"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                        f"{self.backend_url}/api/pods/failed",
+                        timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        # Return list of (namespace, pod_name) tuples
+                        pods = [(item.get('namespace'), item.get('pod_name')) for item in data
+                                if item.get('namespace') and item.get('pod_name')]
+                        logger.info(f"Fetched {len(pods)} failed pods from backend for sync")
+                        return pods
+                    else:
+                        logger.warning(f"Backend returned HTTP {response.status} for failed pods")
+                        return []
+
+        except asyncio.TimeoutError:
+            logger.warning("Timeout while fetching failed pods (10s)")
+            return []
+        except aiohttp.ClientError as e:
+            logger.warning(f"HTTP client error while fetching failed pods: {e}")
+            return []
+        except Exception as e:
+            logger.warning(f"Error fetching failed pods: {e}")
+            return []
+
     async def report_cluster_metrics(self, metrics: Dict[str, Any]) -> bool:
         """Send cluster metrics to backend"""
         try:
