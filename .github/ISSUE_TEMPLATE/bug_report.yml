@@ -51,7 +51,7 @@ body:
     attributes:
       label: Kure Monitor Version
       description: What version of Kure Monitor are you running?
-      placeholder: "1.5.0"
+      placeholder: "1.6.0"
     validations:
       required: true
 
