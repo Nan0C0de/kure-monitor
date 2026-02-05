@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import NotificationSettings from './NotificationSettings';
 import LLMSettings from './LLMSettings';
 
-const AdminPanel = ({ isDark = false }) => {
+const AdminPanel = ({ isDark = false, onConfigChange }) => {
   // Tab state
   const [activeTab, setActiveTab] = useState('ai');
 
@@ -583,7 +583,7 @@ const AdminPanel = ({ isDark = false }) => {
       )}
 
       {/* Tab Content */}
-      {activeTab === 'ai' && <LLMSettings isDark={isDark} />}
+      {activeTab === 'ai' && <LLMSettings isDark={isDark} onConfigChange={onConfigChange} />}
 
       {activeTab === 'notifications' && <NotificationSettings isDark={isDark} />}
 
