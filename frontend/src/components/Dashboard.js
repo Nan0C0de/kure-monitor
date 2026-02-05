@@ -364,7 +364,15 @@ const Dashboard = () => {
     }
   };
 
-
+  // Callback to refresh config when LLM settings change
+  const handleConfigChange = useCallback(async () => {
+    try {
+      const config = await api.getConfig();
+      setAiEnabled(config.ai_enabled || false);
+    } catch (err) {
+      console.error('Error refreshing config:', err);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -781,7 +789,7 @@ const Dashboard = () => {
           )}
 
           {activeTab === 'admin' && (
-            <AdminPanel isDark={isDark} />
+            <AdminPanel isDark={isDark} onConfigChange={handleConfigChange} />
           )}
 
         </div>

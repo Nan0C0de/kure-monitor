@@ -20,7 +20,6 @@ RUN chown -R kure:kure /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /usr/sh
     touch /var/run/nginx.pid && chown kure:kure /var/run/nginx.pid
 
 USER kure
-
 EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]
