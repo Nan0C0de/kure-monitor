@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { api } from '../services/api';
 
-const LLMSettings = ({ isDark = false }) => {
+const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -133,6 +133,10 @@ const LLMSettings = ({ isDark = false }) => {
       setSuccess('LLM configuration saved successfully!');
       setApiKey(''); // Clear API key from form after save
       await loadStatus();
+      // Notify parent that config has changed so aiEnabled state updates
+      if (onConfigChange) {
+        onConfigChange();
+      }
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.message || 'Failed to save configuration');
@@ -153,6 +157,10 @@ const LLMSettings = ({ isDark = false }) => {
       setSuccess('LLM configuration deleted. Using rule-based solutions.');
       setApiKey('');
       await loadStatus();
+      // Notify parent that config has changed so aiEnabled state updates
+      if (onConfigChange) {
+        onConfigChange();
+      }
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.message || 'Failed to delete configuration');
