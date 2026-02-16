@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff, RefreshCw } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
@@ -22,6 +22,9 @@ const Dashboard = () => {
   const [securityNamespaceFilter, setSecurityNamespaceFilter] = useState('');
   const [selectedSeverities, setSelectedSeverities] = useState(['critical', 'high', 'medium', 'low']);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
+  const [selectedRules, setSelectedRules] = useState([]);
+  const [showRuleDropdown, setShowRuleDropdown] = useState(false);
+  const [ruleSearchQuery, setRuleSearchQuery] = useState('');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   // Pod sub-tab state
   const [podSubTab, setPodSubTab] = useState('active');
@@ -31,6 +34,10 @@ const Dashboard = () => {
   const [securityScanUpdating, setSecurityScanUpdating] = useState(false);
   const securityScanTimeoutRef = useRef(null);
   const registryRescanActiveRef = useRef(false);
+  // Refs for dropdown click-outside handling
+  const severityDropdownRef = useRef(null);
+  const ruleDropdownRef = useRef(null);
+  const exportDropdownRef = useRef(null);
 
   // Helper to show banner and reset hide timer (only during registry rescans)
   const showSecurityBanner = useCallback(() => {
@@ -72,6 +79,24 @@ const Dashboard = () => {
         clearTimeout(securityScanTimeoutRef.current);
       }
     };
+  }, []);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (severityDropdownRef.current && !severityDropdownRef.current.contains(event.target)) {
+        setShowSeverityDropdown(false);
+      }
+      if (ruleDropdownRef.current && !ruleDropdownRef.current.contains(event.target)) {
+        setShowRuleDropdown(false);
+        setRuleSearchQuery('');
+      }
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
+        setShowExportDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const toggleTheme = () => {
@@ -288,12 +313,39 @@ const Dashboard = () => {
   const severityOrder = { 'critical': 1, 'high': 2, 'medium': 3, 'low': 4 };
   const allSeverities = ['critical', 'high', 'medium', 'low'];
 
-  // Filter security findings based on security-specific namespace filter and severity
+  // Extract the rule category from a finding title (strip ": container/resource" suffix)
+  const getRuleCategory = (title) => {
+    const colonIndex = title.lastIndexOf(':');
+    // Only strip suffix if there's content after the colon (i.e., it's a "Rule: target" pattern)
+    if (colonIndex > 0 && colonIndex < title.length - 1) {
+      return title.substring(0, colonIndex).trim();
+    }
+    return title;
+  };
+
+  // Extract unique rule categories from security findings for the rule filter dropdown
+  const allRuleTitles = useMemo(
+    () => [...new Set(securityFindings.map(f => getRuleCategory(f.title)))].sort(),
+    [securityFindings]
+  );
+
+  // Clean up stale rule selections when available rules change
+  useEffect(() => {
+    if (selectedRules.length > 0) {
+      const validRules = selectedRules.filter(rule => allRuleTitles.includes(rule));
+      if (validRules.length !== selectedRules.length) {
+        setSelectedRules(validRules);
+      }
+    }
+  }, [allRuleTitles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Filter security findings based on security-specific namespace filter, severity, and rule
   const filteredSecurityFindings = securityFindings.filter(finding => {
     const matchesNamespace = securityNamespaceFilter.trim() === '' ||
       finding.namespace.toLowerCase().includes(securityNamespaceFilter.toLowerCase().trim());
     const matchesSeverity = selectedSeverities.includes(finding.severity.toLowerCase());
-    return matchesNamespace && matchesSeverity;
+    const matchesRule = selectedRules.length === 0 || selectedRules.includes(getRuleCategory(finding.title));
+    return matchesNamespace && matchesSeverity && matchesRule;
   });
 
   // Sort security findings by severity (CRITICAL > HIGH > MEDIUM > LOW), then by timestamp (newest first)
@@ -316,6 +368,17 @@ const Dashboard = () => {
         return prev.filter(s => s !== severity);
       } else {
         return [...prev, severity];
+      }
+    });
+  };
+
+  // Toggle rule selection
+  const toggleRule = (rule) => {
+    setSelectedRules(prev => {
+      if (prev.includes(rule)) {
+        return prev.filter(r => r !== rule);
+      } else {
+        return [...prev, rule];
       }
     });
   };
@@ -509,7 +572,7 @@ const Dashboard = () => {
         <div className="flex justify-end mb-4 gap-4">
           {/* Severity Filter - only show on security tab */}
           {activeTab === 'security' && (
-            <div className="relative">
+            <div className="relative" ref={severityDropdownRef}>
               <button
                 onClick={() => setShowSeverityDropdown(!showSeverityDropdown)}
                 className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -559,12 +622,86 @@ const Dashboard = () => {
             </div>
           )}
 
+          {/* Rule Filter - only show on security tab */}
+          {activeTab === 'security' && allRuleTitles.length > 0 && (
+            <div className="relative" ref={ruleDropdownRef}>
+              <button
+                onClick={() => setShowRuleDropdown(!showRuleDropdown)}
+                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isDark
+                    ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200'
+                    : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                <Shield className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                <span>Rule</span>
+                {selectedRules.length > 0 && (
+                  <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>({selectedRules.length}/{allRuleTitles.length})</span>
+                )}
+                <ChevronDown className={`w-4 h-4 transition-transform ${isDark ? 'text-gray-400' : 'text-gray-500'} ${showRuleDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showRuleDropdown && (
+                <div className={`absolute right-0 mt-2 w-72 rounded-md shadow-lg border z-10 ${
+                  isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}>
+                  <div className={`px-3 py-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
+                    <input
+                      type="text"
+                      placeholder="Search rules..."
+                      value={ruleSearchQuery}
+                      onChange={(e) => setRuleSearchQuery(e.target.value)}
+                      className={`w-full px-2 py-1.5 text-sm rounded border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDark
+                          ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400'
+                          : 'bg-white border-gray-300 text-gray-700 placeholder-gray-400'
+                      }`}
+                    />
+                  </div>
+                  <div className="py-1 max-h-64 overflow-y-auto">
+                    {allRuleTitles
+                      .filter(rule => rule.toLowerCase().includes(ruleSearchQuery.toLowerCase().trim()))
+                      .map(rule => (
+                      <label
+                        key={rule}
+                        className={`flex items-center px-4 py-2 cursor-pointer ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedRules.includes(rule)}
+                          onChange={() => toggleRule(rule)}
+                          className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 flex-shrink-0"
+                        />
+                        <span className={`ml-3 text-sm truncate ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                          {rule}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className={`border-t px-4 py-2 flex justify-between ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
+                    <button
+                      onClick={() => setSelectedRules([...allRuleTitles])}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setSelectedRules([])}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Export - only show on security tab */}
           {activeTab === 'security' && sortedSecurityFindings.length > 0 && (
-            <div className="relative">
+            <div className="relative" ref={exportDropdownRef}>
               <button
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                onBlur={() => setTimeout(() => setShowExportDropdown(false), 200)}
                 className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                   isDark
                     ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200'
@@ -772,9 +909,7 @@ const Dashboard = () => {
                   <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
                     {securityFindings.length === 0
                       ? 'No security issues detected in your cluster.'
-                      : securityNamespaceFilter.trim() === ''
-                        ? 'No security issues found in your cluster.'
-                        : `No security issues found matching namespace '${securityNamespaceFilter}'.`
+                      : 'No security issues match the current filters.'
                     }
                   </p>
                 </div>
