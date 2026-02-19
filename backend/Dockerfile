@@ -15,7 +15,11 @@ RUN python -m venv /opt/venv && \
 FROM python:3.11-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 && \
+    apt-get install -y --no-install-recommends libpq5 curl && \
+    curl -fsSL https://get.helm.sh/helm-v3.17.3-linux-amd64.tar.gz | tar xz -C /tmp && \
+    mv /tmp/linux-amd64/helm /usr/local/bin/helm && \
+    rm -rf /tmp/linux-amd64 && \
+    apt-get purge -y curl && apt-get autoremove -y && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r kure && useradd -r -g kure -d /app -s /sbin/nologin kure

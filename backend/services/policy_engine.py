@@ -1,5 +1,4 @@
 import logging
-import os
 import yaml
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
@@ -20,9 +19,6 @@ CLUSTER_POLICY_REPORT_PLURAL = "clusterpolicyreports"
 KURE_LABEL = "app.kubernetes.io/managed-by"
 KURE_LABEL_VALUE = "kure-monitor"
 KURE_PREFIX = "kure-"
-
-# Official Kyverno install manifest
-KYVERNO_INSTALL_URL = "https://github.com/kyverno/kyverno/releases/latest/download/install.yaml"
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "policies" / "templates"
 
@@ -122,34 +118,61 @@ class PolicyEngine:
         return result
 
     async def install_kyverno(self) -> dict:
-        """Install Kyverno via kubectl apply of official install manifest."""
+        """Install Kyverno via Helm."""
         if not self._k8s_available:
             return {"success": False, "message": "Kubernetes client not available"}
 
         try:
-            import subprocess
-            proc = subprocess.run(
-                ["kubectl", "apply", "-f", KYVERNO_INSTALL_URL],
-                capture_output=True, text=True, timeout=120
-            )
+            import asyncio
 
-            if proc.returncode == 0:
-                logger.info("Kyverno installation initiated successfully")
-                return {
-                    "success": True,
-                    "message": "Kyverno installation initiated. It may take a few minutes to become ready.",
-                    "output": proc.stdout
-                }
-            else:
-                logger.error(f"Kyverno installation failed: {proc.stderr}")
-                return {
-                    "success": False,
-                    "message": f"Installation failed: {proc.stderr}"
-                }
+            # Add Kyverno Helm repo
+            logger.info("Adding Kyverno Helm repo")
+            proc = await asyncio.create_subprocess_exec(
+                "helm", "repo", "add", "kyverno", "https://kyverno.github.io/kyverno/",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                err = stderr.decode().strip()
+                if "already exists" not in err:
+                    return {"success": False, "message": f"Failed to add Helm repo: {err}"}
+
+            # Update repo
+            proc = await asyncio.create_subprocess_exec(
+                "helm", "repo", "update",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await proc.communicate()
+
+            # Install Kyverno
+            logger.info("Installing Kyverno via Helm")
+            proc = await asyncio.create_subprocess_exec(
+                "helm", "install", "kyverno", "kyverno/kyverno",
+                "--namespace", "kyverno", "--create-namespace",
+                "--wait", "--timeout", "5m",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+
+            if proc.returncode != 0:
+                err = stderr.decode().strip()
+                logger.error(f"Helm install failed: {err}")
+                # Already installed
+                if "already exists" in err:
+                    return {"success": True, "message": "Kyverno is already installed."}
+                return {"success": False, "message": f"Helm install failed: {err}"}
+
+            logger.info("Kyverno installed successfully via Helm")
+            return {
+                "success": True,
+                "message": "Kyverno installed successfully. It may take a minute to become fully ready.",
+            }
+
         except FileNotFoundError:
-            return {"success": False, "message": "kubectl not found"}
-        except subprocess.TimeoutExpired:
-            return {"success": False, "message": "Installation timed out (120s)"}
+            return {"success": False, "message": "Helm binary not found in backend container"}
         except Exception as e:
             logger.error(f"Error installing Kyverno: {e}")
             return {"success": False, "message": str(e)}

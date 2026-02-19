@@ -89,12 +89,12 @@ const KyvernoPolicies = ({ isDark = false }) => {
     try {
       setInstalling(true);
       setError(null);
-      await api.installKyverno();
-      setSuccess('Kyverno installation initiated successfully. It may take a few minutes to become ready.');
-      setTimeout(() => setSuccess(null), 5000);
+      const result = await api.installKyverno();
+      setSuccess(result.message || 'Kyverno installed successfully. It may take a minute to become fully ready.');
+      setTimeout(() => setSuccess(null), 10000);
       await loadData();
     } catch (err) {
-      setError('Failed to install Kyverno');
+      setError(err.message || 'Failed to install Kyverno');
       console.error('Error installing Kyverno:', err);
     } finally {
       setInstalling(false);

@@ -137,7 +137,7 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
 
     @router.post("/admin/kyverno/install")
     async def install_kyverno():
-        """Trigger Kyverno installation"""
+        """Trigger Kyverno installation via Helm"""
         try:
             if not policy_engine:
                 raise HTTPException(status_code=503, detail="Policy engine not available")

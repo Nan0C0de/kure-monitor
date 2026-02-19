@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class PostgreSQLDatabase(
-    DatabaseInterface,
     PodFailureMixin,
     SecurityFindingMixin,
     ExclusionMixin,
     NotificationMixin,
     LLMConfigMixin,
     KyvernoMixin,
+    DatabaseInterface,
 ):
     def __init__(self):
         self.pool = None
