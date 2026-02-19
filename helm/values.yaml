@@ -217,6 +217,11 @@ postgresql:
     name: kure-postgresql
     automountServiceAccountToken: false
 
+# Kyverno policy management configuration
+kyverno:
+  enabled: true                  # Enable Kyverno policy management in admin panel
+  violationPollingInterval: 60   # Seconds between violation polling (default: 60)
+
 # Prometheus metrics configuration
 prometheus:
   enabled: false          # Enable Prometheus scraping network policy

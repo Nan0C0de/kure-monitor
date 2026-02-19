@@ -26,304 +26,140 @@ class WebSocketManager:
         WEBSOCKET_CONNECTIONS_ACTIVE.dec()
         logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
 
-    async def broadcast_pod_failure(self, failure: PodFailureResponse):
-        """Broadcast new pod failure to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "pod_failure",
-                "data": failure.dict()
-            }
+    async def _broadcast(self, message_type: str, data, description: str = None, parallel: bool = False):
+        """Generic broadcast to all connected WebSocket clients.
 
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send message to WebSocket: {e}")
-                    disconnected.append(connection)
+        Args:
+            message_type: The message type string sent to clients.
+            data: The payload (dict, list, or Pydantic model with .dict()).
+            description: Human-readable label for log messages. Defaults to message_type.
+            parallel: If True, send to all clients concurrently with timeouts.
+        """
+        if not self.active_connections:
+            return
 
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
+        desc = description or message_type
 
-    async def broadcast_pod_deleted(self, namespace: str, pod_name: str):
-        """Broadcast pod deletion to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "pod_deleted",
-                "data": {"namespace": namespace, "pod_name": pod_name}
-            }
+        if hasattr(data, 'dict'):
+            data = data.dict()
 
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send deletion message to WebSocket: {e}")
-                    disconnected.append(connection)
+        if parallel:
+            serialized = json.dumps({"type": message_type, "data": data}, default=str)
 
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-
-    async def broadcast_pod_solution_updated(self, pod_failure: PodFailureResponse):
-        """Broadcast pod solution update to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "pod_solution_updated",
-                "data": pod_failure.dict()
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send solution update to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-
-    async def broadcast_security_finding(self, finding: SecurityFindingResponse):
-        """Broadcast new security finding to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "security_finding",
-                "data": finding.dict()
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send security finding to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-
-    async def broadcast_security_finding_deleted(self, finding_data: dict):
-        """Broadcast security finding deletion to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "security_finding_deleted",
-                "data": finding_data
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send security finding deletion to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-
-    async def broadcast_namespace_exclusion_change(self, namespace: str, action: str):
-        """Broadcast namespace exclusion change to all connected clients (including scanners)"""
-        if self.active_connections:
-            message = {
-                "type": "namespace_exclusion_change",
-                "data": {"namespace": namespace, "action": action}
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send namespace exclusion change to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-
-    async def broadcast_pod_exclusion_change(self, pod_name: str, action: str):
-        """Broadcast pod exclusion change to all connected clients (including agent)"""
-        if self.active_connections:
-            message = {
-                "type": "pod_exclusion_change",
-                "data": {"pod_name": pod_name, "action": action}
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send pod exclusion change to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-
-    async def broadcast_rule_exclusion_change(self, rule_title: str, action: str, namespace: str = None):
-        """Broadcast rule exclusion change to all connected clients (including scanners)"""
-        if self.active_connections:
-            message = {
-                "type": "rule_exclusion_change",
-                "data": {"rule_title": rule_title, "namespace": namespace, "action": action}
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send rule exclusion change to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-
-    async def broadcast_trusted_registry_change(self, registry: str, action: str):
-        """Broadcast trusted registry change to all connected clients (including scanners)"""
-        logger.info(f"Broadcasting trusted registry change: {registry} -> {action} to {len(self.active_connections)} clients")
-        if self.active_connections:
-            message = json.dumps({
-                "type": "trusted_registry_change",
-                "data": {"registry": registry, "action": action}
-            }, default=str)
-
-            # Send to all clients in parallel without blocking
             async def send_to_client(connection):
                 try:
-                    await asyncio.wait_for(connection.send_text(message), timeout=10.0)
+                    await asyncio.wait_for(connection.send_text(serialized), timeout=10.0)
                     return True, connection
                 except asyncio.TimeoutError:
-                    logger.warning("Timeout sending trusted registry change to WebSocket client")
+                    logger.warning(f"Timeout sending {desc} to WebSocket client")
                     return False, connection
                 except Exception as e:
-                    logger.warning(f"Failed to send trusted registry change to WebSocket: {e}")
+                    logger.warning(f"Failed to send {desc} to WebSocket: {e}")
                     return False, connection
 
-            # Send to all clients concurrently
-            results = await asyncio.gather(*[send_to_client(conn) for conn in self.active_connections], return_exceptions=True)
+            results = await asyncio.gather(
+                *[send_to_client(conn) for conn in self.active_connections],
+                return_exceptions=True,
+            )
 
-            # Count successes and collect disconnected clients
-            sent_count = 0
             disconnected = []
             for result in results:
                 if isinstance(result, tuple):
                     success, conn = result
-                    if success:
-                        sent_count += 1
-                    else:
+                    if not success:
                         disconnected.append(conn)
-
-            logger.info(f"Sent trusted registry change to {sent_count} clients")
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
         else:
-            logger.warning("No active WebSocket connections to broadcast trusted registry change")
+            message = {"type": message_type, "data": data}
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(message, default=str))
+                except Exception as e:
+                    logger.warning(f"Failed to send {desc} to WebSocket: {e}")
+                    disconnected.append(connection)
+
+        for conn in disconnected:
+            if conn in self.active_connections:
+                self.active_connections.remove(conn)
+
+    # --- Pod broadcasts ---
+
+    async def broadcast_pod_failure(self, failure: PodFailureResponse):
+        """Broadcast new pod failure to all connected clients"""
+        await self._broadcast("pod_failure", failure)
+
+    async def broadcast_pod_deleted(self, namespace: str, pod_name: str):
+        """Broadcast pod deletion to all connected clients"""
+        await self._broadcast("pod_deleted", {"namespace": namespace, "pod_name": pod_name})
+
+    async def broadcast_pod_solution_updated(self, pod_failure: PodFailureResponse):
+        """Broadcast pod solution update to all connected clients"""
+        await self._broadcast("pod_solution_updated", pod_failure)
 
     async def broadcast_pod_record_deleted(self, pod_id: int):
         """Broadcast permanent pod record deletion to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "pod_record_deleted",
-                "data": {"id": pod_id}
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send pod record deletion to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
+        await self._broadcast("pod_record_deleted", {"id": pod_id})
 
     async def broadcast_pod_status_change(self, pod_failure: PodFailureResponse):
         """Broadcast pod status change to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "pod_status_change",
-                "data": pod_failure.dict()
-            }
+        await self._broadcast("pod_status_change", pod_failure)
 
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send pod status change to WebSocket: {e}")
-                    disconnected.append(connection)
+    # --- Security broadcasts ---
 
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
+    async def broadcast_security_finding(self, finding: SecurityFindingResponse):
+        """Broadcast new security finding to all connected clients"""
+        await self._broadcast("security_finding", finding)
 
-    async def broadcast_cluster_metrics(self, metrics: ClusterMetrics):
-        """Broadcast cluster metrics to all connected clients"""
-        if self.active_connections:
-            message = {
-                "type": "cluster_metrics",
-                "data": metrics.dict()
-            }
-
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send cluster metrics to WebSocket: {e}")
-                    disconnected.append(connection)
-
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
+    async def broadcast_security_finding_deleted(self, finding_data: dict):
+        """Broadcast security finding deletion to all connected clients"""
+        await self._broadcast("security_finding_deleted", finding_data)
 
     async def broadcast_security_rescan_status(self, status: str, reason: str = None):
         """Broadcast security rescan status to all connected clients (started/completed)"""
         logger.info(f"Broadcasting security rescan status: {status} (reason: {reason}) to {len(self.active_connections)} clients")
-        if self.active_connections:
-            message = {
-                "type": "security_rescan_status",
-                "data": {"status": status, "reason": reason}
-            }
+        await self._broadcast("security_rescan_status", {"status": status, "reason": reason})
 
-            disconnected = []
-            for connection in self.active_connections:
-                try:
-                    await connection.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.warning(f"Failed to send security rescan status to WebSocket: {e}")
-                    disconnected.append(connection)
+    # --- Admin/exclusion broadcasts ---
 
-            logger.info(f"Sent security rescan status to {len(self.active_connections) - len(disconnected)} clients")
+    async def broadcast_namespace_exclusion_change(self, namespace: str, action: str):
+        """Broadcast namespace exclusion change to all connected clients (including scanners)"""
+        await self._broadcast("namespace_exclusion_change", {"namespace": namespace, "action": action})
 
-            # Remove disconnected connections
-            for conn in disconnected:
-                if conn in self.active_connections:
-                    self.active_connections.remove(conn)
-        else:
-            logger.warning("No active WebSocket connections to broadcast security rescan status")
+    async def broadcast_pod_exclusion_change(self, pod_name: str, action: str):
+        """Broadcast pod exclusion change to all connected clients (including agent)"""
+        await self._broadcast("pod_exclusion_change", {"pod_name": pod_name, "action": action})
+
+    async def broadcast_rule_exclusion_change(self, rule_title: str, action: str, namespace: str = None):
+        """Broadcast rule exclusion change to all connected clients (including scanners)"""
+        await self._broadcast("rule_exclusion_change", {"rule_title": rule_title, "namespace": namespace, "action": action})
+
+    async def broadcast_trusted_registry_change(self, registry: str, action: str):
+        """Broadcast trusted registry change to all connected clients (including scanners)"""
+        logger.info(f"Broadcasting trusted registry change: {registry} -> {action} to {len(self.active_connections)} clients")
+        await self._broadcast(
+            "trusted_registry_change",
+            {"registry": registry, "action": action},
+            description="trusted registry change",
+            parallel=True,
+        )
+
+    # --- Metrics broadcasts ---
+
+    async def broadcast_cluster_metrics(self, metrics: ClusterMetrics):
+        """Broadcast cluster metrics to all connected clients"""
+        await self._broadcast("cluster_metrics", metrics)
+
+    # --- Kyverno broadcasts ---
+
+    async def broadcast_kyverno_policy_change(self, policy_data: dict):
+        """Broadcast Kyverno policy config change to all connected clients"""
+        await self._broadcast("kyverno_policy_change", policy_data)
+
+    async def broadcast_kyverno_violations_update(self, violations: list):
+        """Broadcast Kyverno violations update to all connected clients"""
+        await self._broadcast("kyverno_violations_update", violations)
+
+    # --- WebSocket endpoint ---
 
     async def websocket_endpoint(self, websocket: WebSocket):
         await self.connect(websocket)

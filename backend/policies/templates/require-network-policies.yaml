@@ -1,0 +1,52 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: kure-require-network-policies
+  labels:
+    app.kubernetes.io/managed-by: kure-monitor
+  annotations:
+    policies.kyverno.io/title: Require Network Policies
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Network Policies are essential for controlling traffic flow between Pods
+      and namespaces. This policy ensures that Pods can only be created in
+      namespaces that have at least one NetworkPolicy defined.
+spec:
+  validationFailureAction: {{ mode }}
+  background: true
+  rules:
+  - name: require-network-policy
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {%- if excluded_namespaces or excluded_deployments %}
+    exclude:
+      any:
+      {%- for ns in excluded_namespaces %}
+      - resources:
+          namespaces:
+          - "{{ ns }}"
+      {%- endfor %}
+      {%- for deploy in excluded_deployments %}
+      - resources:
+          names:
+          - "{{ deploy }}*"
+      {%- endfor %}
+    {%- endif %}
+    context:
+    - name: networkpolicies
+      apiCall:
+        urlPath: "{% raw %}/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies{% endraw %}"
+        jmesPath: "items | length(@)"
+    validate:
+      message: "{% raw %}Namespace {{request.namespace}} must have at least one NetworkPolicy.{% endraw %}"
+      deny:
+        conditions:
+          any:
+          - key: "{% raw %}{{ networkpolicies }}{% endraw %}"
+            operator: Equals
+            value: 0

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff, RefreshCw } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
+import KyvernoViolationsPanel from './KyvernoViolationsPanel';
 import AdminPanel from './AdminPanel';
 import MonitoringTab from './MonitoringTab';
 import SetupBanner from './SetupBanner';
@@ -13,6 +14,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('monitoring');
   const [pods, setPods] = useState([]);
   const [securityFindings, setSecurityFindings] = useState([]);
+  const [kyvernoViolations, setKyvernoViolations] = useState([]);
   const [clusterMetrics, setClusterMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -226,6 +228,9 @@ const Dashboard = () => {
     } else if (message.type === 'cluster_metrics') {
       // Update cluster metrics
       setClusterMetrics(message.data);
+    } else if (message.type === 'kyverno_violations_update') {
+      // Update Kyverno policy violations
+      setKyvernoViolations(message.data);
     }
   }, [showSecurityBanner]);
 
@@ -402,16 +407,18 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [activePods, findings, config, metrics, history, ignored] = await Promise.all([
+      const [activePods, findings, config, metrics, history, ignored, violations] = await Promise.all([
         api.getFailedPods(),
         api.getSecurityFindings(),
         api.getConfig(),
         api.getClusterMetrics().catch(() => null),
         api.getPodHistory().catch(() => []),
-        api.getIgnoredPods().catch(() => [])
+        api.getIgnoredPods().catch(() => []),
+        api.getKyvernoViolations().catch(() => [])
       ]);
       setPods(activePods);
       setSecurityFindings(findings);
+      setKyvernoViolations(violations);
       setAiEnabled(config.ai_enabled || false);
       if (metrics && metrics.node_count) {
         setClusterMetrics(metrics);
@@ -900,6 +907,7 @@ const Dashboard = () => {
                   </div>
                 </div>
               )}
+              <KyvernoViolationsPanel isDark={isDark} violations={kyvernoViolations} />
               {sortedSecurityFindings.length === 0 ? (
                 <div className="text-center py-12">
                   <Shield className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-green-400' : 'text-green-500'}`} />

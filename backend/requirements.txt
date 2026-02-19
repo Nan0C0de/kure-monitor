@@ -15,3 +15,5 @@ aiosmtplib>=3.0.0
 kubernetes>=28.1.0
 # Prometheus metrics
 prometheus_client>=0.20.0
+# Template rendering for Kyverno policies
+Jinja2>=3.1.0

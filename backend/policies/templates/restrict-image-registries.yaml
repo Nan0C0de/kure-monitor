@@ -1,0 +1,71 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: kure-restrict-image-registries
+  labels:
+    app.kubernetes.io/managed-by: kure-monitor
+  annotations:
+    policies.kyverno.io/title: Restrict Image Registries
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Images may only be pulled from approved container registries to ensure
+      supply chain security. This policy validates that all container images
+      come from an allowed set of registries.
+spec:
+  validationFailureAction: {{ mode }}
+  background: true
+  rules:
+  - name: restrict-image-registries
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {%- if excluded_namespaces or excluded_deployments %}
+    exclude:
+      any:
+      {%- for ns in excluded_namespaces %}
+      - resources:
+          namespaces:
+          - "{{ ns }}"
+      {%- endfor %}
+      {%- for deploy in excluded_deployments %}
+      - resources:
+          names:
+          - "{{ deploy }}*"
+      {%- endfor %}
+    {%- endif %}
+    validate:
+      message: >-
+        Images must be sourced from an allowed registry. Allowed registries are:
+        {{ allowed_registries | default('docker.io/*, gcr.io/*, ghcr.io/*, quay.io/*, registry.k8s.io/*') }}.
+      foreach:
+      - list: "request.object.spec.containers"
+        deny:
+          conditions:
+            all:
+            {%- for registry in allowed_registries_list | default(['docker.io/', 'gcr.io/', 'ghcr.io/', 'quay.io/', 'registry.k8s.io/']) %}
+            - key: "{% raw %}{{ element.image }}{% endraw %}"
+              operator: NotEquals
+              value: "{{ registry }}*"
+            {%- endfor %}
+      - list: "request.object.spec.initContainers[]"
+        deny:
+          conditions:
+            all:
+            {%- for registry in allowed_registries_list | default(['docker.io/', 'gcr.io/', 'ghcr.io/', 'quay.io/', 'registry.k8s.io/']) %}
+            - key: "{% raw %}{{ element.image }}{% endraw %}"
+              operator: NotEquals
+              value: "{{ registry }}*"
+            {%- endfor %}
+      - list: "request.object.spec.ephemeralContainers[]"
+        deny:
+          conditions:
+            all:
+            {%- for registry in allowed_registries_list | default(['docker.io/', 'gcr.io/', 'ghcr.io/', 'quay.io/', 'registry.k8s.io/']) %}
+            - key: "{% raw %}{{ element.image }}{% endraw %}"
+              operator: NotEquals
+              value: "{{ registry }}*"
+            {%- endfor %}

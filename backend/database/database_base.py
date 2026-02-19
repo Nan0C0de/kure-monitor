@@ -69,3 +69,35 @@ class DatabaseInterface(ABC):
     async def close(self):
         """Close database connection"""
         pass
+
+    # Kyverno policy methods
+
+    @abstractmethod
+    async def seed_kyverno_policies(self, policies: list):
+        """Upsert policy definitions from registry"""
+        pass
+
+    @abstractmethod
+    async def get_kyverno_policies(self) -> list:
+        """Get all Kyverno policies with config"""
+        pass
+
+    @abstractmethod
+    async def get_kyverno_policy(self, policy_id: str):
+        """Get a single Kyverno policy"""
+        pass
+
+    @abstractmethod
+    async def update_kyverno_policy(self, policy_id: str, config: dict):
+        """Update policy config"""
+        pass
+
+    @abstractmethod
+    async def set_kyverno_policy_synced(self, policy_id: str, synced: bool):
+        """Mark policy sync status"""
+        pass
+
+    @abstractmethod
+    async def get_enabled_kyverno_policies(self) -> list:
+        """Get enabled policies for reconciliation"""
+        pass

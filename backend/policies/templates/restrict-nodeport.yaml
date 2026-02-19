@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: kure-restrict-nodeport
+  labels:
+    app.kubernetes.io/managed-by: kure-monitor
+  annotations:
+    policies.kyverno.io/title: Restrict NodePort Services
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Service
+    policies.kyverno.io/description: >-
+      NodePort services expose ports on every node in the cluster and can pose
+      a security risk. This policy restricts the creation of Services with
+      type NodePort, encouraging the use of ClusterIP or LoadBalancer instead.
+spec:
+  validationFailureAction: {{ mode }}
+  background: true
+  rules:
+  - name: restrict-nodeport-services
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    {%- if excluded_namespaces or excluded_deployments %}
+    exclude:
+      any:
+      {%- for ns in excluded_namespaces %}
+      - resources:
+          namespaces:
+          - "{{ ns }}"
+      {%- endfor %}
+      {%- for deploy in excluded_deployments %}
+      - resources:
+          names:
+          - "{{ deploy }}*"
+      {%- endfor %}
+    {%- endif %}
+    validate:
+      message: "Services of type NodePort are not allowed. Use ClusterIP or LoadBalancer instead."
+      pattern:
+        spec:
+          type: "!NodePort"

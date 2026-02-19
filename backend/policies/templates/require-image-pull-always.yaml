@@ -1,0 +1,49 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: kure-require-image-pull-always
+  labels:
+    app.kubernetes.io/managed-by: kure-monitor
+  annotations:
+    policies.kyverno.io/title: Require Image Pull Always
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      The imagePullPolicy should be set to Always to ensure the latest version
+      of the image is always pulled from the registry. This helps avoid running
+      stale cached images and ensures image integrity.
+spec:
+  validationFailureAction: {{ mode }}
+  background: true
+  rules:
+  - name: require-image-pull-always
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {%- if excluded_namespaces or excluded_deployments %}
+    exclude:
+      any:
+      {%- for ns in excluded_namespaces %}
+      - resources:
+          namespaces:
+          - "{{ ns }}"
+      {%- endfor %}
+      {%- for deploy in excluded_deployments %}
+      - resources:
+          names:
+          - "{{ deploy }}*"
+      {%- endfor %}
+    {%- endif %}
+    validate:
+      message: "The imagePullPolicy must be set to Always. Set spec.containers[*].imagePullPolicy to Always."
+      pattern:
+        spec:
+          containers:
+          - imagePullPolicy: "Always"
+          =(initContainers):
+          - imagePullPolicy: "Always"
+          =(ephemeralContainers):
+          - imagePullPolicy: "Always"

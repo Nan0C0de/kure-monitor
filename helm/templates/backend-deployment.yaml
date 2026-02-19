@@ -67,6 +67,10 @@ spec:
         # Database configuration - PostgreSQL only
         - name: DATABASE_URL
           value: "postgresql://{{ .Values.postgresql.username }}:{{ .Values.postgresql.password }}@{{ if .Values.postgresql.external }}{{ .Values.postgresql.host }}{{ else }}{{ include "kure.fullname" . }}-postgresql{{ end }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.database }}"
+        {{- if .Values.kyverno.enabled }}
+        - name: KYVERNO_VIOLATION_POLL_INTERVAL
+          value: {{ .Values.kyverno.violationPollingInterval | quote }}
+        {{- end }}
         volumeMounts:
         - name: tmp
           mountPath: /tmp

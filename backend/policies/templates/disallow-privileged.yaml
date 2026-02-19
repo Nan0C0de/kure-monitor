@@ -1,0 +1,52 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: kure-disallow-privileged
+  labels:
+    app.kubernetes.io/managed-by: kure-monitor
+  annotations:
+    policies.kyverno.io/title: Disallow Privileged Containers
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Privileged mode disables most security mechanisms and must not be allowed.
+      This policy ensures that the privileged field is not set to true on any
+      container, init container, or ephemeral container.
+spec:
+  validationFailureAction: {{ mode }}
+  background: true
+  rules:
+  - name: disallow-privileged-containers
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {%- if excluded_namespaces or excluded_deployments %}
+    exclude:
+      any:
+      {%- for ns in excluded_namespaces %}
+      - resources:
+          namespaces:
+          - "{{ ns }}"
+      {%- endfor %}
+      {%- for deploy in excluded_deployments %}
+      - resources:
+          names:
+          - "{{ deploy }}*"
+      {%- endfor %}
+    {%- endif %}
+    validate:
+      message: "Privileged mode is disallowed. The field spec.containers[*].securityContext.privileged must not be set to true."
+      pattern:
+        spec:
+          =(containers):
+          - =(securityContext):
+              =(privileged): "false"
+          =(initContainers):
+          - =(securityContext):
+              =(privileged): "false"
+          =(ephemeralContainers):
+          - =(securityContext):
+              =(privileged): "false"

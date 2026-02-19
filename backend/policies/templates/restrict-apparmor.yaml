@@ -1,0 +1,51 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: kure-restrict-apparmor
+  labels:
+    app.kubernetes.io/managed-by: kure-monitor
+  annotations:
+    policies.kyverno.io/title: Restrict AppArmor Profiles
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Containers should use AppArmor profiles to restrict their capabilities.
+      This policy ensures that each container has an AppArmor annotation set to
+      runtime/default or a localhost profile.
+spec:
+  validationFailureAction: {{ mode }}
+  background: true
+  rules:
+  - name: restrict-apparmor-profiles
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {%- if excluded_namespaces or excluded_deployments %}
+    exclude:
+      any:
+      {%- for ns in excluded_namespaces %}
+      - resources:
+          namespaces:
+          - "{{ ns }}"
+      {%- endfor %}
+      {%- for deploy in excluded_deployments %}
+      - resources:
+          names:
+          - "{{ deploy }}*"
+      {%- endfor %}
+    {%- endif %}
+    validate:
+      message: "Containers must use AppArmor profiles set to runtime/default or localhost/*. Set the annotation container.apparmor.security.beta.kubernetes.io/<container>=runtime/default."
+      foreach:
+      - list: "request.object.spec.containers"
+        deny:
+          conditions:
+            all:
+            - key: "{% raw %}{{ request.object.metadata.annotations.\"container.apparmor.security.beta.kubernetes.io/{{element.name}}\" || 'unconfined' }}{% endraw %}"
+              operator: AnyNotIn
+              value:
+              - runtime/default
+              - localhost/*

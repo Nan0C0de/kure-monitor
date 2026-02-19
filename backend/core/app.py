@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from contextlib import asynccontextmanager
 import asyncio
 import logging
+import os
 
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
@@ -10,10 +11,26 @@ from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
 from services.notification_service import NotificationService
+from services.policy_engine import PolicyEngine
 from api.routes import create_api_router
 from api.middleware import configure_cors, configure_exception_handlers
 
 logger = logging.getLogger(__name__)
+
+
+async def kyverno_violations_poll_task(policy_engine, websocket_manager):
+    """Background task that periodically polls Kyverno violations and broadcasts updates"""
+    interval = int(os.environ.get("KYVERNO_VIOLATION_POLL_INTERVAL", "60"))
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            violations = await policy_engine.get_violations()
+            if violations:
+                await websocket_manager.broadcast_kyverno_violations_update(violations)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.debug(f"Error polling Kyverno violations: {e}")
 
 
 async def history_cleanup_task(db: Database):
@@ -51,6 +68,7 @@ def create_app() -> FastAPI:
     solution_engine = SolutionEngine(db=db)  # Pass db for LLM config loading
     websocket_manager = WebSocketManager()
     notification_service = NotificationService(db)
+    policy_engine = PolicyEngine(db=db)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -61,16 +79,34 @@ def create_app() -> FastAPI:
         await solution_engine.initialize()
         logger.info("Solution engine initialized")
 
+        # Initialize Kyverno policy engine (seeds policies, reconciles with cluster)
+        try:
+            await policy_engine.initialize()
+            logger.info("Policy engine initialized")
+        except Exception as e:
+            logger.warning(f"Policy engine initialization failed (non-fatal): {e}")
+
         # Start background cleanup task
         cleanup_task = asyncio.create_task(history_cleanup_task(db))
         logger.info("History cleanup background task started")
+
+        # Start Kyverno violations polling task
+        violations_task = asyncio.create_task(
+            kyverno_violations_poll_task(policy_engine, websocket_manager)
+        )
+        logger.info("Kyverno violations polling task started")
 
         yield
 
         # Shutdown
         cleanup_task.cancel()
+        violations_task.cancel()
         try:
             await cleanup_task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await violations_task
         except asyncio.CancelledError:
             pass
         await db.close()
@@ -98,7 +134,7 @@ def create_app() -> FastAPI:
         )
 
     # Include routers
-    api_router = create_api_router(db, solution_engine, websocket_manager, notification_service)
+    api_router = create_api_router(db, solution_engine, websocket_manager, notification_service, policy_engine)
     app.include_router(api_router)
     app.include_router(websocket_manager.router)
 
