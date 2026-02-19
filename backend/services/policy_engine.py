@@ -146,12 +146,42 @@ class PolicyEngine:
             )
             await proc.communicate()
 
-            # Install Kyverno
+            # Check if a previous failed release exists
+            proc = await asyncio.create_subprocess_exec(
+                "helm", "status", "kyverno", "--namespace", "kyverno",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+            status_out = stdout.decode()
+
+            if proc.returncode == 0 and "deployed" in status_out.lower():
+                return {"success": True, "message": "Kyverno is already installed."}
+
+            if proc.returncode == 0 and "failed" in status_out.lower():
+                logger.info("Found failed Kyverno release, upgrading")
+                proc = await asyncio.create_subprocess_exec(
+                    "helm", "upgrade", "kyverno", "kyverno/kyverno",
+                    "--namespace", "kyverno",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await proc.communicate()
+                if proc.returncode != 0:
+                    err = stderr.decode().strip()
+                    logger.error(f"Helm upgrade failed: {err}")
+                    return {"success": False, "message": f"Helm upgrade failed: {err}"}
+                logger.info("Kyverno upgraded successfully via Helm")
+                return {
+                    "success": True,
+                    "message": "Kyverno installed successfully. It may take a few minutes to become fully ready.",
+                }
+
+            # Fresh install
             logger.info("Installing Kyverno via Helm")
             proc = await asyncio.create_subprocess_exec(
                 "helm", "install", "kyverno", "kyverno/kyverno",
                 "--namespace", "kyverno", "--create-namespace",
-                "--wait", "--timeout", "5m",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -160,9 +190,6 @@ class PolicyEngine:
             if proc.returncode != 0:
                 err = stderr.decode().strip()
                 logger.error(f"Helm install failed: {err}")
-                # Already installed
-                if "already exists" in err:
-                    return {"success": True, "message": "Kyverno is already installed."}
                 return {"success": False, "message": f"Helm install failed: {err}"}
 
             logger.info("Kyverno installed successfully via Helm")

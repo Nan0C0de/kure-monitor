@@ -29,7 +29,10 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=kure:kure . .
 
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH" \
+    HELM_CONFIG_HOME="/tmp/helm/config" \
+    HELM_CACHE_HOME="/tmp/helm/cache" \
+    HELM_DATA_HOME="/tmp/helm/data"
 
 USER kure
 EXPOSE 8000
