@@ -15,7 +15,7 @@ DANGEROUS_CAPABILITIES = [
 ALLOWED_CAPABILITIES = ['NET_BIND_SERVICE']
 
 # System namespaces to skip
-SYSTEM_NAMESPACES = ['kube-system', 'kube-public', 'kube-node-lease', 'kube-flannel', 'kure-system', 'kyverno']
+SYSTEM_NAMESPACES = ['kube-system', 'kube-public', 'kube-node-lease', 'kube-flannel', 'kure-system']
 
 # Trusted container registries (can be customized via config)
 TRUSTED_REGISTRIES = [

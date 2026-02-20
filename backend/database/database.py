@@ -168,8 +168,8 @@ class Database:
         return await self._db.delete_notification_setting(provider)
 
     # LLM Configuration methods
-    async def save_llm_config(self, provider, api_key, model=None):
-        return await self._db.save_llm_config(provider, api_key, model)
+    async def save_llm_config(self, provider, api_key, model=None, base_url=None):
+        return await self._db.save_llm_config(provider, api_key, model, base_url)
 
     async def get_llm_config(self):
         return await self._db.get_llm_config()
@@ -194,22 +194,5 @@ class Database:
     async def cleanup_old_ignored_pods(self, retention_minutes):
         return await self._db.cleanup_old_ignored_pods(retention_minutes)
 
-    # Kyverno policy methods
-    async def seed_kyverno_policies(self, policies):
-        return await self._db.seed_kyverno_policies(policies)
 
-    async def get_kyverno_policies(self):
-        return await self._db.get_kyverno_policies()
-
-    async def get_kyverno_policy(self, policy_id):
-        return await self._db.get_kyverno_policy(policy_id)
-
-    async def update_kyverno_policy(self, policy_id, config):
-        return await self._db.update_kyverno_policy(policy_id, config)
-
-    async def set_kyverno_policy_synced(self, policy_id, synced):
-        return await self._db.set_kyverno_policy_synced(policy_id, synced)
-
-    async def get_enabled_kyverno_policies(self):
-        return await self._db.get_enabled_kyverno_policies()
 

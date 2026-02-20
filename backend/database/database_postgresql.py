@@ -9,7 +9,6 @@ from .mixins import (
     ExclusionMixin,
     NotificationMixin,
     LLMConfigMixin,
-    KyvernoMixin,
 )
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
@@ -22,7 +21,6 @@ class PostgreSQLDatabase(
     ExclusionMixin,
     NotificationMixin,
     LLMConfigMixin,
-    KyvernoMixin,
     DatabaseInterface,
 ):
     def __init__(self):
@@ -262,12 +260,24 @@ class PostgreSQLDatabase(
                     CREATE TABLE IF NOT EXISTS llm_config (
                         id SERIAL PRIMARY KEY,
                         provider VARCHAR(50) NOT NULL,
-                        api_key_encrypted VARCHAR(500) NOT NULL,
+                        api_key_encrypted VARCHAR(1000) NOT NULL,
                         model VARCHAR(100),
+                        base_url VARCHAR(500),
                         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+
+                # Migration: add base_url column if it doesn't exist
+                base_url_col_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'llm_config' AND column_name = 'base_url'
+                    )
+                """)
+                if not base_url_col_exists:
+                    await conn.execute("ALTER TABLE llm_config ADD COLUMN base_url VARCHAR(500)")
+                    logger.info("Migrated llm_config table: added base_url column")
 
                 # Create app_settings table
                 await conn.execute("""
@@ -276,33 +286,6 @@ class PostgreSQLDatabase(
                         value TEXT NOT NULL,
                         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
-                """)
-
-                # Create kyverno_policies table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS kyverno_policies (
-                        id SERIAL PRIMARY KEY,
-                        policy_id VARCHAR(100) NOT NULL UNIQUE,
-                        display_name VARCHAR(255) NOT NULL,
-                        category VARCHAR(100) NOT NULL,
-                        description TEXT NOT NULL,
-                        severity VARCHAR(20) NOT NULL DEFAULT 'medium',
-                        enabled BOOLEAN DEFAULT FALSE,
-                        mode VARCHAR(10) NOT NULL DEFAULT 'audit',
-                        excluded_namespaces JSONB DEFAULT '[]',
-                        excluded_deployments JSONB DEFAULT '[]',
-                        synced BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_kyverno_policies_policy_id
-                    ON kyverno_policies(policy_id)
-                """)
-                await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_kyverno_policies_enabled
-                    ON kyverno_policies(enabled)
                 """)
 
             logger.info("PostgreSQL database initialized successfully")

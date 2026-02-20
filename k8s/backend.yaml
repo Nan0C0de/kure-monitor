@@ -61,6 +61,11 @@ spec:
             secretKeyRef:
               name: postgresql-secret
               key: POSTGRES_PASSWORD
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kure-encryption-secret
+              key: encryption-key
         resources:
           requests:
             memory: "256Mi"

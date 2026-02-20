@@ -3,8 +3,6 @@ import logging
 
 from models.models import (
     LLMConfigCreate, LLMConfigResponse, LLMConfigStatus,
-    KyvernoPolicyConfigCreate, KyvernoPolicyResponse,
-    KyvernoStatusResponse, KyvernoViolation,
 )
 from .deps import RouterDeps
 
@@ -12,12 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 def create_llm_router(deps: RouterDeps) -> APIRouter:
-    """LLM status/config/test + Kyverno status/policies/violations/reconcile/install."""
+    """LLM status/config/test routes."""
     router = APIRouter()
     db = deps.db
     solution_engine = deps.solution_engine
     websocket_manager = deps.websocket_manager
-    policy_engine = deps.policy_engine
 
     # --- LLM Configuration ---
 
@@ -43,7 +40,7 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
     async def save_llm_config(config: LLMConfigCreate):
         """Save LLM configuration"""
         try:
-            valid_providers = ["openai", "anthropic", "claude", "groq", "groq_cloud", "gemini", "google"]
+            valid_providers = ["openai", "anthropic", "claude", "groq", "groq_cloud", "gemini", "google", "ollama"]
             if config.provider.lower() not in valid_providers:
                 raise HTTPException(
                     status_code=400,
@@ -53,13 +50,15 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
             result = await db.save_llm_config(
                 provider=config.provider.lower(),
                 api_key=config.api_key,
-                model=config.model
+                model=config.model,
+                base_url=config.base_url
             )
 
             await solution_engine.reinitialize_llm(
                 provider=config.provider.lower(),
                 api_key=config.api_key,
-                model=config.model
+                model=config.model,
+                base_url=config.base_url
             )
 
             logger.info(f"LLM configuration saved: provider={config.provider}")
@@ -103,7 +102,8 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
             provider = LLMFactory.create_provider(
                 provider_name=config.provider.lower(),
                 api_key=config.api_key,
-                model=config.model
+                model=config.model,
+                base_url=config.base_url
             )
 
             test_response = await provider.generate_solution(
@@ -120,115 +120,5 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
         except Exception as e:
             logger.error(f"Error testing LLM config: {e}")
             return {"success": False, "message": str(e)}
-
-    # --- Kyverno ---
-
-    @router.get("/admin/kyverno/status")
-    async def get_kyverno_status():
-        """Get Kyverno installation status and policy/violation counts"""
-        try:
-            if not policy_engine:
-                return KyvernoStatusResponse().dict()
-            status = await policy_engine.check_kyverno_status()
-            return status
-        except Exception as e:
-            logger.error(f"Error getting Kyverno status: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.post("/admin/kyverno/install")
-    async def install_kyverno():
-        """Trigger Kyverno installation via Helm"""
-        try:
-            if not policy_engine:
-                raise HTTPException(status_code=503, detail="Policy engine not available")
-            result = await policy_engine.install_kyverno()
-            if not result["success"]:
-                raise HTTPException(status_code=500, detail=result["message"])
-            return result
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error installing Kyverno: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.get("/admin/kyverno/policies", response_model=list[KyvernoPolicyResponse])
-    async def get_kyverno_policies():
-        """Get all 20 Kyverno policies with their configuration"""
-        try:
-            return await db.get_kyverno_policies()
-        except Exception as e:
-            logger.error(f"Error getting Kyverno policies: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.get("/admin/kyverno/policies/{policy_id}", response_model=KyvernoPolicyResponse)
-    async def get_kyverno_policy(policy_id: str):
-        """Get a single Kyverno policy"""
-        try:
-            policy = await db.get_kyverno_policy(policy_id)
-            if not policy:
-                raise HTTPException(status_code=404, detail=f"Policy '{policy_id}' not found")
-            return policy
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error getting Kyverno policy: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.put("/admin/kyverno/policies/{policy_id}", response_model=KyvernoPolicyResponse)
-    async def update_kyverno_policy(policy_id: str, config: KyvernoPolicyConfigCreate):
-        """Update Kyverno policy configuration and apply/remove in cluster"""
-        try:
-            if config.mode not in ("audit", "enforce"):
-                raise HTTPException(status_code=400, detail="Mode must be 'audit' or 'enforce'")
-
-            updated = await db.update_kyverno_policy(policy_id, config.dict())
-            if not updated:
-                raise HTTPException(status_code=404, detail=f"Policy '{policy_id}' not found")
-
-            if policy_engine:
-                if config.enabled:
-                    success = await policy_engine.apply_policy(policy_id)
-                    if not success:
-                        logger.warning(f"Failed to apply policy {policy_id} to cluster")
-                else:
-                    success = await policy_engine.remove_policy(policy_id)
-                    if not success:
-                        logger.warning(f"Failed to remove policy {policy_id} from cluster")
-
-            await websocket_manager.broadcast_kyverno_policy_change(updated.dict() if hasattr(updated, 'dict') else updated)
-
-            return updated
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error updating Kyverno policy: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.get("/kyverno/violations", response_model=list[KyvernoViolation])
-    async def get_kyverno_violations():
-        """Get Kyverno policy violations from PolicyReport CRDs"""
-        try:
-            if not policy_engine:
-                return []
-            violations = await policy_engine.get_violations()
-            return violations
-        except Exception as e:
-            logger.error(f"Error getting Kyverno violations: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.post("/admin/kyverno/reconcile")
-    async def reconcile_kyverno_policies():
-        """Force reconciliation of Kyverno policies with cluster"""
-        try:
-            if not policy_engine:
-                raise HTTPException(status_code=503, detail="Policy engine not available")
-            await policy_engine.reconcile()
-            return {"message": "Reconciliation complete"}
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error during Kyverno reconciliation: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
 
     return router

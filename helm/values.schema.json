@@ -261,7 +261,7 @@
             "type": {
               "type": "string",
               "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
-              "default": "NodePort"
+              "default": "ClusterIP"
             },
             "port": {
               "type": "integer",
@@ -270,12 +270,6 @@
             "targetPort": {
               "type": "integer",
               "default": 8080
-            },
-            "nodePort": {
-              "type": "integer",
-              "minimum": 30000,
-              "maximum": 32767,
-              "default": 30080
             }
           }
         },

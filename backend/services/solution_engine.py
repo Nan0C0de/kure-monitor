@@ -83,20 +83,22 @@ class SolutionEngine:
                     self.llm_provider = LLMFactory.create_provider(
                         provider_name=db_config['provider'],
                         api_key=db_config['api_key'],
-                        model=db_config['model']
+                        model=db_config['model'],
+                        base_url=db_config.get('base_url')
                     )
                 else:
                     logger.info("No LLM configuration found. Configure via Admin panel to enable AI solutions.")
             except Exception as e:
                 logger.warning(f"Failed to load LLM config from database: {e}")
 
-    async def reinitialize_llm(self, provider: str, api_key: str, model: str = None):
+    async def reinitialize_llm(self, provider: str, api_key: str, model: str = None, base_url: str = None):
         """Reinitialize the LLM provider with new configuration"""
         try:
             self.llm_provider = LLMFactory.create_provider(
                 provider_name=provider,
                 api_key=api_key,
-                model=model
+                model=model,
+                base_url=base_url
             )
             logger.info(f"LLM provider reinitialized: {provider}")
         except Exception as e:

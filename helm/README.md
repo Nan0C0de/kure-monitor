@@ -56,9 +56,8 @@ Supported providers:
 |-----------|-------------|---------|
 | `backend.service.type` | Backend service type | `ClusterIP` |
 | `backend.service.port` | Backend service port | `8000` |
-| `frontend.service.type` | Frontend service type | `NodePort` |
+| `frontend.service.type` | Frontend service type | `ClusterIP` |
 | `frontend.service.port` | Frontend service port | `8080` |
-| `frontend.service.nodePort` | Frontend NodePort | `30080` |
 
 ### Database Configuration
 

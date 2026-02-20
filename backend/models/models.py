@@ -185,6 +185,7 @@ class LLMConfigCreate(BaseModel):
     provider: str
     api_key: str
     model: Optional[str] = None
+    base_url: Optional[str] = None
 
 
 class LLMConfigResponse(BaseModel):
@@ -201,48 +202,3 @@ class LLMConfigStatus(BaseModel):
     provider: Optional[str] = None
     model: Optional[str] = None
     source: Optional[str] = None  # "database"
-
-
-# Kyverno Policy models
-class KyvernoPolicyConfigCreate(BaseModel):
-    enabled: bool = False
-    mode: str = "audit"  # "audit" or "enforce"
-    excluded_namespaces: List[str] = []
-    excluded_deployments: List[str] = []
-
-
-class KyvernoPolicyResponse(BaseModel):
-    id: Optional[int] = None
-    policy_id: str
-    display_name: str
-    category: str  # "Pod Security", "Best Practices", "Image Security", "Networking"
-    description: str
-    severity: str = "medium"
-    enabled: bool = False
-    mode: str = "audit"
-    excluded_namespaces: List[str] = []
-    excluded_deployments: List[str] = []
-    synced: bool = False
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-
-class KyvernoStatusResponse(BaseModel):
-    kyverno_installed: bool = False
-    kyverno_version: Optional[str] = None
-    kyverno_ready: bool = False
-    managed_policies: int = 0
-    active_policies: int = 0
-    total_violations: int = 0
-
-
-class KyvernoViolation(BaseModel):
-    policy_name: str
-    rule_name: str
-    resource_kind: str
-    resource_name: str
-    resource_namespace: str
-    message: str
-    severity: str  # "high", "medium", "low"
-    category: str
-    timestamp: str

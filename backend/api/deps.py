@@ -11,4 +11,3 @@ class RouterDeps:
     solution_engine: SolutionEngine
     websocket_manager: WebSocketManager
     notification_service: object = None
-    policy_engine: object = None

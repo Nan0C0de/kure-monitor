@@ -5,7 +5,8 @@ from llm_providers import (
     OpenAIProvider,
     AnthropicProvider,
     GroqProvider,
-    GeminiProvider
+    GeminiProvider,
+    OllamaProvider
 )
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class LLMFactory:
         "groq_cloud": GroqProvider,  # Alias for groq
         "gemini": GeminiProvider,
         "google": GeminiProvider,  # Alias for gemini
+        "ollama": OllamaProvider,
     }
 
     @classmethod
@@ -29,7 +31,8 @@ class LLMFactory:
         self,
         provider_name: str,
         api_key: str,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        base_url: Optional[str] = None
     ) -> LLMProvider:
         """Create an LLM provider instance"""
         provider_name = provider_name.lower()
@@ -41,7 +44,10 @@ class LLMFactory:
             )
 
         provider_class = self.SUPPORTED_PROVIDERS[provider_name]
-        return provider_class(api_key=api_key, model=model)
+        kwargs = {"api_key": api_key, "model": model}
+        if base_url:
+            kwargs["base_url"] = base_url
+        return provider_class(**kwargs)
 
     @classmethod
     def get_supported_providers(self) -> list:

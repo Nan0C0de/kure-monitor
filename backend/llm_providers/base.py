@@ -16,9 +16,11 @@ class LLMResponse:
 class LLMProvider(ABC):
     """Abstract base class for LLM providers"""
     
-    def __init__(self, api_key: str, model: str = None):
+    def __init__(self, api_key: str, model: str = None, base_url: str = None):
         self.api_key = api_key
         self.model = model or self.default_model
+        if base_url is not None:
+            self.base_url = base_url
     
     @property
     @abstractmethod

@@ -57,7 +57,7 @@ const SetupBanner = ({ isDark = false, onNavigateToAdmin }) => {
               Enable AI-Powered Solutions
             </h3>
             <p className={`text-sm ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
-              Configure an LLM provider (OpenAI, Anthropic, or Groq) to get intelligent troubleshooting suggestions for pod failures.
+              Configure an LLM provider (Ollama for local/air-gapped, or OpenAI, Anthropic, Groq, Gemini) to get intelligent troubleshooting suggestions for pod failures.
             </p>
           </div>
         </div>

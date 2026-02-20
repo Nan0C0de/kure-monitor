@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { AlertCircle, CheckCircle, ShieldCheck, Bot, Bell, EyeOff, Settings } from 'lucide-react';
+import { AlertCircle, CheckCircle, Bot, Bell, EyeOff, Settings } from 'lucide-react';
 import NotificationSettings from './NotificationSettings';
 import LLMSettings from './LLMSettings';
-import KyvernoPolicies from './KyvernoPolicies';
 import ExclusionNamespaces from './admin/ExclusionNamespaces';
 import ExclusionPods from './admin/ExclusionPods';
 import ExclusionRules from './admin/ExclusionRules';
@@ -20,7 +19,6 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
   const tabs = [
     { id: 'ai', label: 'AI Config', icon: Bot },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'policies', label: 'Policies', icon: ShieldCheck },
     { id: 'exclusions', label: 'Exclusions', icon: EyeOff },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -86,8 +84,6 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
       {activeTab === 'ai' && <LLMSettings isDark={isDark} onConfigChange={onConfigChange} />}
 
       {activeTab === 'notifications' && <NotificationSettings isDark={isDark} />}
-
-      {activeTab === 'policies' && <KyvernoPolicies isDark={isDark} />}
 
       {activeTab === 'settings' && (
         <RetentionSettings isDark={isDark} onError={handleError} onSuccess={handleSuccess} />

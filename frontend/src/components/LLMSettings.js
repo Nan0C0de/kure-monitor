@@ -12,14 +12,35 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [success, setSuccess] = useState(null);
 
   // Form state
-  const [provider, setProvider] = useState('openai');
+  const [provider, setProvider] = useState('ollama');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
 
   const providers = [
     {
+      value: 'ollama',
+      label: 'Ollama (Local)',
+      trust: 'local',
+      trustLabel: 'Local - no data leaves cluster',
+      needsApiKey: false,
+      needsBaseUrl: true,
+      defaultBaseUrl: 'http://ollama:11434',
+      defaultModel: 'llama3.2',
+      models: [
+        { value: 'llama3.2', label: 'Llama 3.2 (Recommended)' },
+        { value: 'llama3.1', label: 'Llama 3.1' },
+        { value: 'mistral', label: 'Mistral' },
+        { value: 'gemma2', label: 'Gemma 2' }
+      ]
+    },
+    {
       value: 'openai',
       label: 'OpenAI',
+      trust: 'external',
+      trustLabel: 'External - data sent to OpenAI',
+      needsApiKey: true,
+      needsBaseUrl: false,
       defaultModel: 'gpt-4.1-mini',
       models: [
         { value: 'gpt-4.1', label: 'GPT-4.1 (Latest)' },
@@ -30,6 +51,10 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     {
       value: 'anthropic',
       label: 'Anthropic (Claude)',
+      trust: 'external',
+      trustLabel: 'External - data sent to Anthropic',
+      needsApiKey: true,
+      needsBaseUrl: false,
       defaultModel: 'claude-sonnet-4-20250514',
       models: [
         { value: 'claude-opus-4-5-20251124', label: 'Claude Opus 4.5 (Latest)' },
@@ -40,6 +65,10 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     {
       value: 'groq',
       label: 'Groq',
+      trust: 'external',
+      trustLabel: 'External - data sent to Groq',
+      needsApiKey: true,
+      needsBaseUrl: false,
       defaultModel: 'meta-llama/llama-4-scout-17b-16e-instruct',
       models: [
         { value: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick (Best)' },
@@ -50,6 +79,10 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     {
       value: 'gemini',
       label: 'Google Gemini',
+      trust: 'external',
+      trustLabel: 'External - data sent to Google',
+      needsApiKey: true,
+      needsBaseUrl: false,
       defaultModel: 'gemini-2.0-flash',
       models: [
         { value: 'gemini-2.5-pro-preview-05-06', label: 'Gemini 2.5 Pro (Latest)' },
@@ -59,11 +92,14 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     }
   ];
 
+  const currentProvider = providers.find(p => p.value === provider);
+
   useEffect(() => {
     loadStatus();
-    // Set default model for initial provider (openai)
+    // Set default model for initial provider (ollama)
     if (!model) {
-      setModel('gpt-4.1-mini');
+      setModel('llama3.2');
+      setBaseUrl('http://ollama:11434');
     }
   }, []);
 
@@ -73,7 +109,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       const data = await api.getLLMStatus();
       setStatus(data);
       if (data.configured) {
-        setProvider(data.provider || 'openai');
+        setProvider(data.provider || 'ollama');
         setModel(data.model || '');
       }
     } catch (err) {
@@ -87,18 +123,31 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const handleProviderChange = (e) => {
     const newProvider = e.target.value;
     setProvider(newProvider);
-    // Set default model for new provider
     const providerConfig = providers.find(p => p.value === newProvider);
     if (providerConfig) {
       setModel(providerConfig.defaultModel);
+      setBaseUrl(providerConfig.defaultBaseUrl || '');
+      setApiKey('');
     }
   };
 
   // Get current provider's models
-  const currentProviderModels = providers.find(p => p.value === provider)?.models || [];
+  const currentProviderModels = currentProvider?.models || [];
+
+  const buildPayload = () => {
+    const payload = {
+      provider,
+      api_key: currentProvider?.needsApiKey ? apiKey : 'unused',
+      model: model || null,
+    };
+    if (currentProvider?.needsBaseUrl && baseUrl) {
+      payload.base_url = baseUrl;
+    }
+    return payload;
+  };
 
   const handleTest = async () => {
-    if (!apiKey) {
+    if (currentProvider?.needsApiKey && !apiKey) {
       setError('Please enter an API key');
       return;
     }
@@ -106,7 +155,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     try {
       setTesting(true);
       setError(null);
-      const result = await api.testLLMConfig({ provider, api_key: apiKey, model: model || null });
+      const result = await api.testLLMConfig(buildPayload());
       if (result.success) {
         setSuccess('Connection successful! LLM is working.');
         setTimeout(() => setSuccess(null), 3000);
@@ -121,7 +170,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   };
 
   const handleSave = async () => {
-    if (!apiKey) {
+    if (currentProvider?.needsApiKey && !apiKey) {
       setError('Please enter an API key');
       return;
     }
@@ -129,7 +178,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     try {
       setSaving(true);
       setError(null);
-      await api.saveLLMConfig({ provider, api_key: apiKey, model: model || null });
+      await api.saveLLMConfig(buildPayload());
       setSuccess('LLM configuration saved successfully!');
       setApiKey(''); // Clear API key from form after save
       await loadStatus();
@@ -168,6 +217,8 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setSaving(false);
     }
   };
+
+  const canSubmit = currentProvider?.needsApiKey ? !!apiKey : true;
 
   if (loading) {
     return (
@@ -272,28 +323,63 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
             </select>
           </div>
 
-          {/* API Key Input */}
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              API Key
-            </label>
-            <div className="relative">
-              <input
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={status?.configured ? 'Enter new API key to update' : 'Enter your API key'}
-                className={`w-full px-3 py-2 pr-10 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
-                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 ${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+          {/* Trust Level Badge */}
+          {currentProvider && (
+            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+              currentProvider.trust === 'local'
+                ? (isDark ? 'bg-green-900/40 text-green-300 border border-green-700' : 'bg-green-50 text-green-700 border border-green-200')
+                : (isDark ? 'bg-yellow-900/40 text-yellow-300 border border-yellow-700' : 'bg-yellow-50 text-yellow-700 border border-yellow-200')
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                currentProvider.trust === 'local' ? 'bg-green-500' : 'bg-yellow-500'
+              }`}></span>
+              {currentProvider.trustLabel}
             </div>
-          </div>
+          )}
+
+          {/* API Key Input - only shown when provider needs it */}
+          {currentProvider?.needsApiKey && (
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                API Key
+              </label>
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={status?.configured ? 'Enter new API key to update' : 'Enter your API key'}
+                  className={`w-full px-3 py-2 pr-10 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 ${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Base URL Input - only shown when provider needs it */}
+          {currentProvider?.needsBaseUrl && (
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Base URL
+              </label>
+              <input
+                type="text"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder={currentProvider.defaultBaseUrl}
+                className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+              />
+              <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                The URL where your Ollama instance is running
+              </p>
+            </div>
+          )}
 
           {/* Model Select */}
           <div>
@@ -315,7 +401,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
           <div className="flex gap-2 pt-2">
             <button
               onClick={handleTest}
-              disabled={testing || !apiKey}
+              disabled={testing || !canSubmit}
               className={`inline-flex items-center px-4 py-2 text-sm font-medium border rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
             >
               {testing ? (
@@ -327,7 +413,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || !apiKey}
+              disabled={saving || !canSubmit}
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
             >
               {saving ? (

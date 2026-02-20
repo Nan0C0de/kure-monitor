@@ -149,16 +149,6 @@ class WebSocketManager:
         """Broadcast cluster metrics to all connected clients"""
         await self._broadcast("cluster_metrics", metrics)
 
-    # --- Kyverno broadcasts ---
-
-    async def broadcast_kyverno_policy_change(self, policy_data: dict):
-        """Broadcast Kyverno policy config change to all connected clients"""
-        await self._broadcast("kyverno_policy_change", policy_data)
-
-    async def broadcast_kyverno_violations_update(self, violations: list):
-        """Broadcast Kyverno violations update to all connected clients"""
-        await self._broadcast("kyverno_violations_update", violations)
-
     # --- WebSocket endpoint ---
 
     async def websocket_endpoint(self, websocket: WebSocket):

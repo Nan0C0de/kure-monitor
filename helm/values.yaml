@@ -119,10 +119,9 @@ frontend:
     pullPolicy: IfNotPresent
 
   service:
-    type: NodePort
+    type: ClusterIP
     port: 8080
     targetPort: 8080
-    nodePort: 30080
 
   resources:
     requests:
@@ -217,10 +216,9 @@ postgresql:
     name: kure-postgresql
     automountServiceAccountToken: false
 
-# Kyverno policy management configuration
-kyverno:
-  enabled: true                  # Enable Kyverno policy management in admin panel
-  violationPollingInterval: 60   # Seconds between violation polling (default: 60)
+# Security settings
+security:
+  encryptionKey: ""  # Fernet key for API key encryption (auto-generated if empty)
 
 # Prometheus metrics configuration
 prometheus:

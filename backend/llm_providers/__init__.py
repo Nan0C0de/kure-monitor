@@ -3,6 +3,7 @@ from .openai_provider import OpenAIProvider
 from .anthropic_provider import AnthropicProvider
 from .groq_provider import GroqProvider
 from .gemini_provider import GeminiProvider
+from .ollama_provider import OllamaProvider
 
 __all__ = [
     'LLMProvider',
@@ -10,5 +11,6 @@ __all__ = [
     'OpenAIProvider',
     'AnthropicProvider',
     'GroqProvider',
-    'GeminiProvider'
+    'GeminiProvider',
+    'OllamaProvider'
 ]

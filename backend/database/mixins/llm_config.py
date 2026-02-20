@@ -1,27 +1,32 @@
 import logging
 from typing import Optional
 
+from services.encryption import encrypt, decrypt
+
 logger = logging.getLogger(__name__)
 
 
 class LLMConfigMixin:
     """LLM config + app settings. Requires self._acquire()."""
 
-    async def save_llm_config(self, provider: str, api_key: str, model: Optional[str] = None) -> dict:
+    async def save_llm_config(self, provider: str, api_key: str, model: Optional[str] = None, base_url: Optional[str] = None) -> dict:
         """Save or update LLM configuration (only one config allowed)"""
+        encrypted_key = encrypt(api_key)
+
         async with self._acquire() as conn:
             await conn.execute("DELETE FROM llm_config")
 
             result = await conn.fetchrow("""
-                INSERT INTO llm_config (provider, api_key_encrypted, model)
-                VALUES ($1, $2, $3)
-                RETURNING id, provider, model, created_at, updated_at
-            """, provider, api_key, model)
+                INSERT INTO llm_config (provider, api_key_encrypted, model, base_url)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id, provider, model, base_url, created_at, updated_at
+            """, provider, encrypted_key, model, base_url)
 
             return {
                 'id': result['id'],
                 'provider': result['provider'],
                 'model': result['model'],
+                'base_url': result['base_url'],
                 'configured': True,
                 'created_at': result['created_at'].isoformat() if result['created_at'] else None,
                 'updated_at': result['updated_at'].isoformat() if result['updated_at'] else None
@@ -31,7 +36,7 @@ class LLMConfigMixin:
         """Get the LLM configuration (returns None if not configured)"""
         async with self._acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT id, provider, api_key_encrypted, model, created_at, updated_at FROM llm_config LIMIT 1"
+                "SELECT id, provider, api_key_encrypted, model, base_url, created_at, updated_at FROM llm_config LIMIT 1"
             )
             if not row:
                 return None
@@ -39,8 +44,9 @@ class LLMConfigMixin:
             return {
                 'id': row['id'],
                 'provider': row['provider'],
-                'api_key': row['api_key_encrypted'],
+                'api_key': decrypt(row['api_key_encrypted']),
                 'model': row['model'],
+                'base_url': row['base_url'],
                 'configured': True,
                 'created_at': row['created_at'].isoformat() if row['created_at'] else None,
                 'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None

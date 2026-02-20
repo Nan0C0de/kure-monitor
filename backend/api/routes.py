@@ -15,10 +15,10 @@ from .routes_llm import create_llm_router
 logger = logging.getLogger(__name__)
 
 
-def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager, notification_service=None, policy_engine=None) -> APIRouter:
+def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager, notification_service=None) -> APIRouter:
     """Create and configure the API router by assembling domain-specific sub-routers."""
     router = APIRouter(prefix="/api")
-    deps = RouterDeps(db, solution_engine, websocket_manager, notification_service, policy_engine)
+    deps = RouterDeps(db, solution_engine, websocket_manager, notification_service)
 
     @router.get("/config")
     async def get_config():
