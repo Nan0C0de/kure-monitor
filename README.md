@@ -192,8 +192,34 @@ For full cluster metrics (CPU/memory usage), install metrics-server:
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
 
+## Authentication
+
+Kure Monitor supports optional API key authentication. When enabled, the dashboard requires login and all API requests must include a valid key.
+
+### Enable Authentication
+
+```bash
+# Generate a secure API key
+openssl rand -base64 32
+
+# Install with auth enabled
+helm install kure-monitor kure-monitor/kure \
+  --namespace kure-system \
+  --create-namespace \
+  --set auth.apiKey=YOUR_GENERATED_KEY
+```
+
+When `auth.apiKey` is set:
+- The dashboard shows a login page
+- All API requests require `Authorization: Bearer <key>` header
+- WebSocket connections require `?token=<key>` query parameter
+- Internal traffic (agent, scanner) is exempt — protected by NetworkPolicy
+
+When `auth.apiKey` is empty (default), authentication is disabled and the dashboard is open.
+
 ## Security
 
+- **Authentication** — Optional API key auth for dashboard and API access
 - All components run as non-root users
 - Network policies restrict inter-pod communication
 - RBAC limits agent permissions to read-only pod access

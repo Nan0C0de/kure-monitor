@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { AlertCircle, CheckCircle, Bot, Bell, EyeOff, Settings } from 'lucide-react';
+import { AlertCircle, CheckCircle, Bot, Bell, EyeOff, Settings, ShieldAlert, X } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import NotificationSettings from './NotificationSettings';
 import LLMSettings from './LLMSettings';
 import ExclusionNamespaces from './admin/ExclusionNamespaces';
@@ -15,6 +16,17 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
   // Error/success messages displayed at the top level
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+
+  // Auth warning banner
+  const { authEnabled } = useAuth();
+  const [authBannerDismissed, setAuthBannerDismissed] = useState(
+    () => localStorage.getItem('kure-auth-warning-dismissed') === 'true'
+  );
+
+  const dismissAuthBanner = () => {
+    localStorage.setItem('kure-auth-warning-dismissed', 'true');
+    setAuthBannerDismissed(true);
+  };
 
   const tabs = [
     { id: 'ai', label: 'AI Config', icon: Bot },
@@ -60,6 +72,34 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
           );
         })}
       </div>
+
+      {/* Auth Disabled Warning */}
+      {authEnabled === false && !authBannerDismissed && (
+        <div className={`mb-4 rounded-lg border ${isDark ? 'bg-amber-900/20 border-amber-800' : 'bg-amber-50 border-amber-200'}`}>
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center">
+              <div className={`p-2 rounded-lg mr-3 ${isDark ? 'bg-amber-800' : 'bg-amber-100'}`}>
+                <ShieldAlert className={`w-5 h-5 ${isDark ? 'text-amber-300' : 'text-amber-600'}`} />
+              </div>
+              <div>
+                <h3 className={`text-sm font-semibold ${isDark ? 'text-amber-200' : 'text-amber-900'}`}>
+                  Authentication Disabled
+                </h3>
+                <p className={`text-sm ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+                  Authentication is not enabled. Anyone with network access can view and modify your dashboard. Enable it via Helm: <code className={`text-xs px-1 py-0.5 rounded ${isDark ? 'bg-amber-800/50' : 'bg-amber-100'}`}>--set auth.apiKey=your-secret-key</code>
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={dismissAuthBanner}
+              className={`p-1.5 rounded-md ml-4 flex-shrink-0 ${isDark ? 'text-amber-400 hover:bg-amber-800' : 'text-amber-500 hover:bg-amber-100'}`}
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Error/Success Messages */}
       {error && (
