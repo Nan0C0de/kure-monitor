@@ -67,11 +67,11 @@ spec:
               name: kure-encryption-secret
               key: encryption-key
         # Optional: Enable dashboard authentication
-        # - name: AUTH_API_KEY
-        #   valueFrom:
-        #     secretKeyRef:
-        #       name: kure-auth-secret
-        #       key: api-key
+        - name: AUTH_API_KEY
+          valueFrom:
+             secretKeyRef:
+               name: kure-auth-secret
+               key: api-key
         resources:
           requests:
             memory: "256Mi"

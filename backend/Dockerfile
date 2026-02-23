@@ -26,7 +26,6 @@ COPY --from=builder /opt/venv /opt/venv
 COPY --chown=kure:kure . .
 
 ENV PATH="/opt/venv/bin:$PATH"
-
 USER kure
 EXPOSE 8000
 
