@@ -179,6 +179,22 @@ class ExclusionManager:
             logger.error(f"Error handling registry change: {e}")
             await self.scanner.backend_client.report_rescan_status("completed", "trusted_registry_change")
 
+    async def handle_rescan_request(self):
+        """Handle a manual rescan request from the frontend via WebSocket"""
+        logger.info("Handling manual security rescan request")
+        try:
+            await self.refresh_excluded_namespaces(force=True)
+            await self.refresh_excluded_rules(force=True)
+            await self.refresh_trusted_registries(force=True)
+
+            await self.scanner.backend_client.report_rescan_status("started", "manual_rescan")
+            await self._rescan_all_pods()
+            await self.scanner.backend_client.report_rescan_status("completed", "manual_rescan")
+            logger.info("Manual security rescan completed")
+        except Exception as e:
+            logger.error(f"Error handling manual rescan request: {e}")
+            await self.scanner.backend_client.report_rescan_status("completed", "manual_rescan")
+
     async def _rescan_all_pods(self):
         """Re-scan all pods across all non-excluded namespaces"""
         try:

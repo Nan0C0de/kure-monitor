@@ -138,6 +138,9 @@ class Database:
     async def delete_findings_by_rule_title(self, rule_title, namespace=None):
         return await self._db.delete_findings_by_rule_title(rule_title, namespace)
 
+    async def delete_findings_by_registry(self, registry):
+        return await self._db.delete_findings_by_registry(registry)
+
     # Trusted registries methods (admin-managed trusted container registries)
     async def add_trusted_registry(self, registry):
         return await self._db.add_trusted_registry(registry)

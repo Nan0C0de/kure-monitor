@@ -205,6 +205,13 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error generating security fix: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.post("/security/rescan")
+    async def trigger_security_rescan():
+        """Trigger a full security rescan by broadcasting a request to the scanner via WebSocket"""
+        logger.info("Manual security rescan requested")
+        await websocket_manager.broadcast_security_rescan_request()
+        return {"message": "Security rescan requested"}
+
     @router.post("/security/rescan-status")
     async def report_security_rescan_status(data: dict):
         """Report security rescan status from scanner (started/completed)"""

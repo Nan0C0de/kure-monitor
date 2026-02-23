@@ -157,6 +157,7 @@ class SecurityScanner:
         self.websocket_client.set_namespace_change_handler(self.exclusion_mgr.handle_namespace_change)
         self.websocket_client.set_rule_change_handler(self.exclusion_mgr.handle_rule_change)
         self.websocket_client.set_registry_change_handler(self.exclusion_mgr.handle_registry_change)
+        self.websocket_client.set_rescan_request_handler(self.exclusion_mgr.handle_rescan_request)
 
         logger.info("Running initial security scan...")
         await self.scan_cluster()

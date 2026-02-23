@@ -148,6 +148,14 @@ export const api = {
     return response.json();
   },
 
+  triggerSecurityRescan: async () => {
+    const response = await authFetch(`${API_BASE}/api/security/rescan`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // Admin API - Excluded Namespaces
   getExcludedNamespaces: async () => {
     const response = await authFetch(`${API_BASE}/api/admin/excluded-namespaces`);
@@ -282,7 +290,7 @@ export const api = {
     const response = await authFetch(`${API_BASE}/api/admin/trusted-registries/${encodeURIComponent(registry)}`, {
       method: 'DELETE'
     });
-    // Return true on success - no need to parse JSON response
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return true;
   },
 

@@ -2,6 +2,7 @@ import aiohttp
 import asyncio
 import json
 import logging
+import os
 from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -10,6 +11,16 @@ logger = logging.getLogger(__name__)
 class BackendClient:
     def __init__(self, backend_url: str):
         self.backend_url = backend_url.rstrip('/')
+        self._auth_token = os.environ.get("AUTH_API_KEY")
+
+    def _headers(self, content_type: str = None) -> dict:
+        """Build request headers, including auth if configured."""
+        headers = {}
+        if content_type:
+            headers['Content-Type'] = content_type
+        if self._auth_token:
+            headers['Authorization'] = f'Bearer {self._auth_token}'
+        return headers
 
     async def report_failed_pod(self, pod_data: Dict[str, Any]):
         """Send failed pod data to backend"""
@@ -22,7 +33,7 @@ class BackendClient:
                 async with session.post(
                         f"{self.backend_url}/api/pods/failed",
                         json=pod_data,
-                        headers={'Content-Type': 'application/json'},
+                        headers=self._headers('application/json'),
                         timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
                     if response.status == 200:
@@ -72,7 +83,7 @@ class BackendClient:
                 async with session.post(
                         f"{self.backend_url}/api/pods/dismiss-deleted",
                         json={"namespace": namespace, "pod_name": pod_name},
-                        headers={'Content-Type': 'application/json'},
+                        headers=self._headers('application/json'),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -104,6 +115,7 @@ class BackendClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                         f"{self.backend_url}/api/admin/excluded-namespaces",
+                        headers=self._headers(),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -131,6 +143,7 @@ class BackendClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                         f"{self.backend_url}/api/admin/excluded-pods",
+                        headers=self._headers(),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -159,6 +172,7 @@ class BackendClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                         f"{self.backend_url}/api/pods/failed",
+                        headers=self._headers(),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -189,7 +203,7 @@ class BackendClient:
                 async with session.post(
                         f"{self.backend_url}/api/metrics/cluster",
                         json=metrics,
-                        headers={'Content-Type': 'application/json'},
+                        headers=self._headers('application/json'),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:

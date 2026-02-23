@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import logging
+import os
 from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -9,6 +10,16 @@ logger = logging.getLogger(__name__)
 class BackendClient:
     def __init__(self, backend_url: str):
         self.backend_url = backend_url.rstrip('/')
+        self._auth_token = os.environ.get("AUTH_API_KEY")
+
+    def _headers(self, content_type: str = None) -> dict:
+        """Build request headers, including auth if configured."""
+        headers = {}
+        if content_type:
+            headers['Content-Type'] = content_type
+        if self._auth_token:
+            headers['Authorization'] = f'Bearer {self._auth_token}'
+        return headers
 
     async def report_security_finding(self, finding_data: Dict[str, Any]):
         """Send security finding to backend"""
@@ -21,7 +32,7 @@ class BackendClient:
                 async with session.post(
                         f"{self.backend_url}/api/security/findings",
                         json=finding_data,
-                        headers={'Content-Type': 'application/json'},
+                        headers=self._headers('application/json'),
                         timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
                     if response.status == 200:
@@ -59,7 +70,7 @@ class BackendClient:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                         f"{self.backend_url}/api/security/scan/clear",
-                        headers={'Content-Type': 'application/json'},
+                        headers=self._headers('application/json'),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -83,6 +94,7 @@ class BackendClient:
             async with aiohttp.ClientSession() as session:
                 async with session.delete(
                         f"{self.backend_url}/api/security/findings/resource/{resource_type}/{namespace}/{resource_name}",
+                        headers=self._headers(),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -105,7 +117,7 @@ class BackendClient:
                 async with session.post(
                     f"{self.backend_url}/api/metrics/security-scan-duration",
                     json={"duration_seconds": duration_seconds},
-                    headers={'Content-Type': 'application/json'},
+                    headers=self._headers('application/json'),
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -125,7 +137,7 @@ class BackendClient:
                 async with session.post(
                     f"{self.backend_url}/api/security/rescan-status",
                     json={"status": status, "reason": reason},
-                    headers={'Content-Type': 'application/json'},
+                    headers=self._headers('application/json'),
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -151,6 +163,7 @@ class BackendClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                         f"{self.backend_url}/api/admin/excluded-namespaces",
+                        headers=self._headers(),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -184,6 +197,7 @@ class BackendClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                         f"{self.backend_url}/api/admin/excluded-rules",
+                        headers=self._headers(),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -222,6 +236,7 @@ class BackendClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                         f"{self.backend_url}/api/admin/trusted-registries",
+                        headers=self._headers(),
                         timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:

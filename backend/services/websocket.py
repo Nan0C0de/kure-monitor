@@ -150,6 +150,11 @@ class WebSocketManager:
         """Broadcast cluster metrics to all connected clients"""
         await self._broadcast("cluster_metrics", metrics)
 
+    async def broadcast_security_rescan_request(self):
+        """Broadcast a security rescan request to all connected clients (scanner picks this up)"""
+        logger.info(f"Broadcasting security rescan request to {len(self.active_connections)} clients")
+        await self._broadcast("security_rescan_request", {})
+
     # --- WebSocket endpoint ---
 
     async def websocket_endpoint(self, websocket: WebSocket):

@@ -228,3 +228,42 @@ class SecurityFindingMixin:
                 )
             count = int(result.split()[-1]) if result else 0
             return count, deleted_findings
+
+    async def delete_findings_by_registry(self, registry: str) -> tuple:
+        """Delete 'untrusted registry' findings that mention the given registry in their description."""
+        pattern = f"%from registry '{registry}'%"
+        async with self._acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT id, resource_type, resource_name, namespace, severity, category,
+                          title, description, remediation, timestamp
+                   FROM security_findings
+                   WHERE title LIKE 'Image from untrusted registry%'
+                     AND description LIKE $1
+                     AND dismissed = FALSE""",
+                pattern
+            )
+            deleted_findings = [
+                {
+                    'id': row['id'],
+                    'resource_type': row['resource_type'],
+                    'resource_name': row['resource_name'],
+                    'namespace': row['namespace'],
+                    'severity': row['severity'],
+                    'category': row['category'],
+                    'title': row['title'],
+                    'description': row['description'],
+                    'remediation': row['remediation'],
+                    'timestamp': row['timestamp'].isoformat() if row['timestamp'] else None
+                }
+                for row in rows
+            ]
+
+            result = await conn.execute(
+                """DELETE FROM security_findings
+                   WHERE title LIKE 'Image from untrusted registry%'
+                     AND description LIKE $1
+                     AND dismissed = FALSE""",
+                pattern
+            )
+            count = int(result.split()[-1]) if result else 0
+            return count, deleted_findings

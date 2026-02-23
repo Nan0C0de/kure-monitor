@@ -34,18 +34,19 @@ const Dashboard = () => {
   const [podSubTab, setPodSubTab] = useState('active');
   const [podHistory, setPodHistory] = useState([]);
   const [ignoredPods, setIgnoredPods] = useState([]);
-  // Security scan rescan notification (only for registry changes)
+  // Security scan rescan notification
   const [securityScanUpdating, setSecurityScanUpdating] = useState(false);
   const securityScanTimeoutRef = useRef(null);
-  const registryRescanActiveRef = useRef(false);
+  const rescanActiveRef = useRef(false);
+  const [rescanRequesting, setRescanRequesting] = useState(false);
   // Refs for dropdown click-outside handling
   const severityDropdownRef = useRef(null);
   const ruleDropdownRef = useRef(null);
   const exportDropdownRef = useRef(null);
 
-  // Helper to show banner and reset hide timer (only during registry rescans)
+  // Helper to show banner and reset hide timer (during active rescans)
   const showSecurityBanner = useCallback(() => {
-    if (!registryRescanActiveRef.current) return; // Only show during registry rescans
+    if (!rescanActiveRef.current) return;
     setSecurityScanUpdating(true);
     // Clear any existing timeout
     if (securityScanTimeoutRef.current) {
@@ -54,7 +55,7 @@ const Dashboard = () => {
     // Set timeout to hide banner after 2 seconds of inactivity
     securityScanTimeoutRef.current = setTimeout(() => {
       setSecurityScanUpdating(false);
-      registryRescanActiveRef.current = false;
+      rescanActiveRef.current = false;
     }, 2000);
   }, []);
 
@@ -181,11 +182,11 @@ const Dashboard = () => {
         )
       );
     } else if (message.type === 'security_rescan_status') {
-      // Show banner only for registry changes (from updated scanner)
       const status = message.data.status;
       const reason = message.data.reason;
-      if (status === 'started' && reason === 'trusted_registry_change') {
-        registryRescanActiveRef.current = true;
+      if (status === 'started' && (reason === 'trusted_registry_change' || reason === 'manual_rescan')) {
+        rescanActiveRef.current = true;
+        setRescanRequesting(false);
         showSecurityBanner();
       } else if (status === 'completed') {
         // Rescan complete - reload findings to ensure we have the latest state
@@ -430,6 +431,22 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+
+  // Trigger a full security rescan
+  const handleSecurityRescan = useCallback(async () => {
+    try {
+      setRescanRequesting(true);
+      await api.triggerSecurityRescan();
+      // POST succeeded — reset requesting state immediately.
+      // The actual scanning progress is driven by WebSocket
+      // (securityScanUpdating state via security_rescan_status messages).
+      // Use a short delay so the user sees the "Requesting..." feedback.
+      setTimeout(() => setRescanRequesting(false), 1500);
+    } catch (err) {
+      console.error('Error triggering security rescan:', err);
+      setRescanRequesting(false);
+    }
+  }, []);
 
   // Callback to refresh config when LLM settings change
   const handleConfigChange = useCallback(async () => {
@@ -907,6 +924,23 @@ const Dashboard = () => {
 
           {activeTab === 'security' && (
             <>
+              {/* Rescan button */}
+              <div className="flex items-center mb-4">
+                <button
+                  onClick={handleSecurityRescan}
+                  disabled={rescanRequesting || securityScanUpdating}
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
+                    rescanRequesting || securityScanUpdating
+                      ? isDark ? 'border-gray-600 bg-gray-800 text-gray-500 cursor-not-allowed' : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : isDark ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                  }`}
+                  title="Rescan cluster for security issues"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${rescanRequesting || securityScanUpdating ? 'animate-spin' : ''}`} />
+                  {rescanRequesting ? 'Requesting...' : securityScanUpdating ? 'Scanning...' : 'Rescan'}
+                </button>
+              </div>
+
               {/* Security scan updating notification */}
               {securityScanUpdating && (
                 <div className={`mb-4 p-4 rounded-lg border flex items-center ${isDark ? 'bg-blue-900/30 border-blue-700 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
@@ -914,7 +948,7 @@ const Dashboard = () => {
                   <div>
                     <p className="font-medium">Security scan is updating...</p>
                     <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
-                      Trusted registries changed. Rescanning cluster for security issues.
+                      Rescanning cluster for security issues.
                     </p>
                   </div>
                 </div>

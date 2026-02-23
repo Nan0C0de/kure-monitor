@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Globe } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Trash2, Globe, RefreshCw } from 'lucide-react';
 import { api } from '../../services/api';
 
 const DEFAULT_REGISTRIES = ['docker.io', 'gcr.io', 'ghcr.io', 'quay.io', 'registry.k8s.io', 'mcr.microsoft.com', 'public.ecr.aws'];
@@ -8,6 +8,7 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
   const [trustedRegistries, setTrustedRegistries] = useState([]);
   const [newRegistry, setNewRegistry] = useState('');
   const [registryLoading, setRegistryLoading] = useState(null);
+  const [rescanBanner, setRescanBanner] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -21,6 +22,8 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
     };
     loadData();
   }, []);
+
+  const dismissRescanBanner = useCallback(() => setRescanBanner(null), []);
 
   const handleAddRegistry = async () => {
     const registry = newRegistry.trim().toLowerCase();
@@ -41,7 +44,7 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
       const result = await api.addTrustedRegistry(registry);
       setTrustedRegistries(prev => [...prev, result]);
       setNewRegistry('');
-      onSuccess(`Registry "${registry}" added to trusted list.`);
+      setRescanBanner(registry);
     } catch (err) {
       onError('Failed to add registry');
       console.error('Error adding trusted registry:', err);
@@ -78,6 +81,28 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
       <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
         Add custom trusted container registries. Default registries cannot be removed.
       </p>
+
+      {rescanBanner && (
+        <div className={`mb-4 p-3 rounded-lg border flex items-start justify-between ${isDark ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+          <div className="flex items-start">
+            <RefreshCw className={`w-4 h-4 mt-0.5 mr-2 flex-shrink-0 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+            <div>
+              <p className={`text-sm font-medium ${isDark ? 'text-blue-200' : 'text-blue-800'}`}>
+                Registry "{rescanBanner}" added
+              </p>
+              <p className={`text-xs mt-0.5 ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
+                Security findings will auto-update shortly. You can also use the Rescan button on the Security tab.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={dismissRescanBanner}
+            className={`ml-3 flex-shrink-0 text-sm ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-700'}`}
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleRegistrySubmit} className="mb-4">
         <div className="flex gap-2">

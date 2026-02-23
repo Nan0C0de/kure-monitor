@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
+import asyncio
 import logging
 
 from models.models import (
@@ -235,7 +236,21 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             result = await db.add_trusted_registry(registry)
             logger.info(f"Added trusted registry: {registry}")
 
-            await websocket_manager.broadcast_trusted_registry_change(registry, "added")
+            # Delete matching findings from DB (fast) and schedule broadcasts
+            # in the background so the HTTP response returns immediately.
+            findings_count, deleted_findings = await db.delete_findings_by_registry(registry)
+            if findings_count > 0:
+                logger.info(f"Deleted {findings_count} untrusted-registry findings for: {registry}")
+
+            async def _broadcast_changes():
+                try:
+                    for finding in deleted_findings:
+                        await websocket_manager.broadcast_security_finding_deleted(finding)
+                    await websocket_manager.broadcast_trusted_registry_change(registry, "added")
+                except Exception as e:
+                    logger.error(f"Error broadcasting trusted registry changes: {e}")
+
+            asyncio.create_task(_broadcast_changes())
 
             return result.model_dump() if hasattr(result, 'model_dump') else result
         except HTTPException:

@@ -17,6 +17,7 @@ class WebSocketClient:
         self.on_namespace_change: Optional[Callable] = None
         self.on_rule_change: Optional[Callable] = None
         self.on_registry_change: Optional[Callable] = None
+        self.on_rescan_request: Optional[Callable] = None
         self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
         self._session: Optional[aiohttp.ClientSession] = None
         self._running = False
@@ -32,6 +33,10 @@ class WebSocketClient:
     def set_registry_change_handler(self, handler: Callable):
         """Set the callback for trusted registry changes"""
         self.on_registry_change = handler
+
+    def set_rescan_request_handler(self, handler: Callable):
+        """Set the callback for manual rescan requests"""
+        self.on_rescan_request = handler
 
     async def _send_keepalive(self):
         """Send periodic keepalive pings to keep connection alive"""
@@ -118,6 +123,12 @@ class WebSocketClient:
 
                 if self.on_registry_change:
                     await self.on_registry_change(registry, action)
+
+            elif msg_type == 'security_rescan_request':
+                logger.info("Received manual security rescan request")
+
+                if self.on_rescan_request:
+                    await self.on_rescan_request()
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse WebSocket message: {e}")
