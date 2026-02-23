@@ -1,12 +1,19 @@
 import hmac
 import logging
 import os
+import time
+from collections import defaultdict
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+# In-memory login rate limiter: 5 attempts per IP, 30-second cooldown
+_LOGIN_MAX_ATTEMPTS = 5
+_LOGIN_COOLDOWN_SECONDS = 30
+_login_attempts: dict[str, list[float]] = defaultdict(list)
 
 AUTH_API_KEY: Optional[str] = os.environ.get("AUTH_API_KEY")
 
@@ -94,6 +101,26 @@ class LoginRequest(BaseModel):
     api_key: str
 
 
+def _check_rate_limit(client_ip: str) -> None:
+    """Raise 429 if the client has exceeded the login attempt limit."""
+    now = time.monotonic()
+    # Discard attempts older than the cooldown window
+    _login_attempts[client_ip] = [
+        t for t in _login_attempts[client_ip]
+        if now - t < _LOGIN_COOLDOWN_SECONDS
+    ]
+    if len(_login_attempts[client_ip]) >= _LOGIN_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts. Please try again in 30 seconds.",
+        )
+
+
+def _record_attempt(client_ip: str) -> None:
+    """Record a failed login attempt."""
+    _login_attempts[client_ip].append(time.monotonic())
+
+
 def create_auth_router() -> APIRouter:
     """Create auth status and login endpoints (always public)."""
     router = APIRouter()
@@ -104,13 +131,20 @@ def create_auth_router() -> APIRouter:
         return {"enabled": AUTH_API_KEY is not None}
 
     @router.post("/auth/login")
-    async def auth_login(request: LoginRequest):
+    async def auth_login(body: LoginRequest, request: Request):
         """Validate an API key."""
         if not AUTH_API_KEY:
             return {"valid": True}
-        valid = hmac.compare_digest(request.api_key, AUTH_API_KEY)
+
+        client_ip = request.client.host if request.client else "unknown"
+        _check_rate_limit(client_ip)
+
+        valid = hmac.compare_digest(body.api_key, AUTH_API_KEY)
         if not valid:
+            _record_attempt(client_ip)
             raise HTTPException(status_code=401, detail="Invalid API key")
+        # Successful login clears the attempts for this IP
+        _login_attempts.pop(client_ip, None)
         return {"valid": True}
 
     return router

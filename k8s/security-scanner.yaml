@@ -51,6 +51,13 @@ spec:
           value: "http://kure-monitor-backend:8000"
         - name: PYTHONUNBUFFERED
           value: "1"
+        # Optional: Required for WebSocket auth when AUTH_API_KEY is set on backend
+        - name: AUTH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kure-auth-secret
+              key: api-key
+              optional: true
         - name: POD_NAME
           valueFrom:
             fieldRef:

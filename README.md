@@ -8,6 +8,10 @@ Kure is a failure diagnosis tool that helps you understand **why** your Kubernet
 
 [Few Screenshots](docs/images)
 
+## Why Kure?
+
+Unlike tools such as K8sGPT that are CLI-focused, Kure gives you a unified web dashboard combining real-time failure diagnosis, security scanning, and AI-powered fixes in one place. It also supports Ollama for fully local, air-gapped LLM inference — so your cluster data never leaves your network.
+
 ## Features
 
 **Core Diagnosis**
@@ -119,6 +123,7 @@ LLM provider is configured via the Admin panel in the web dashboard after instal
 
 | Provider | Default Model | Alternative Models |
 |----------|---------------|--------------------|
+| **Ollama** (local) | `llama3.2` | Any model available in your Ollama instance |
 | **OpenAI** | `gpt-4.1-mini` | `gpt-4.1`, `gpt-4o` |
 | **Anthropic** | `claude-sonnet-4-20250514` | `claude-opus-4-5-20251124`, `claude-haiku-4-5-20251015` |
 | **Groq** | `meta-llama/llama-4-scout-17b-16e-instruct` | `meta-llama/llama-4-maverick-17b-128e-instruct`, `llama-3.3-70b-versatile` |

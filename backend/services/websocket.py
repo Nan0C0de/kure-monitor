@@ -153,13 +153,14 @@ class WebSocketManager:
     # --- WebSocket endpoint ---
 
     async def websocket_endpoint(self, websocket: WebSocket):
-        # Validate token if auth is enabled and a token is provided.
-        # Connections without a token are allowed for internal services
-        # (agent/scanner) which are protected by NetworkPolicy.
-        token = websocket.query_params.get("token")
-        if AUTH_API_KEY and token and not validate_ws_token(token):
-            await websocket.close(code=4001, reason="Unauthorized")
-            return
+        # When auth is enabled, all WebSocket connections must provide a valid token.
+        # The frontend passes the user's API key; agent/scanner pass AUTH_API_KEY
+        # from their environment.
+        if AUTH_API_KEY:
+            token = websocket.query_params.get("token")
+            if not validate_ws_token(token):
+                await websocket.close(code=4001, reason="Unauthorized")
+                return
         await self.connect(websocket)
         try:
             while True:

@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import json
 import logging
+import os
 from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,8 @@ class WebSocketClient:
     def __init__(self, backend_url: str):
         # Convert HTTP URL to WebSocket URL
         ws_url = backend_url.replace('http://', 'ws://').replace('https://', 'wss://').rstrip('/')
-        self.ws_url = f"{ws_url}/ws"
+        token = os.environ.get("AUTH_API_KEY")
+        self.ws_url = f"{ws_url}/ws?token={token}" if token else f"{ws_url}/ws"
         self.on_namespace_change: Optional[Callable] = None
         self.on_pod_exclusion_change: Optional[Callable] = None
         self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
