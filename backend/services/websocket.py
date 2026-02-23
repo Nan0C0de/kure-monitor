@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 from typing import List
-from api.auth import validate_ws_token
+from api.auth import AUTH_API_KEY, validate_ws_token
 from models.models import PodFailureResponse, SecurityFindingResponse, ClusterMetrics
 from services.prometheus_metrics import WEBSOCKET_CONNECTIONS_ACTIVE
 
@@ -153,8 +153,11 @@ class WebSocketManager:
     # --- WebSocket endpoint ---
 
     async def websocket_endpoint(self, websocket: WebSocket):
+        # Validate token if auth is enabled and a token is provided.
+        # Connections without a token are allowed for internal services
+        # (agent/scanner) which are protected by NetworkPolicy.
         token = websocket.query_params.get("token")
-        if not validate_ws_token(token):
+        if AUTH_API_KEY and token and not validate_ws_token(token):
             await websocket.close(code=4001, reason="Unauthorized")
             return
         await self.connect(websocket)

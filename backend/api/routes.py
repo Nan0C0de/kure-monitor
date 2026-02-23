@@ -29,9 +29,8 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             "ai_provider": solution_engine.llm_provider.provider_name if solution_engine.llm_provider else None
         }
 
-    # Auth routes (public - no auth required)
-    auth_router = create_auth_router()
-    router.include_router(auth_router, dependencies=[])
+    # Auth routes (exempted in require_auth via path matching)
+    router.include_router(create_auth_router())
 
     router.include_router(create_pod_router(deps))
     router.include_router(create_security_router(deps))

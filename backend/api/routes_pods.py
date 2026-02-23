@@ -19,7 +19,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
     websocket_manager = deps.websocket_manager
     notification_service = deps.notification_service
 
-    @router.post("/pods/failed", response_model=PodFailureResponse, dependencies=[])
+    @router.post("/pods/failed", response_model=PodFailureResponse)
     async def report_failed_pod(report: PodFailureReport):
         """Receive failed pod report from agent"""
         logger.info(f"Received failure report for pod: {report.namespace}/{report.pod_name}")
@@ -255,7 +255,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error deleting pod record: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/pods/dismiss-deleted", dependencies=[])
+    @router.post("/pods/dismiss-deleted")
     async def dismiss_deleted_pod(request: dict):
         """Auto-resolve pods when they recover or are deleted from Kubernetes"""
         try:

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 import asyncio
 import logging
@@ -11,7 +11,6 @@ try:
 except ImportError:
     K8S_AVAILABLE = False
 
-from .auth import validate_ws_token
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -96,20 +95,15 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error fetching pod logs: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.get("/pods/{namespace}/{pod_name}/logs/stream", dependencies=[])
+    @router.get("/pods/{namespace}/{pod_name}/logs/stream")
     async def stream_pod_logs(
-        request: Request,
         namespace: str,
         pod_name: str,
         container: Optional[str] = Query(None, description="Container name (optional)"),
-        tail_lines: int = Query(100, description="Initial number of lines to return", ge=1, le=1000),
-        token: Optional[str] = Query(None, description="Auth token (for EventSource which cannot set headers)")
+        tail_lines: int = Query(100, description="Initial number of lines to return", ge=1, le=1000)
     ):
-        """Stream logs for a specific pod (Server-Sent Events)"""
-        # SSE auth: check query param token (EventSource API cannot set headers)
-        if not validate_ws_token(token):
-            raise HTTPException(status_code=401, detail="Invalid or missing auth token")
-
+        """Stream logs for a specific pod (Server-Sent Events).
+        Auth is handled via ?token= query param in the require_auth dependency."""
         if not K8S_AVAILABLE:
             raise HTTPException(status_code=503, detail="Kubernetes client not available")
 

@@ -15,6 +15,29 @@ if AUTH_API_KEY:
 else:
     logger.warning("Authentication is DISABLED (AUTH_API_KEY not set) - all endpoints are open")
 
+# Endpoints exempt from auth (agent/scanner ingest + auth endpoints)
+_EXEMPT_ROUTES = {
+    ("POST", "/api/pods/failed"),
+    ("POST", "/api/pods/dismiss-deleted"),
+    ("POST", "/api/security/findings"),
+    ("POST", "/api/security/scan/clear"),
+    ("POST", "/api/security/rescan-status"),
+    ("POST", "/api/metrics/cluster"),
+    ("POST", "/api/metrics/security-scan-duration"),
+    ("GET", "/api/auth/status"),
+    ("POST", "/api/auth/login"),
+}
+
+# Path prefixes exempt from auth
+_EXEMPT_PREFIXES = [
+    ("DELETE", "/api/security/findings/resource/"),
+]
+
+# SSE streaming - uses query param token instead of header
+_TOKEN_PARAM_PATHS = [
+    "/logs/stream",
+]
+
 
 def get_api_key(request: Request) -> Optional[str]:
     """Extract Bearer token from Authorization header."""
@@ -25,9 +48,36 @@ def get_api_key(request: Request) -> Optional[str]:
 
 
 def require_auth(request: Request):
-    """FastAPI dependency - raises 401 if auth is enabled and key is wrong."""
+    """FastAPI dependency - raises 401 if auth is enabled and key is wrong.
+
+    Automatically exempts ingest endpoints (agent/scanner traffic) and
+    SSE streaming endpoints (which use query param token instead).
+    """
     if not AUTH_API_KEY:
         return
+
+    method = request.method
+    path = request.url.path
+
+    # Exempt exact-match routes
+    if (method, path) in _EXEMPT_ROUTES:
+        return
+
+    # Exempt prefix-match routes
+    for exempt_method, prefix in _EXEMPT_PREFIXES:
+        if method == exempt_method and path.startswith(prefix):
+            return
+
+    # SSE streaming endpoints authenticate via ?token= query param
+    # (EventSource API cannot set custom headers)
+    for suffix in _TOKEN_PARAM_PATHS:
+        if path.endswith(suffix):
+            token = request.query_params.get("token")
+            if not validate_ws_token(token):
+                raise HTTPException(status_code=401, detail="Invalid or missing auth token")
+            return
+
+    # Standard header auth
     token = get_api_key(request)
     if not token or not hmac.compare_digest(token, AUTH_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
