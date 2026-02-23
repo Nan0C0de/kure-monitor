@@ -1,9 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import logging
 
 from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
+from .auth import require_auth, create_auth_router
 from .deps import RouterDeps
 from .routes_pods import create_pod_router
 from .routes_security import create_security_router
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager, notification_service=None) -> APIRouter:
     """Create and configure the API router by assembling domain-specific sub-routers."""
-    router = APIRouter(prefix="/api")
+    router = APIRouter(prefix="/api", dependencies=[Depends(require_auth)])
     deps = RouterDeps(db, solution_engine, websocket_manager, notification_service)
 
     @router.get("/config")
@@ -27,6 +28,10 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
             "ai_enabled": solution_engine.llm_provider is not None,
             "ai_provider": solution_engine.llm_provider.provider_name if solution_engine.llm_provider else None
         }
+
+    # Auth routes (public - no auth required)
+    auth_router = create_auth_router()
+    router.include_router(auth_router, dependencies=[])
 
     router.include_router(create_pod_router(deps))
     router.include_router(create_security_router(deps))

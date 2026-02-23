@@ -172,6 +172,7 @@ describe('PodDetails', () => {
         pod={mockPod}
         onViewManifest={jest.fn()}
         onSolutionUpdated={onSolutionUpdated}
+        aiEnabled={true}
       />
     );
 

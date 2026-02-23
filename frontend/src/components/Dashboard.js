@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff, RefreshCw, LogOut } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
 import MonitoringTab from './MonitoringTab';
 import SetupBanner from './SetupBanner';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { exportAsCSV, exportAsJSON, exportAsPDF } from '../utils/exportFindings';
 
 const Dashboard = () => {
+  const { authEnabled, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('monitoring');
   const [pods, setPods] = useState([]);
   const [securityFindings, setSecurityFindings] = useState([]);
@@ -475,6 +479,21 @@ const Dashboard = () => {
                   <Moon className="w-5 h-5" />
                 )}
               </button>
+
+              {/* Logout Button - only show when auth is enabled */}
+              {authEnabled && (
+                <button
+                  onClick={() => { logout(); navigate('/login'); }}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isDark
+                      ? 'hover:bg-gray-700 text-gray-300 hover:text-gray-100'
+                      : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                  }`}
+                  title="Sign out"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              )}
 
               {/* Connection Status */}
               <div className="flex items-center space-x-2">

@@ -13,6 +13,29 @@ jest.mock('./components/Dashboard', () => {
   };
 });
 
+// Mock the Login component
+jest.mock('./components/Login', () => {
+  return function MockLogin() {
+    return <div>Login Page</div>;
+  };
+});
+
+// Mock the AuthContext to simulate auth-disabled (open access)
+jest.mock('./contexts/AuthContext', () => {
+  const React = require('react');
+  return {
+    AuthProvider: ({ children }) => children,
+    useAuth: () => ({
+      apiKey: null,
+      isAuthenticated: true,
+      authEnabled: false,
+      authChecked: true,
+      login: jest.fn(),
+      logout: jest.fn(),
+    }),
+  };
+});
+
 test('renders dashboard component', () => {
   render(<App />);
   expect(screen.getByText(/Kure/i)).toBeInTheDocument();

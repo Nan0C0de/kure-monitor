@@ -18,7 +18,7 @@ def create_metrics_router(deps: RouterDeps) -> APIRouter:
     router = APIRouter()
     websocket_manager = deps.websocket_manager
 
-    @router.post("/metrics/cluster")
+    @router.post("/metrics/cluster", dependencies=[])
     async def report_cluster_metrics(metrics: ClusterMetrics):
         """Receive cluster metrics from agent"""
         global latest_cluster_metrics
@@ -34,7 +34,7 @@ def create_metrics_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error processing cluster metrics: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/metrics/security-scan-duration")
+    @router.post("/metrics/security-scan-duration", dependencies=[])
     async def report_security_scan_duration(data: dict):
         """Receive security scan duration from scanner for Prometheus metrics"""
         duration = data.get("duration_seconds")

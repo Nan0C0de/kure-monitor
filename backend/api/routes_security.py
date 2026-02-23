@@ -43,7 +43,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
     solution_engine = deps.solution_engine
     websocket_manager = deps.websocket_manager
 
-    @router.post("/security/findings", response_model=SecurityFindingResponse)
+    @router.post("/security/findings", response_model=SecurityFindingResponse, dependencies=[])
     async def report_security_finding(report: SecurityFindingReport):
         """Receive security finding report from scanner agent"""
         logger.info(f"Received security finding for {report.resource_type}/{report.namespace}/{report.resource_name}")
@@ -109,7 +109,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error restoring security finding: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/security/scan/clear")
+    @router.post("/security/scan/clear", dependencies=[])
     async def clear_security_findings():
         """Clear all security findings (for new scans)"""
         try:
@@ -119,7 +119,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error clearing security findings: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.delete("/security/findings/resource/{resource_type}/{namespace}/{resource_name}")
+    @router.delete("/security/findings/resource/{resource_type}/{namespace}/{resource_name}", dependencies=[])
     async def delete_findings_by_resource(resource_type: str, namespace: str, resource_name: str):
         """Delete all security findings for a specific resource (when resource is deleted from cluster)"""
         try:
@@ -205,7 +205,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error generating security fix: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/security/rescan-status")
+    @router.post("/security/rescan-status", dependencies=[])
     async def report_security_rescan_status(data: dict):
         """Report security rescan status from scanner (started/completed)"""
         status = data.get("status")

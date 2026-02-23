@@ -20,10 +20,14 @@ export const useWebSocket = (onMessage) => {
 
     isConnectingRef.current = true;
 
-    const WS_URL = process.env.REACT_APP_WS_URL ||
+    const baseWsUrl = process.env.REACT_APP_WS_URL ||
       (window.location.hostname === 'localhost' && window.location.port === '3000' ?
         'ws://localhost:8000/ws' :
         `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
+
+    // Append auth token if available
+    const apiKey = sessionStorage.getItem('kure-auth-key');
+    const WS_URL = apiKey ? `${baseWsUrl}?token=${encodeURIComponent(apiKey)}` : baseWsUrl;
 
     const websocket = new WebSocket(WS_URL);
 

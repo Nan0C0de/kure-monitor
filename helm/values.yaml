@@ -216,6 +216,10 @@ postgresql:
     name: kure-postgresql
     automountServiceAccountToken: false
 
+# Authentication
+auth:
+  apiKey: ""  # Set to enable dashboard authentication. If empty, dashboard is open (with warning).
+
 # Security settings
 security:
   encryptionKey: ""  # Fernet key for API key encryption (auto-generated if empty)

@@ -1,23 +1,44 @@
 // Fixed API URL for security - users cannot modify this
-const API_BASE = window.location.hostname === 'localhost' && window.location.port === '3000' 
+const API_BASE = window.location.hostname === 'localhost' && window.location.port === '3000'
   ? 'http://localhost:8000'  // Development mode
   : '';  // Production mode (same origin)
 
+/**
+ * Wrapper around fetch that injects the auth header and handles 401 globally.
+ */
+const authFetch = async (url, options = {}) => {
+  const apiKey = sessionStorage.getItem('kure-auth-key');
+  if (apiKey) {
+    options.headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${apiKey}`,
+    };
+  }
+  const response = await fetch(url, options);
+  if (response.status === 401) {
+    // Auth failed - clear session and redirect to login
+    sessionStorage.removeItem('kure-auth-key');
+    window.location.href = '/login';
+    throw new Error('Authentication required');
+  }
+  return response;
+};
+
 export const api = {
   getConfig: async () => {
-    const response = await fetch(`${API_BASE}/api/config`);
+    const response = await authFetch(`${API_BASE}/api/config`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   getFailedPods: async () => {
-    const response = await fetch(`${API_BASE}/api/pods/failed`);
+    const response = await authFetch(`${API_BASE}/api/pods/failed`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   dismissPod: async (podId) => {
-    const response = await fetch(`${API_BASE}/api/pods/failed/${podId}`, {
+    const response = await authFetch(`${API_BASE}/api/pods/failed/${podId}`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -29,7 +50,7 @@ export const api = {
     if (resolutionNote) {
       body.resolution_note = resolutionNote;
     }
-    const response = await fetch(`${API_BASE}/api/pods/failed/${podId}/status`, {
+    const response = await authFetch(`${API_BASE}/api/pods/failed/${podId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -39,19 +60,19 @@ export const api = {
   },
 
   getPodHistory: async () => {
-    const response = await fetch(`${API_BASE}/api/pods/history`);
+    const response = await authFetch(`${API_BASE}/api/pods/history`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   getIgnoredPods: async () => {
-    const response = await fetch(`${API_BASE}/api/pods/ignored`);
+    const response = await authFetch(`${API_BASE}/api/pods/ignored`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   deletePodRecord: async (podId) => {
-    const response = await fetch(`${API_BASE}/api/pods/records/${podId}`, {
+    const response = await authFetch(`${API_BASE}/api/pods/records/${podId}`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -59,13 +80,13 @@ export const api = {
   },
 
   getHistoryRetention: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/settings/history-retention`);
+    const response = await authFetch(`${API_BASE}/api/admin/settings/history-retention`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   setHistoryRetention: async (minutes) => {
-    const response = await fetch(`${API_BASE}/api/admin/settings/history-retention`, {
+    const response = await authFetch(`${API_BASE}/api/admin/settings/history-retention`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ minutes })
@@ -75,13 +96,13 @@ export const api = {
   },
 
   getIgnoredRetention: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/settings/ignored-retention`);
+    const response = await authFetch(`${API_BASE}/api/admin/settings/ignored-retention`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   setIgnoredRetention: async (minutes) => {
-    const response = await fetch(`${API_BASE}/api/admin/settings/ignored-retention`, {
+    const response = await authFetch(`${API_BASE}/api/admin/settings/ignored-retention`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ minutes })
@@ -91,7 +112,7 @@ export const api = {
   },
 
   retrySolution: async (podId) => {
-    const response = await fetch(`${API_BASE}/api/pods/failed/${podId}/retry-solution`, {
+    const response = await authFetch(`${API_BASE}/api/pods/failed/${podId}/retry-solution`, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -100,13 +121,13 @@ export const api = {
 
   // Security findings API
   getSecurityFindings: async () => {
-    const response = await fetch(`${API_BASE}/api/security/findings`);
+    const response = await authFetch(`${API_BASE}/api/security/findings`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   dismissSecurityFinding: async (findingId) => {
-    const response = await fetch(`${API_BASE}/api/security/findings/${findingId}`, {
+    const response = await authFetch(`${API_BASE}/api/security/findings/${findingId}`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -114,13 +135,13 @@ export const api = {
   },
 
   getSecurityFindingManifest: async (findingId) => {
-    const response = await fetch(`${API_BASE}/api/security/findings/${findingId}/manifest`);
+    const response = await authFetch(`${API_BASE}/api/security/findings/${findingId}/manifest`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   generateSecurityFix: async (findingId) => {
-    const response = await fetch(`${API_BASE}/api/security/findings/${findingId}/fix`, {
+    const response = await authFetch(`${API_BASE}/api/security/findings/${findingId}/fix`, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -129,19 +150,19 @@ export const api = {
 
   // Admin API - Excluded Namespaces
   getExcludedNamespaces: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces`);
+    const response = await authFetch(`${API_BASE}/api/admin/excluded-namespaces`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   getAllNamespaces: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/namespaces`);
+    const response = await authFetch(`${API_BASE}/api/admin/namespaces`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   addExcludedNamespace: async (namespace) => {
-    const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces`, {
+    const response = await authFetch(`${API_BASE}/api/admin/excluded-namespaces`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -153,7 +174,7 @@ export const api = {
   },
 
   removeExcludedNamespace: async (namespace) => {
-    const response = await fetch(`${API_BASE}/api/admin/excluded-namespaces/${encodeURIComponent(namespace)}`, {
+    const response = await authFetch(`${API_BASE}/api/admin/excluded-namespaces/${encodeURIComponent(namespace)}`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -162,19 +183,19 @@ export const api = {
 
   // Admin API - Excluded Pods (Pod Monitoring Exclusions - by pod name only)
   getExcludedPods: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/excluded-pods`);
+    const response = await authFetch(`${API_BASE}/api/admin/excluded-pods`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   getMonitoredPods: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/monitored-pods`);
+    const response = await authFetch(`${API_BASE}/api/admin/monitored-pods`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   addExcludedPod: async (podName) => {
-    const response = await fetch(`${API_BASE}/api/admin/excluded-pods`, {
+    const response = await authFetch(`${API_BASE}/api/admin/excluded-pods`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -186,7 +207,7 @@ export const api = {
   },
 
   removeExcludedPod: async (podName) => {
-    const response = await fetch(`${API_BASE}/api/admin/excluded-pods/${encodeURIComponent(podName)}`, {
+    const response = await authFetch(`${API_BASE}/api/admin/excluded-pods/${encodeURIComponent(podName)}`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -195,7 +216,7 @@ export const api = {
 
   // Admin API - Excluded Security Rules
   getExcludedRules: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/excluded-rules`);
+    const response = await authFetch(`${API_BASE}/api/admin/excluded-rules`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
@@ -205,7 +226,7 @@ export const api = {
     if (namespace) {
       url += `?namespace=${encodeURIComponent(namespace)}`;
     }
-    const response = await fetch(url);
+    const response = await authFetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
@@ -215,7 +236,7 @@ export const api = {
     if (namespace) {
       body.namespace = namespace;
     }
-    const response = await fetch(`${API_BASE}/api/admin/excluded-rules`, {
+    const response = await authFetch(`${API_BASE}/api/admin/excluded-rules`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -231,7 +252,7 @@ export const api = {
     if (namespace) {
       url += `?namespace=${encodeURIComponent(namespace)}`;
     }
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -240,13 +261,13 @@ export const api = {
 
   // Admin API - Trusted Container Registries
   getTrustedRegistries: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/trusted-registries`);
+    const response = await authFetch(`${API_BASE}/api/admin/trusted-registries`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   addTrustedRegistry: async (registry) => {
-    const response = await fetch(`${API_BASE}/api/admin/trusted-registries`, {
+    const response = await authFetch(`${API_BASE}/api/admin/trusted-registries`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -258,23 +279,22 @@ export const api = {
   },
 
   removeTrustedRegistry: async (registry) => {
-    const response = await fetch(`${API_BASE}/api/admin/trusted-registries/${encodeURIComponent(registry)}`, {
+    const response = await authFetch(`${API_BASE}/api/admin/trusted-registries/${encodeURIComponent(registry)}`, {
       method: 'DELETE'
     });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     // Return true on success - no need to parse JSON response
     return true;
   },
 
   // Notification Settings API
   getNotificationSettings: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/notifications`);
+    const response = await authFetch(`${API_BASE}/api/admin/notifications`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   saveNotificationSetting: async (setting) => {
-    const response = await fetch(`${API_BASE}/api/admin/notifications`, {
+    const response = await authFetch(`${API_BASE}/api/admin/notifications`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -286,7 +306,7 @@ export const api = {
   },
 
   updateNotificationSetting: async (provider, setting) => {
-    const response = await fetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}`, {
+    const response = await authFetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
@@ -298,7 +318,7 @@ export const api = {
   },
 
   deleteNotificationSetting: async (provider) => {
-    const response = await fetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}`, {
+    const response = await authFetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -306,7 +326,7 @@ export const api = {
   },
 
   testNotification: async (provider) => {
-    const response = await fetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}/test`, {
+    const response = await authFetch(`${API_BASE}/api/admin/notifications/${encodeURIComponent(provider)}/test`, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -315,7 +335,7 @@ export const api = {
 
   // Cluster Metrics API
   getClusterMetrics: async () => {
-    const response = await fetch(`${API_BASE}/api/metrics/cluster`);
+    const response = await authFetch(`${API_BASE}/api/metrics/cluster`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
@@ -323,7 +343,7 @@ export const api = {
   // Pod Metrics History API
   getPodMetricsHistory: async (namespace, podName) => {
     const url = `${API_BASE}/api/metrics/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/history`;
-    const response = await fetch(url);
+    const response = await authFetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
@@ -336,29 +356,33 @@ export const api = {
     if (options.previous) params.append('previous', 'true');
 
     const url = `${API_BASE}/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/logs?${params}`;
-    const response = await fetch(url);
+    const response = await authFetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
-  // Streaming Pod Logs API (returns EventSource URL)
+  // Streaming Pod Logs API (returns EventSource URL with auth token)
   getStreamingLogsUrl: (namespace, podName, options = {}) => {
     const params = new URLSearchParams();
     if (options.container) params.append('container', options.container);
     if (options.tailLines) params.append('tail_lines', options.tailLines);
+
+    // Append auth token for SSE (EventSource cannot set headers)
+    const apiKey = sessionStorage.getItem('kure-auth-key');
+    if (apiKey) params.append('token', apiKey);
 
     return `${API_BASE}/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/logs/stream?${params}`;
   },
 
   // LLM Configuration API
   getLLMStatus: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/llm/status`);
+    const response = await authFetch(`${API_BASE}/api/admin/llm/status`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
   saveLLMConfig: async (config) => {
-    const response = await fetch(`${API_BASE}/api/admin/llm/config`, {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/config`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -370,7 +394,7 @@ export const api = {
   },
 
   deleteLLMConfig: async () => {
-    const response = await fetch(`${API_BASE}/api/admin/llm/config`, {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/config`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -378,7 +402,7 @@ export const api = {
   },
 
   testLLMConfig: async (config) => {
-    const response = await fetch(`${API_BASE}/api/admin/llm/test`, {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/test`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

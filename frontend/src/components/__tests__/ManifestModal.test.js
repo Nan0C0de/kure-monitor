@@ -155,6 +155,7 @@ describe('ManifestModal', () => {
       ...defaultProps,
       solution: 'AI solution temporarily unavailable. Basic troubleshooting steps...',
       onRetrySolution,
+      aiEnabled: true,
     };
 
     render(<ManifestModal {...propsWithFallback} />);

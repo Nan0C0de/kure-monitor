@@ -72,6 +72,13 @@ spec:
             secretKeyRef:
               name: {{ include "kure.fullname" . }}-encryption
               key: encryption-key
+        {{- if .Values.auth.apiKey }}
+        - name: AUTH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "kure.fullname" . }}-auth
+              key: api-key
+        {{- end }}
         volumeMounts:
         - name: tmp
           mountPath: /tmp

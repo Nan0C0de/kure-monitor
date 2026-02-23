@@ -3,9 +3,15 @@ import { api } from '../api';
 // Mock fetch globally
 global.fetch = jest.fn();
 
+// Ensure no auth key is set in tests
+beforeAll(() => {
+  sessionStorage.clear();
+});
+
 describe('API Service', () => {
   beforeEach(() => {
     fetch.mockClear();
+    sessionStorage.clear();
   });
 
   describe('getFailedPods', () => {
@@ -21,7 +27,7 @@ describe('API Service', () => {
 
       const result = await api.getFailedPods();
 
-      expect(fetch).toHaveBeenCalledWith('/api/pods/failed');
+      expect(fetch).toHaveBeenCalledWith('/api/pods/failed', expect.any(Object));
       expect(result).toEqual(mockPods);
     });
 
@@ -50,9 +56,9 @@ describe('API Service', () => {
 
       const result = await api.dismissPod(1);
 
-      expect(fetch).toHaveBeenCalledWith('/api/pods/failed/1', {
+      expect(fetch).toHaveBeenCalledWith('/api/pods/failed/1', expect.objectContaining({
         method: 'DELETE',
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
 
@@ -76,9 +82,9 @@ describe('API Service', () => {
 
       const result = await api.retrySolution(1);
 
-      expect(fetch).toHaveBeenCalledWith('/api/pods/failed/1/retry-solution', {
+      expect(fetch).toHaveBeenCalledWith('/api/pods/failed/1/retry-solution', expect.objectContaining({
         method: 'POST',
-      });
+      }));
       expect(result).toEqual(mockPod);
     });
 
@@ -102,7 +108,7 @@ describe('API Service', () => {
 
       const result = await api.getSecurityFindings();
 
-      expect(fetch).toHaveBeenCalledWith('/api/security/findings');
+      expect(fetch).toHaveBeenCalledWith('/api/security/findings', expect.any(Object));
       expect(result).toEqual(mockFindings);
     });
   });
@@ -116,9 +122,9 @@ describe('API Service', () => {
 
       const result = await api.dismissSecurityFinding(1);
 
-      expect(fetch).toHaveBeenCalledWith('/api/security/findings/1', {
+      expect(fetch).toHaveBeenCalledWith('/api/security/findings/1', expect.objectContaining({
         method: 'DELETE',
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
   });
@@ -133,7 +139,7 @@ describe('API Service', () => {
 
       const result = await api.getExcludedNamespaces();
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-namespaces');
+      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-namespaces', expect.any(Object));
       expect(result).toEqual(mockNamespaces);
     });
   });
@@ -148,7 +154,7 @@ describe('API Service', () => {
 
       const result = await api.getAllNamespaces();
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/namespaces');
+      expect(fetch).toHaveBeenCalledWith('/api/admin/namespaces', expect.any(Object));
       expect(result).toEqual(mockNamespaces);
     });
   });
@@ -162,11 +168,10 @@ describe('API Service', () => {
 
       const result = await api.addExcludedNamespace('test-ns');
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-namespaces', {
+      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-namespaces', expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ namespace: 'test-ns' }),
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
   });
@@ -180,9 +185,9 @@ describe('API Service', () => {
 
       const result = await api.removeExcludedNamespace('test-ns');
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-namespaces/test-ns', {
+      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-namespaces/test-ns', expect.objectContaining({
         method: 'DELETE',
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
   });
@@ -197,7 +202,7 @@ describe('API Service', () => {
 
       const result = await api.getExcludedPods();
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-pods');
+      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-pods', expect.any(Object));
       expect(result).toEqual(mockPods);
     });
   });
@@ -212,7 +217,7 @@ describe('API Service', () => {
 
       const result = await api.getMonitoredPods();
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/monitored-pods');
+      expect(fetch).toHaveBeenCalledWith('/api/admin/monitored-pods', expect.any(Object));
       expect(result).toEqual(mockPods);
     });
   });
@@ -226,11 +231,10 @@ describe('API Service', () => {
 
       const result = await api.addExcludedPod('test-pod');
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-pods', {
+      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-pods', expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pod_name: 'test-pod' }),
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
   });
@@ -244,9 +248,9 @@ describe('API Service', () => {
 
       const result = await api.removeExcludedPod('test-pod');
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-pods/test-pod', {
+      expect(fetch).toHaveBeenCalledWith('/api/admin/excluded-pods/test-pod', expect.objectContaining({
         method: 'DELETE',
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
   });
@@ -261,7 +265,7 @@ describe('API Service', () => {
 
       const result = await api.getNotificationSettings();
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications');
+      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications', expect.any(Object));
       expect(result).toEqual(mockSettings);
     });
 
@@ -274,11 +278,10 @@ describe('API Service', () => {
 
       const result = await api.saveNotificationSetting(setting);
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications', {
+      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications', expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(setting),
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
 
@@ -291,11 +294,10 @@ describe('API Service', () => {
 
       const result = await api.updateNotificationSetting('slack', setting);
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications/slack', {
+      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications/slack', expect.objectContaining({
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(setting),
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
 
@@ -307,9 +309,9 @@ describe('API Service', () => {
 
       const result = await api.deleteNotificationSetting('slack');
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications/slack', {
+      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications/slack', expect.objectContaining({
         method: 'DELETE',
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
 
@@ -321,9 +323,9 @@ describe('API Service', () => {
 
       const result = await api.testNotification('slack');
 
-      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications/slack/test', {
+      expect(fetch).toHaveBeenCalledWith('/api/admin/notifications/slack/test', expect.objectContaining({
         method: 'POST',
-      });
+      }));
       expect(result).toEqual({ success: true });
     });
   });
@@ -338,7 +340,7 @@ describe('API Service', () => {
 
       const result = await api.getClusterMetrics();
 
-      expect(fetch).toHaveBeenCalledWith('/api/metrics/cluster');
+      expect(fetch).toHaveBeenCalledWith('/api/metrics/cluster', expect.any(Object));
       expect(result).toEqual(mockMetrics);
     });
   });
@@ -353,7 +355,7 @@ describe('API Service', () => {
 
       const result = await api.getPodLogs('default', 'test-pod');
 
-      expect(fetch).toHaveBeenCalledWith('/api/pods/default/test-pod/logs?');
+      expect(fetch).toHaveBeenCalledWith('/api/pods/default/test-pod/logs?', expect.any(Object));
       expect(result).toEqual(mockLogs);
     });
 
@@ -371,7 +373,8 @@ describe('API Service', () => {
       });
 
       expect(fetch).toHaveBeenCalledWith(
-        '/api/pods/default/test-pod/logs?container=nginx&tail_lines=100&previous=true'
+        '/api/pods/default/test-pod/logs?container=nginx&tail_lines=100&previous=true',
+        expect.any(Object)
       );
       expect(result).toEqual(mockLogs);
     });
@@ -389,6 +392,40 @@ describe('API Service', () => {
         tailLines: 50,
       });
       expect(url).toBe('/api/pods/default/test-pod/logs/stream?container=nginx&tail_lines=50');
+    });
+  });
+
+  describe('auth header injection', () => {
+    test('adds Authorization header when key is in sessionStorage', async () => {
+      sessionStorage.setItem('kure-auth-key', 'test-key-123');
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([]),
+      });
+
+      await api.getFailedPods();
+
+      expect(fetch).toHaveBeenCalledWith('/api/pods/failed', expect.objectContaining({
+        headers: expect.objectContaining({
+          'Authorization': 'Bearer test-key-123',
+        }),
+      }));
+    });
+
+    test('does not add Authorization header when no key', async () => {
+      sessionStorage.clear();
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([]),
+      });
+
+      await api.getFailedPods();
+
+      const callArgs = fetch.mock.calls[0];
+      const options = callArgs[1] || {};
+      expect(options.headers?.Authorization).toBeUndefined();
     });
   });
 });
