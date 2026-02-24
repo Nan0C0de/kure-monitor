@@ -1,0 +1,27 @@
+
+Kure Monitor has been deployed to namespace {{ .Release.Namespace }}.
+
+1. Access the dashboard:
+
+   kubectl port-forward svc/{{ include "kure.fullname" . }}-frontend {{ .Values.frontend.service.port }}:{{ .Values.frontend.service.port }} -n {{ .Release.Namespace }}
+
+   Then open http://localhost:{{ .Values.frontend.service.port }}
+
+{{- if .Values.auth.apiKey }}
+
+2. Authentication is ENABLED. Log in with the API key you provided during installation.
+{{- else }}
+
+2. Authentication is DISABLED. The dashboard is open to anyone with network access.
+   To enable authentication, upgrade with:
+
+   helm upgrade {{ .Release.Name }} kure-monitor/kure -n {{ .Release.Namespace }} \
+     --set auth.apiKey=$(openssl rand -base64 32)
+{{- end }}
+
+3. Configure your LLM provider (OpenAI, Anthropic, Groq, Gemini, or Ollama) in the
+   Admin panel to enable AI-powered troubleshooting.
+
+4. For full cluster metrics (CPU/memory), ensure metrics-server is installed:
+
+   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml

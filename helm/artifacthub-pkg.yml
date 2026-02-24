@@ -1,23 +1,23 @@
 # Artifact Hub package metadata file
-version: 1.6.0
+version: 2.0.0
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
-createdAt: 2026-02-04T00:00:00Z
+createdAt: 2026-02-24T00:00:00Z
 description: |
   Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks: privileged containers, dangerous capabilities, missing seccomp/AppArmor profiles, RBAC issues, untrusted registries, and more. No Prometheus dependency required.
 license: Apache-2.0
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "1.6.0"
+appVersion: "2.0.0"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:1.6.0
+    image: ghcr.io/nan0c0de/kure-monitor/agent:2.0.0
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:1.6.0
+    image: ghcr.io/nan0c0de/kure-monitor/backend:2.0.0
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:1.6.0
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.0.0
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:1.6.0
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.0.0
 operator: false
 deprecated: false
 prerelease: false
@@ -40,31 +40,38 @@ provider:
   name: Nan0C0de
 changes:
   - kind: added
-    description: Trusted Container Registries - mark registries as trusted to filter untrusted registry findings with auto-rescan
+    description: Dashboard authentication - optional API key auth to protect the dashboard with login page
   - kind: added
-    description: AI-generated security fixes - get LLM-powered remediation suggestions for security findings
+    description: WebSocket authentication - all WebSocket connections now require valid token when auth is enabled
   - kind: added
-    description: Export findings to CSV, JSON, and PDF formats
+    description: Login rate limiting - 5 attempts per 30 seconds to prevent brute-force attacks
   - kind: added
-    description: Prometheus metrics endpoint with ServiceMonitor support
+    description: Manual security rescan button - trigger a full security re-scan from the dashboard
   - kind: added
-    description: Pod lifecycle management - track pods through investigating, resolved, and ignored states
+    description: Ollama support - use local LLM models for fully air-gapped deployments
   - kind: added
-    description: History retention settings for automatic cleanup of resolved and ignored pods
+    description: Teams notifications - Microsoft Teams webhook support alongside Slack
   - kind: added
-    description: Multi-select security rule exclusions with global and per-namespace scopes
-  - kind: added
-    description: Configurable pending pod grace period before reporting as failed
+    description: Auth disabled warning banner in Admin panel when authentication is not configured
+  - kind: fixed
+    description: Trusted registry findings now immediately cleared from database on registry add
+  - kind: fixed
+    description: Agent and scanner now authenticate to backend when auth is enabled
   - kind: changed
-    description: Security scanner expanded with additional Kubernetes resource scanning
+    description: Trusted registry add is now non-blocking with background broadcast for faster UI response
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 1.6.0 \
+  helm install kure-monitor kure-monitor/kure --version 2.0.0 \
     --create-namespace --namespace kure-system
+
+  # With authentication enabled (recommended for production):
+  helm install kure-monitor kure-monitor/kure --version 2.0.0 \
+    --create-namespace --namespace kure-system \
+    --set auth.apiKey=$(openssl rand -base64 32)
 
   # After installation, configure LLM provider via the Admin panel
   # to enable AI-powered troubleshooting suggestions

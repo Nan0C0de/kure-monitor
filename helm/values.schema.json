@@ -2,6 +2,16 @@
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "nameOverride": {
+      "type": "string",
+      "description": "Override the chart name",
+      "default": ""
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "Override the full release name",
+      "default": ""
+    },
     "global": {
       "type": "object",
       "properties": {
@@ -21,6 +31,12 @@
     "agent": {
       "type": "object",
       "properties": {
+        "pendingGracePeriod": {
+          "type": "integer",
+          "description": "Seconds before reporting Pending pods as failed",
+          "default": 120,
+          "minimum": 0
+        },
         "image": {
           "type": "object",
           "properties": {
@@ -30,7 +46,7 @@
             },
             "tag": {
               "type": "string",
-              "default": "1.6.0"
+              "default": "2.0.0"
             },
             "pullPolicy": {
               "type": "string",
@@ -107,7 +123,7 @@
             },
             "tag": {
               "type": "string",
-              "default": "1.6.0"
+              "default": "2.0.0"
             },
             "pullPolicy": {
               "type": "string",
@@ -178,7 +194,7 @@
             },
             "tag": {
               "type": "string",
-              "default": "1.6.0"
+              "default": "2.0.0"
             },
             "pullPolicy": {
               "type": "string",
@@ -245,7 +261,7 @@
             },
             "tag": {
               "type": "string",
-              "default": "1.6.0"
+              "default": "2.0.0"
             },
             "pullPolicy": {
               "type": "string",
@@ -377,6 +393,28 @@
               }
             }
           }
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "description": "Dashboard authentication configuration",
+      "properties": {
+        "apiKey": {
+          "type": "string",
+          "description": "API key for dashboard authentication. If empty, dashboard is open.",
+          "default": ""
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "description": "Security settings",
+      "properties": {
+        "encryptionKey": {
+          "type": "string",
+          "description": "Fernet key for API key encryption (auto-generated if empty)",
+          "default": ""
         }
       }
     },
