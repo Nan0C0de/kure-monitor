@@ -28,22 +28,22 @@ on:
         description: "Tag of backend image."
         required: false
         type: string
-        default: 1.2.0
+        default: 2.0.0
       agent_image_tag:
         description: "Tag of agent image."
         required: false
         type: string
-        default: 1.2.0
+        default: 2.0.0
       frontend_image_tag:
         description: "Tag of frontend image."
         required: false
         type: string
-        default: 1.2.0
+        default: 2.0.0
       security_scanner_image_tag:
         description: "Tag of security-scanner image."
         required: false
         type: string
-        default: 1.2.0
+        default: 2.0.0
       postgres_image_tag:
         description: "Tag of postgres image."
         required: false

@@ -6,7 +6,7 @@ on:
       chart_version:
         description: 'Chart version to release'
         required: true
-        default: '1.2.0'
+        default: '2.0.0'
         type: string
 
 permissions:
