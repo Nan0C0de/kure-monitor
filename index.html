@@ -240,8 +240,16 @@ helm repo update</code></pre>
                 Install Chart
             </h2>
             <pre><code># Basic install (configure LLM via Admin panel)
-helm install kure-monitor kure-monitor/kure --version 1.6.0 \
-    --create-namespace --namespace kure-system</code></pre>
+helm install kure-monitor kure-monitor/kure --version 2.0.0 \
+    --create-namespace --namespace kure-system
+
+# With authentication enabled (recommended for production)
+helm install kure-monitor kure-monitor/kure --version 2.0.0 \
+    --create-namespace --namespace kure-system \
+    --set auth.apiKey=$(openssl rand -base64 32)
+
+# After installation, configure LLM provider via the Admin panel
+# to enable AI-powered troubleshooting suggestions</code></pre>
         </div>
         
         <div class="links">
