@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 import logging
 import traceback
 
@@ -6,6 +6,7 @@ from models.models import (
     PodFailureReport, PodFailureResponse, PodStatusUpdate,
 )
 from services.prometheus_metrics import POD_FAILURES_TOTAL
+from .auth import require_admin
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error getting ignored pods: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.delete("/pods/failed/{pod_id}")
+    @router.delete("/pods/failed/{pod_id}", dependencies=[Depends(require_admin)])
     async def dismiss_pod_failure(pod_id: int):
         """Mark a pod failure as resolved/dismissed"""
         try:
@@ -118,7 +119,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error dismissing pod failure: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.put("/pods/ignored/{pod_id}/restore")
+    @router.put("/pods/ignored/{pod_id}/restore", dependencies=[Depends(require_admin)])
     async def restore_pod_failure(pod_id: int):
         """Restore/un-ignore a dismissed pod failure"""
         try:
@@ -130,7 +131,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error restoring pod failure: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.patch("/pods/failed/{pod_id}/status", response_model=PodFailureResponse)
+    @router.patch("/pods/failed/{pod_id}/status", response_model=PodFailureResponse, dependencies=[Depends(require_admin)])
     async def update_pod_status(pod_id: int, request: PodStatusUpdate):
         """Update the status of a pod failure (acknowledge, resolve, ignore)"""
         valid_statuses = {'new', 'investigating', 'resolved', 'ignored'}
@@ -227,7 +228,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error details: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.delete("/pods/records/{pod_id}")
+    @router.delete("/pods/records/{pod_id}", dependencies=[Depends(require_admin)])
     async def delete_pod_record(pod_id: int):
         """Permanently delete a resolved or ignored pod failure record"""
         try:

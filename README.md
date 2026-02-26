@@ -39,15 +39,13 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
-## What's New in v2.0.0
+## What's New in v2.1.0
 
-- **Dashboard Authentication** - Optional API key auth with login page to protect your dashboard
-- **WebSocket Security** - All real-time connections now require valid authentication when auth is enabled
-- **Login Rate Limiting** - Brute-force protection with 5 attempts per 30-second cooldown
-- **Security Rescan Button** - Trigger a full security re-scan on demand from the dashboard
-- **Ollama Support** - Run fully local LLM inference for air-gapped deployments
-- **Teams Notifications** - Microsoft Teams webhook support alongside Slack
-- **Auth Warning Banner** - Admin panel warns when authentication is not configured
+- **Multi-User API Keys** - Create named API keys with admin or viewer roles from the Admin panel
+- **Role-Based Access Control** - Viewer role restricts write operations (dismiss, resolve, settings changes)
+- **API Key Management UI** - Create, list, and revoke keys with one-time plain-text key display
+- **Admin Tab Hidden for Viewers** - Dashboard hides Admin panel for non-admin users
+- **Bootstrap Key Compatibility** - Original AUTH_API_KEY always grants admin role for backward compatibility
 
 ## Architecture
 

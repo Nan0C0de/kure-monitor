@@ -197,5 +197,18 @@ class Database:
     async def cleanup_old_ignored_pods(self, retention_minutes):
         return await self._db.cleanup_old_ignored_pods(retention_minutes)
 
+    # API key management methods
+    async def create_api_key(self, name, key_hash, role):
+        return await self._db.create_api_key(name, key_hash, role)
+
+    async def list_api_keys(self):
+        return await self._db.list_api_keys()
+
+    async def revoke_api_key(self, key_id):
+        return await self._db.revoke_api_key(key_id)
+
+    async def validate_api_key(self, key_hash):
+        return await self._db.validate_api_key(key_hash)
+
 
 

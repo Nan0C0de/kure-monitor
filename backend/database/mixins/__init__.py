@@ -3,6 +3,7 @@ from .security_findings import SecurityFindingMixin
 from .exclusions import ExclusionMixin
 from .notifications import NotificationMixin
 from .llm_config import LLMConfigMixin
+from .api_keys import ApiKeyMixin
 
 __all__ = [
     'PodFailureMixin',
@@ -10,4 +11,5 @@ __all__ = [
     'ExclusionMixin',
     'NotificationMixin',
     'LLMConfigMixin',
+    'ApiKeyMixin',
 ]

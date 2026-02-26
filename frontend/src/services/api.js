@@ -421,4 +421,29 @@ export const api = {
     return response.json();
   },
 
+  // API Key Management
+  getApiKeys: async () => {
+    const response = await authFetch(`${API_BASE}/api/admin/api-keys`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  createApiKey: async (name, role) => {
+    const response = await authFetch(`${API_BASE}/api/admin/api-keys`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, role })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  revokeApiKey: async (keyId) => {
+    const response = await authFetch(`${API_BASE}/api/admin/api-keys/${keyId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
 };

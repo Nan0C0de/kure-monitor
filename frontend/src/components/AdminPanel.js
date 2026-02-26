@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { AlertCircle, CheckCircle, Bot, Bell, EyeOff, Settings, ShieldAlert, X } from 'lucide-react';
+import { AlertCircle, CheckCircle, Bot, Bell, EyeOff, Key, Settings, ShieldAlert, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationSettings from './NotificationSettings';
 import LLMSettings from './LLMSettings';
@@ -8,6 +8,7 @@ import ExclusionPods from './admin/ExclusionPods';
 import ExclusionRules from './admin/ExclusionRules';
 import ExclusionRegistries from './admin/ExclusionRegistries';
 import RetentionSettings from './admin/RetentionSettings';
+import ApiKeyManager from './admin/ApiKeyManager';
 
 const AdminPanel = ({ isDark = false, onConfigChange }) => {
   // Tab state
@@ -28,12 +29,16 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
     setAuthBannerDismissed(true);
   };
 
-  const tabs = [
+  const baseTabs = [
     { id: 'ai', label: 'AI Config', icon: Bot },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'exclusions', label: 'Exclusions', icon: EyeOff },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
+
+  const tabs = authEnabled
+    ? [...baseTabs, { id: 'api-keys', label: 'API Keys', icon: Key }]
+    : baseTabs;
 
   const handleSuccess = useCallback((message) => {
     setError(null);
@@ -136,6 +141,10 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
           <ExclusionRules isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
           <ExclusionRegistries isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
         </div>
+      )}
+
+      {activeTab === 'api-keys' && (
+        <ApiKeyManager isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
       )}
     </div>
   );

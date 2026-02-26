@@ -143,11 +143,12 @@ class PodMonitor:
 
     async def _metrics_loop(self):
         """Metrics collection loop for sending cluster metrics to backend"""
-        # Check if metrics-server is available on startup
         await self.metrics_collector.check_metrics_server()
 
         while True:
             try:
+                if not self.metrics_collector.metrics_available:
+                    await self.metrics_collector.check_metrics_server()
                 metrics = await self.metrics_collector.collect_cluster_metrics()
                 await self.backend_client.report_cluster_metrics(metrics)
                 await asyncio.sleep(self.metrics_interval)

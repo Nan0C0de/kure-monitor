@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 import asyncio
 import logging
 
@@ -9,6 +9,7 @@ from models.models import (
     TrustedRegistry,
     NotificationSettingCreate, NotificationSettingResponse,
 )
+from .auth import require_admin
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def create_admin_router(deps: RouterDeps) -> APIRouter:
     """Excluded namespaces/pods/rules, trusted registries, notifications."""
-    router = APIRouter()
+    router = APIRouter(dependencies=[Depends(require_admin)])
     db = deps.db
     websocket_manager = deps.websocket_manager
     notification_service = deps.notification_service

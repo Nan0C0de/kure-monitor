@@ -9,6 +9,7 @@ from .mixins import (
     ExclusionMixin,
     NotificationMixin,
     LLMConfigMixin,
+    ApiKeyMixin,
 )
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
@@ -21,6 +22,7 @@ class PostgreSQLDatabase(
     ExclusionMixin,
     NotificationMixin,
     LLMConfigMixin,
+    ApiKeyMixin,
     DatabaseInterface,
 ):
     def __init__(self):
@@ -286,6 +288,22 @@ class PostgreSQLDatabase(
                         value TEXT NOT NULL,
                         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
+                """)
+
+                # Create api_keys table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS api_keys (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        key_hash VARCHAR(64) NOT NULL UNIQUE,
+                        role VARCHAR(20) NOT NULL DEFAULT 'viewer',
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                        revoked_at TIMESTAMPTZ
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash
+                    ON api_keys(key_hash)
                 """)
 
             logger.info("PostgreSQL database initialized successfully")

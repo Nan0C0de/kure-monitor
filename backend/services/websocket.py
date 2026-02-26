@@ -163,7 +163,9 @@ class WebSocketManager:
         # from their environment.
         if AUTH_API_KEY:
             token = websocket.query_params.get("token")
-            if not validate_ws_token(token):
+            db = getattr(websocket.app.state, "db", None)
+            role = await validate_ws_token(token, db)
+            if not role:
                 await websocket.close(code=4001, reason="Unauthorized")
                 return
         await self.connect(websocket)

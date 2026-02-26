@@ -4,7 +4,7 @@ import logging
 from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
-from .auth import require_auth, create_auth_router
+from .auth import require_auth, require_admin, create_auth_router
 from .deps import RouterDeps
 from .routes_pods import create_pod_router
 from .routes_security import create_security_router
@@ -12,6 +12,7 @@ from .routes_admin import create_admin_router
 from .routes_metrics import create_metrics_router
 from .routes_logs import create_logs_router
 from .routes_llm import create_llm_router
+from .routes_api_keys import create_api_keys_router
 
 logger = logging.getLogger(__name__)
 
@@ -38,5 +39,6 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
     router.include_router(create_metrics_router(deps))
     router.include_router(create_logs_router(deps))
     router.include_router(create_llm_router(deps))
+    router.include_router(create_api_keys_router(deps))
 
     return router

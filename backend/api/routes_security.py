@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 import difflib
 import logging
 import traceback
 
 from models.models import SecurityFindingReport, SecurityFindingResponse
 from services.prometheus_metrics import SECURITY_FINDINGS_TOTAL
+from .auth import require_admin
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error getting security findings: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.delete("/security/findings/{finding_id}")
+    @router.delete("/security/findings/{finding_id}", dependencies=[Depends(require_admin)])
     async def dismiss_security_finding(finding_id: int):
         """Mark a security finding as dismissed"""
         try:
@@ -99,7 +100,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error dismissing security finding: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.put("/security/findings/{finding_id}/restore")
+    @router.put("/security/findings/{finding_id}/restore", dependencies=[Depends(require_admin)])
     async def restore_security_finding(finding_id: int):
         """Restore a dismissed security finding"""
         try:
@@ -205,7 +206,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error generating security fix: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/security/rescan")
+    @router.post("/security/rescan", dependencies=[Depends(require_admin)])
     async def trigger_security_rescan():
         """Trigger a full security rescan by broadcasting a request to the scanner via WebSocket"""
         logger.info("Manual security rescan requested")

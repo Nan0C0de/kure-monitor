@@ -12,7 +12,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { exportAsCSV, exportAsJSON, exportAsPDF } from '../utils/exportFindings';
 
 const Dashboard = () => {
-  const { authEnabled, logout } = useAuth();
+  const { authEnabled, userRole, logout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('monitoring');
   const [pods, setPods] = useState([]);
@@ -588,6 +588,7 @@ const Dashboard = () => {
                   <span>Cluster Metrics</span>
                 </button>
               </div>
+              {userRole === 'admin' && (
               <button
                 onClick={() => setActiveTab('admin')}
                 className={`${
@@ -599,6 +600,7 @@ const Dashboard = () => {
                 <Settings className="w-5 h-5" />
                 <span>Admin</span>
               </button>
+              )}
             </nav>
           </div>
         </div>
@@ -976,7 +978,7 @@ const Dashboard = () => {
             <MonitoringTab metrics={clusterMetrics} isDark={isDark} />
           )}
 
-          {activeTab === 'admin' && (
+          {activeTab === 'admin' && userRole === 'admin' && (
             <AdminPanel isDark={isDark} onConfigChange={handleConfigChange} />
           )}
 

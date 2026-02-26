@@ -139,9 +139,8 @@ class TestMetricsCollector:
         with patch.object(metrics_collector, '_get_node_storage_stats', return_value=None):
             result = await metrics_collector.collect_cluster_metrics()
 
-        # Verify counts
-        assert result["total_pods"] == 3
-        assert result["unassigned_pods"] == 1
+        # Verify counts - only pods assigned to existing nodes are counted
+        assert result["total_pods"] == 2
         assert result["nodes"][0]["pods_count"] == 2
 
     @pytest.mark.asyncio
@@ -174,7 +173,6 @@ class TestMetricsCollector:
             result = await metrics_collector.collect_cluster_metrics()
 
         assert result["total_pods"] == 1
-        assert result["unassigned_pods"] == 0
         assert result["nodes"][0]["pods_count"] == 1
 
     @pytest.mark.asyncio
@@ -186,5 +184,4 @@ class TestMetricsCollector:
 
         assert result["node_count"] == 0
         assert result["total_pods"] == 0
-        assert result["unassigned_pods"] == 0
         assert result["metrics_available"] == False

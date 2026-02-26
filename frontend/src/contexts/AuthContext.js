@@ -8,25 +8,40 @@ const API_BASE = window.location.hostname === 'localhost' && window.location.por
 
 export function AuthProvider({ children }) {
   const [apiKey, setApiKey] = useState(() => sessionStorage.getItem('kure-auth-key'));
+  const [userRole, setUserRole] = useState(() => sessionStorage.getItem('kure-auth-role') || null);
   const [authEnabled, setAuthEnabled] = useState(null); // null = loading
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Check if auth is enabled on mount
+  // Check if auth is enabled on mount (and resolve role for existing key)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/auth/status`);
+        const headers = {};
+        const storedKey = sessionStorage.getItem('kure-auth-key');
+        if (storedKey) {
+          headers['Authorization'] = `Bearer ${storedKey}`;
+        }
+        const res = await fetch(`${API_BASE}/api/auth/status`, { headers });
         if (res.ok) {
           const data = await res.json();
           if (!cancelled) {
             setAuthEnabled(data.enabled);
             setAuthChecked(true);
+            if (data.role) {
+              setUserRole(data.role);
+              sessionStorage.setItem('kure-auth-role', data.role);
+            } else if (!data.enabled) {
+              // Auth disabled = full admin access
+              setUserRole('admin');
+              sessionStorage.setItem('kure-auth-role', 'admin');
+            }
           }
         } else {
           // If endpoint doesn't exist (old backend), assume auth disabled
           if (!cancelled) {
             setAuthEnabled(false);
+            setUserRole('admin');
             setAuthChecked(true);
           }
         }
@@ -34,6 +49,7 @@ export function AuthProvider({ children }) {
         // Network error - assume auth disabled so dashboard still works
         if (!cancelled) {
           setAuthEnabled(false);
+          setUserRole('admin');
           setAuthChecked(true);
         }
       }
@@ -52,17 +68,24 @@ export function AuthProvider({ children }) {
     if (!res.ok) {
       throw new Error('Invalid API key');
     }
+    const data = await res.json();
     sessionStorage.setItem('kure-auth-key', key);
     setApiKey(key);
+
+    const role = data.role || 'viewer';
+    sessionStorage.setItem('kure-auth-role', role);
+    setUserRole(role);
   }, []);
 
   const logout = useCallback(() => {
     sessionStorage.removeItem('kure-auth-key');
+    sessionStorage.removeItem('kure-auth-role');
     setApiKey(null);
+    setUserRole(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ apiKey, isAuthenticated, authEnabled, authChecked, login, logout }}>
+    <AuthContext.Provider value={{ apiKey, isAuthenticated, authEnabled, authChecked, userRole, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

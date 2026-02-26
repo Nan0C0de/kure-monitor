@@ -1,23 +1,23 @@
 # Artifact Hub package metadata file
-version: 2.0.0
+version: 2.1.0
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
-createdAt: 2026-02-24T00:00:00Z
+createdAt: 2026-02-26T00:00:00Z
 description: |
   Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks: privileged containers, dangerous capabilities, missing seccomp/AppArmor profiles, RBAC issues, untrusted registries, and more. No Prometheus dependency required.
 license: Apache-2.0
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "2.0.0"
+appVersion: "2.1.0"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:2.0.0
+    image: ghcr.io/nan0c0de/kure-monitor/agent:2.1.0
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:2.0.0
+    image: ghcr.io/nan0c0de/kure-monitor/backend:2.1.0
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.0.0
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.1.0
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.0.0
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.1.0
 operator: false
 deprecated: false
 prerelease: false
@@ -40,36 +40,28 @@ provider:
   name: Nan0C0de
 changes:
   - kind: added
-    description: Dashboard authentication - optional API key auth to protect the dashboard with login page
+    description: Multi-user API keys - create named API keys with admin or viewer roles from the Admin panel
   - kind: added
-    description: WebSocket authentication - all WebSocket connections now require valid token when auth is enabled
+    description: Role-based access control - viewer role restricts write operations (dismiss, resolve, settings changes)
   - kind: added
-    description: Login rate limiting - 5 attempts per 30 seconds to prevent brute-force attacks
+    description: API key management UI - create, list, and revoke keys with one-time plain-text key display
   - kind: added
-    description: Manual security rescan button - trigger a full security re-scan from the dashboard
-  - kind: added
-    description: Ollama support - use local LLM models for fully air-gapped deployments
-  - kind: added
-    description: Teams notifications - Microsoft Teams webhook support alongside Slack
-  - kind: added
-    description: Auth disabled warning banner in Admin panel when authentication is not configured
-  - kind: fixed
-    description: Trusted registry findings now immediately cleared from database on registry add
-  - kind: fixed
-    description: Agent and scanner now authenticate to backend when auth is enabled
+    description: Admin tab hidden for viewers - dashboard hides Admin panel for non-admin users
   - kind: changed
-    description: Trusted registry add is now non-blocking with background broadcast for faster UI response
+    description: Bootstrap key (AUTH_API_KEY) now always grants admin role for backward compatibility
+  - kind: changed
+    description: Auth endpoints return role information for role-aware frontend behavior
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 2.0.0 \
+  helm install kure-monitor kure-monitor/kure --version 2.1.0 \
     --create-namespace --namespace kure-system
 
   # With authentication enabled (recommended for production):
-  helm install kure-monitor kure-monitor/kure --version 2.0.0 \
+  helm install kure-monitor kure-monitor/kure --version 2.1.0 \
     --create-namespace --namespace kure-system \
     --set auth.apiKey=$(openssl rand -hex 32)
 

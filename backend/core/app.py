@@ -58,6 +58,8 @@ def create_app() -> FastAPI:
         # Startup
         await db.init_database()
         logger.info("Database initialized")
+        # Expose db on app state for auth middleware
+        app.state.db = db
         # Initialize solution engine (loads LLM config from db or env)
         await solution_engine.initialize()
         logger.info("Solution engine initialized")
@@ -77,7 +79,7 @@ def create_app() -> FastAPI:
         await db.close()
 
     # Create FastAPI app
-    app = FastAPI(title="Kure Backend", version="2.0.0", lifespan=lifespan)
+    app = FastAPI(title="Kure Backend", version="2.1.0", lifespan=lifespan)
 
     # Configure middleware and exception handlers
     configure_cors(app)

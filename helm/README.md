@@ -75,11 +75,11 @@ When `auth.apiKey` is empty (default):
 |-----------|-------------|---------|
 | `agent.pendingGracePeriod` | Seconds before reporting Pending pods as failed | `120` |
 | `agent.clusterMetrics.enabled` | Enable cluster metrics collection | `true` |
-| `agent.image.tag` | Agent image tag | `2.0.0` |
-| `securityScanner.image.tag` | Security scanner image tag | `2.0.0` |
+| `agent.image.tag` | Agent image tag | `2.1.0` |
+| `securityScanner.image.tag` | Security scanner image tag | `2.1.0` |
 | `backend.replicaCount` | Backend replica count | `1` |
-| `backend.image.tag` | Backend image tag | `2.0.0` |
-| `frontend.image.tag` | Frontend image tag | `2.0.0` |
+| `backend.image.tag` | Backend image tag | `2.1.0` |
+| `frontend.image.tag` | Frontend image tag | `2.1.0` |
 
 ### LLM Configuration
 
@@ -243,7 +243,7 @@ helm install kure-monitor kure-monitor/kure \
 
 ```bash
 helm repo update
-helm upgrade kure-monitor kure-monitor/kure --version 2.0.0 -n kure-system
+helm upgrade kure-monitor kure-monitor/kure --version 2.1.0 -n kure-system
 ```
 
 ## Uninstall
