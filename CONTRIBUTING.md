@@ -61,7 +61,7 @@ kubectl apply -f k8s/encryption-secret.yaml
 
 ```bash
 # Generate an API key
-API_KEY=$(openssl rand -base64 32)
+API_KEY=$(openssl rand -hex 32)
 
 # Create the secret
 kubectl create secret generic kure-auth-secret \

@@ -127,8 +127,8 @@ After installation, configure your LLM provider (OpenAI, Anthropic, Groq, Google
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
   --create-namespace \
-  --set auth.apiKey="$(openssl rand -base64 32)" \
-  --set postgresql.password="$(openssl rand -base64 24)"
+  --set auth.apiKey="$(openssl rand -hex 32)" \
+  --set postgresql.password="$(openssl rand -hex 24)"
 ```
 
 ### Access the Dashboard
@@ -247,7 +247,7 @@ Kure Monitor supports optional API key authentication. When enabled, the dashboa
 
 ```bash
 # Generate a secure API key
-openssl rand -base64 32
+openssl rand -hex 32
 
 # Install with auth enabled
 helm install kure-monitor kure-monitor/kure \

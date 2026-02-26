@@ -23,14 +23,14 @@ For production deployments, enable API key authentication to protect the dashboa
 
 ```bash
 # Generate a secure API key
-API_KEY=$(openssl rand -base64 32)
+API_KEY=$(openssl rand -hex 32)
 
 # Install with authentication enabled
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
   --create-namespace \
   --set auth.apiKey="$API_KEY" \
-  --set postgresql.password="$(openssl rand -base64 24)"
+  --set postgresql.password="$(openssl rand -hex 24)"
 
 # Save the API key - you'll need it to log in
 echo "Dashboard API key: $API_KEY"
@@ -200,8 +200,8 @@ helm install kure-monitor kure-monitor/kure \
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system --create-namespace \
-  --set auth.apiKey="$(openssl rand -base64 32)" \
-  --set postgresql.password="$(openssl rand -base64 24)"
+  --set auth.apiKey="$(openssl rand -hex 32)" \
+  --set postgresql.password="$(openssl rand -hex 24)"
 ```
 
 ### With Prometheus monitoring

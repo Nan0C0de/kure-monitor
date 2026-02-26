@@ -16,7 +16,7 @@ Kure Monitor has been deployed to namespace {{ .Release.Namespace }}.
    To enable authentication, upgrade with:
 
    helm upgrade {{ .Release.Name }} kure-monitor/kure -n {{ .Release.Namespace }} \
-     --set auth.apiKey=$(openssl rand -base64 32)
+     --set auth.apiKey=$(openssl rand -hex 32)
 {{- end }}
 
 3. Configure your LLM provider (OpenAI, Anthropic, Groq, Gemini, or Ollama) in the
