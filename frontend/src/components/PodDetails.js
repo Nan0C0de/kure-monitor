@@ -363,10 +363,11 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStat
               components={{
                 // Handle pre/code blocks
                 pre: ({ children }) => {
+                  // In react-markdown v9, child.type is the custom component function, not 'code'
                   const codeChild = React.Children.toArray(children).find(
-                    child => React.isValidElement(child) && child.type === 'code'
+                    child => React.isValidElement(child)
                   );
-                  if (codeChild && React.isValidElement(codeChild)) {
+                  if (codeChild) {
                     const className = codeChild.props.className || '';
                     const language = className.replace('language-', '');
                     const codeText = String(codeChild.props.children || '').replace(/\n$/, '');
@@ -374,12 +375,17 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStat
                   }
                   return <pre className="bg-gray-800 text-gray-100 p-4 rounded overflow-x-auto text-xs my-3">{children}</pre>;
                 },
-                // Inline code as bold
-                code: ({ inline, className, children }) => {
-                  if (className?.startsWith('language-')) {
-                    return <code className={className}>{children}</code>;
+                // Inline code as bold, block code passes through for pre handler
+                code: ({ className, children, node, ...props }) => {
+                  // In react-markdown v9, the 'inline' prop is removed.
+                  // Block code (inside <pre>) has a parent node of type 'element' with tagName 'pre'.
+                  const isInline = !(node?.properties?.className) &&
+                    node?.position?.start?.line === node?.position?.end?.line &&
+                    !className;
+                  if (isInline) {
+                    return <strong className="font-semibold text-gray-900">{children}</strong>;
                   }
-                  return <strong className="font-semibold text-gray-900">{children}</strong>;
+                  return <code className={className || ''}>{children}</code>;
                 },
                 // Style other elements
                 p: ({ children }) => <p className="my-2 text-gray-700">{children}</p>,
