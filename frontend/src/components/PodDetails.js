@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, RefreshCw, Copy, Check, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock, Trash2 } from 'lucide-react';
+import { FileText, RefreshCw, Copy, Check, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock, Trash2, FlaskConical } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../services/api';
 
@@ -38,7 +38,7 @@ const CodeBlock = ({ code, language }) => {
   );
 };
 
-const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStatusChange, onDeleteRecord, aiEnabled = false, viewMode = 'active' }) => {
+const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpdated, onStatusChange, onDeleteRecord, aiEnabled = false, viewMode = 'active' }) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -335,6 +335,16 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onSolutionUpdated, onStat
             </button>
           </div>
           <div className="flex items-center space-x-2">
+            {aiEnabled && onTestFix && (
+              <button
+                onClick={onTestFix}
+                className="inline-flex items-center px-3 py-1 border border-purple-300 rounded-md text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                title="Deploy a temporary mirror pod with the AI fix applied"
+              >
+                <FlaskConical className="w-4 h-4 mr-2" />
+                Test Fix
+              </button>
+            )}
             <button
               onClick={onViewLogs}
               className="inline-flex items-center px-3 py-1 border border-green-300 rounded-md text-sm text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"

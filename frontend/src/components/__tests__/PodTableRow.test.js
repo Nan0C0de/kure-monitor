@@ -19,6 +19,12 @@ jest.mock('../ManifestModal', () => {
   };
 });
 
+jest.mock('../MirrorPodModal', () => {
+  return function MockMirrorPodModal() {
+    return null;
+  };
+});
+
 const mockPod = {
   id: 1,
   pod_name: 'test-pod',

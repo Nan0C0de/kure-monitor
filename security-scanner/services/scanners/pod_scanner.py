@@ -29,6 +29,12 @@ class PodScanner:
         """
         namespace = pod.metadata.namespace
         pod_name = pod.metadata.name
+
+        # Skip mirror pods (temporary test pods created by Kure)
+        labels = pod.metadata.labels or {}
+        if labels.get("kure.io/mirror") == "true":
+            return
+
         timestamp = datetime.utcnow().isoformat() + "Z"
         self.scanner._set_resource_context(pod, 'v1', 'Pod')
 
@@ -383,6 +389,11 @@ class PodScanner:
                 if self.scanner.exclusion_mgr.is_namespace_excluded(pod.metadata.namespace):
                     continue
 
+                # Skip mirror pods (temporary test pods created by Kure)
+                labels = pod.metadata.labels or {}
+                if labels.get("kure.io/mirror") == "true":
+                    continue
+
                 pod_name = pod.metadata.name
                 namespace = pod.metadata.namespace
                 sa_name = pod.spec.service_account_name or 'default'
@@ -453,6 +464,11 @@ class PodScanner:
 
             for pod in pods.items:
                 if self.scanner.exclusion_mgr.is_namespace_excluded(pod.metadata.namespace):
+                    continue
+
+                # Skip mirror pods (temporary test pods created by Kure)
+                labels = pod.metadata.labels or {}
+                if labels.get("kure.io/mirror") == "true":
                     continue
 
                 pod_name = pod.metadata.name

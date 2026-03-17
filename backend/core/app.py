@@ -11,6 +11,7 @@ from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
 from services.notification_service import NotificationService
+from services.mirror_service import MirrorService
 from api.routes import create_api_router
 from api.middleware import configure_cors, configure_exception_handlers
 
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     solution_engine = SolutionEngine(db=db)  # Pass db for LLM config loading
     websocket_manager = WebSocketManager()
     notification_service = NotificationService(db)
+    mirror_service = MirrorService(db=db, solution_engine=solution_engine, websocket_manager=websocket_manager)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -68,9 +70,13 @@ def create_app() -> FastAPI:
         cleanup_task = asyncio.create_task(history_cleanup_task(db))
         logger.info("History cleanup background task started")
 
+        # Start mirror pod cleanup task
+        await mirror_service.start_cleanup_task()
+
         yield
 
         # Shutdown
+        await mirror_service.stop_cleanup_task()
         cleanup_task.cancel()
         try:
             await cleanup_task
@@ -101,7 +107,7 @@ def create_app() -> FastAPI:
         )
 
     # Include routers
-    api_router = create_api_router(db, solution_engine, websocket_manager, notification_service)
+    api_router = create_api_router(db, solution_engine, websocket_manager, notification_service, mirror_service)
     app.include_router(api_router)
     app.include_router(websocket_manager.router)
 

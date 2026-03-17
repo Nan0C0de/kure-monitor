@@ -4,6 +4,7 @@ import StatusBadge from './StatusBadge';
 import PodDetails from './PodDetails';
 import ManifestModal from './ManifestModal';
 import PodLogsModal from './PodLogsModal';
+import MirrorPodModal from './MirrorPodModal';
 import { api } from '../services/api';
 
 const getWorkflowStatusBadge = (status) => {
@@ -24,6 +25,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [showMirror, setShowMirror] = useState(false);
   const [isRetryingFromModal, setIsRetryingFromModal] = useState(false);
 
   const formatTimestamp = (timestamp) => {
@@ -127,6 +129,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
               pod={pod}
               onViewManifest={() => setShowManifest(true)}
               onViewLogs={() => setShowLogs(true)}
+              onTestFix={() => setShowMirror(true)}
               onSolutionUpdated={onSolutionUpdated}
               onStatusChange={onStatusChange}
               onDeleteRecord={onDeleteRecord}
@@ -154,6 +157,11 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
         onClose={() => setShowLogs(false)}
         pod={pod}
         isDark={isDark}
+      />
+      <MirrorPodModal
+        isOpen={showMirror}
+        onClose={() => setShowMirror(false)}
+        pod={pod}
       />
     </>
   );

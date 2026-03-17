@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 def compute_manifest_diff(original: str, fixed: str) -> list:
-    """Compute a structured diff between original and fixed manifests"""
+    """Compute a structured diff between original and fixed manifests.
+    Ignores whitespace-only changes to avoid false diffs from LLM reformatting."""
     original_lines = original.splitlines(keepends=True)
     fixed_lines = fixed.splitlines(keepends=True)
     diff_result = []
@@ -23,9 +24,22 @@ def compute_manifest_diff(original: str, fixed: str) -> list:
             for line in original_lines[i1:i2]:
                 diff_result.append({'content': line.rstrip('\n'), 'type': 'unchanged'})
         elif tag == 'replace':
-            for line in original_lines[i1:i2]:
+            orig_chunk = original_lines[i1:i2]
+            fixed_chunk = fixed_lines[j1:j2]
+            # If same number of lines and only whitespace differs, treat as unchanged
+            if len(orig_chunk) == len(fixed_chunk):
+                all_whitespace_only = True
+                for o, f in zip(orig_chunk, fixed_chunk):
+                    if o.strip() != f.strip():
+                        all_whitespace_only = False
+                        break
+                if all_whitespace_only:
+                    for line in orig_chunk:
+                        diff_result.append({'content': line.rstrip('\n'), 'type': 'unchanged'})
+                    continue
+            for line in orig_chunk:
                 diff_result.append({'content': line.rstrip('\n'), 'type': 'removed'})
-            for line in fixed_lines[j1:j2]:
+            for line in fixed_chunk:
                 diff_result.append({'content': line.rstrip('\n'), 'type': 'added'})
         elif tag == 'delete':
             for line in original_lines[i1:i2]:

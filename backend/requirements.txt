@@ -11,8 +11,10 @@ aiohttp>=3.12.14
 setuptools>=78.1.1
 # Email notifications
 aiosmtplib>=3.0.0
-# Kubernetes client for pod logs
+# Kubernetes client for pod logs and mirror pods
 kubernetes>=28.1.0
+# YAML parsing for mirror pod manifests
+PyYAML>=6.0
 # Prometheus metrics
 prometheus_client>=0.20.0
 # Encryption for API keys at rest

@@ -13,14 +13,15 @@ from .routes_metrics import create_metrics_router
 from .routes_logs import create_logs_router
 from .routes_llm import create_llm_router
 from .routes_api_keys import create_api_keys_router
+from .routes_mirror import create_mirror_router
 
 logger = logging.getLogger(__name__)
 
 
-def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager, notification_service=None) -> APIRouter:
+def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager, notification_service=None, mirror_service=None) -> APIRouter:
     """Create and configure the API router by assembling domain-specific sub-routers."""
     router = APIRouter(prefix="/api", dependencies=[Depends(require_auth)])
-    deps = RouterDeps(db, solution_engine, websocket_manager, notification_service)
+    deps = RouterDeps(db, solution_engine, websocket_manager, notification_service, mirror_service)
 
     @router.get("/config")
     async def get_config():
@@ -40,5 +41,8 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
     router.include_router(create_logs_router(deps))
     router.include_router(create_llm_router(deps))
     router.include_router(create_api_keys_router(deps))
+
+    if mirror_service:
+        router.include_router(create_mirror_router(deps, mirror_service))
 
     return router

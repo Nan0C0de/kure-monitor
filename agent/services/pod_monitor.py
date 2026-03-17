@@ -240,6 +240,11 @@ class PodMonitor:
         if self._is_pod_excluded(pod_name):
             return False
 
+        # Skip mirror pods (temporary test pods created by Kure)
+        labels = pod.metadata.labels or {}
+        if labels.get("kure.io/mirror") == "true":
+            return False
+
         # Failed phase is obviously a failure
         if pod.status.phase == "Failed":
             return True

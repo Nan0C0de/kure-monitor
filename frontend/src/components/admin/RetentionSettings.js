@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, EyeOff, Save } from 'lucide-react';
+import { Clock, EyeOff, Save, FlaskConical } from 'lucide-react';
 import { api } from '../../services/api';
 
 const toMinutes = (value, unit) => {
@@ -33,12 +33,17 @@ const RetentionSettings = ({ isDark, onError, onSuccess }) => {
   const [ignoredRetentionUnit, setIgnoredRetentionUnit] = useState('days');
   const [ignoredRetentionDirty, setIgnoredRetentionDirty] = useState(false);
 
+  // Mirror Pod TTL state (stored as seconds in backend)
+  const [mirrorTTL, setMirrorTTL] = useState(180);
+  const [mirrorTTLDirty, setMirrorTTLDirty] = useState(false);
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [retentionData, ignoredRetentionData] = await Promise.all([
+        const [retentionData, ignoredRetentionData, mirrorTTLData] = await Promise.all([
           api.getHistoryRetention().catch(() => ({ minutes: 0 })),
-          api.getIgnoredRetention().catch(() => ({ minutes: 0 }))
+          api.getIgnoredRetention().catch(() => ({ minutes: 0 })),
+          api.getMirrorTTL().catch(() => ({ seconds: 180 }))
         ]);
 
         const mins = retentionData.minutes || 0;
@@ -79,8 +84,11 @@ const RetentionSettings = ({ isDark, onError, onSuccess }) => {
           setIgnoredRetentionUnit('days');
         }
 
+        setMirrorTTL(mirrorTTLData.seconds || 180);
+
         setRetentionDirty(false);
         setIgnoredRetentionDirty(false);
+        setMirrorTTLDirty(false);
       } catch (err) {
         onError('Failed to load retention settings');
         console.error('Error loading retention settings:', err);
@@ -124,6 +132,21 @@ const RetentionSettings = ({ isDark, onError, onSuccess }) => {
     } catch (err) {
       onError('Failed to update ignored retention setting');
       console.error('Error updating ignored retention:', err);
+    }
+  };
+
+  const handleMirrorTTLSave = async (seconds) => {
+    try {
+      if (seconds < 30 || seconds > 600) {
+        onError('Mirror Pod TTL must be between 30 and 600 seconds');
+        return;
+      }
+      await api.setMirrorTTL(seconds);
+      onSuccess(`Mirror Pod TTL set to ${seconds} seconds.`);
+      setMirrorTTLDirty(false);
+    } catch (err) {
+      onError('Failed to update Mirror Pod TTL');
+      console.error('Error updating mirror TTL:', err);
     }
   };
 
@@ -317,6 +340,60 @@ const RetentionSettings = ({ isDark, onError, onSuccess }) => {
             The cleanup runs every minute. Ignored pods older than the configured period will be permanently deleted.
           </div>
         )}
+      </div>
+
+      {/* Mirror Pod TTL */}
+      <div>
+        <div className="mb-4 flex items-center">
+          <FlaskConical className="w-5 h-5 text-purple-500 mr-2" />
+          <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Mirror Pod TTL</h2>
+        </div>
+        <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          How long temporary mirror pods live before auto-deletion. Mirror pods are used to test AI-generated fixes.
+        </p>
+
+        <div className="flex items-center gap-4">
+          <label className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            TTL (seconds)
+          </label>
+
+          <input
+            type="number"
+            min={30}
+            max={600}
+            value={mirrorTTL}
+            onChange={(e) => {
+              const val = parseInt(e.target.value) || 30;
+              setMirrorTTL(val);
+              setMirrorTTLDirty(true);
+            }}
+            onBlur={() => {
+              const clamped = Math.max(30, Math.min(mirrorTTL, 600));
+              setMirrorTTL(clamped);
+            }}
+            className={`w-24 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
+              isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          />
+
+          {mirrorTTLDirty && (
+            <button
+              onClick={() => {
+                const clamped = Math.max(30, Math.min(mirrorTTL, 600));
+                setMirrorTTL(clamped);
+                handleMirrorTTLSave(clamped);
+              }}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              <Save className="w-4 h-4 mr-1" />
+              Save
+            </button>
+          )}
+        </div>
+
+        <div className={`mt-3 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+          Valid range: 30 - 600 seconds. Default: 180 seconds (3 minutes).
+        </div>
       </div>
     </div>
   );

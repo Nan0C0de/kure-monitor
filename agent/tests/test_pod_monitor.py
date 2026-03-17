@@ -90,8 +90,28 @@ class TestPodMonitor:
         pod = Mock()
         pod.metadata.namespace = "kure-system"
         pod.status.phase = "Failed"
-        
+
         assert pod_monitor._is_pod_failed(pod) == False
+
+    def test_is_pod_failed_mirror_pod_excluded(self, pod_monitor):
+        """Test that mirror pods with kure.io/mirror=true label are excluded"""
+        pod = Mock()
+        pod.metadata.name = "mirror-test-pod"
+        pod.metadata.namespace = "default"
+        pod.metadata.labels = {"kure.io/mirror": "true"}
+        pod.status.phase = "Failed"
+
+        assert pod_monitor._is_pod_failed(pod) == False
+
+    def test_is_pod_failed_non_mirror_pod_not_excluded(self, pod_monitor):
+        """Test that pods without the mirror label are not excluded"""
+        pod = Mock()
+        pod.metadata.name = "regular-pod"
+        pod.metadata.namespace = "default"
+        pod.metadata.labels = {"app": "myapp"}
+        pod.status.phase = "Failed"
+
+        assert pod_monitor._is_pod_failed(pod) == True
 
     def test_is_pod_failed_succeeded_phase(self, pod_monitor):
         """Test that succeeded pods are not considered failed"""

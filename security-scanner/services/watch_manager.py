@@ -228,6 +228,11 @@ class WatchManager:
                 if self.scanner.exclusion_mgr.is_namespace_excluded(namespace):
                     continue
 
+                # Skip mirror pods (temporary test pods created by Kure)
+                labels = pod.metadata.labels or {}
+                if labels.get("kure.io/mirror") == "true":
+                    continue
+
                 if event['type'] == 'DELETED':
                     await self.handle_resource_deletion("Pod", namespace, pod.metadata.name)
                 elif event['type'] in ['ADDED', 'MODIFIED']:

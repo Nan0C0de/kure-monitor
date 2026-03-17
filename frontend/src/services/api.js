@@ -421,6 +421,53 @@ export const api = {
     return response.json();
   },
 
+  // Mirror Pod API
+  deployMirrorPod: async (podId, ttlSeconds) => {
+    const response = await authFetch(`${API_BASE}/api/mirror/deploy/${podId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ttl_seconds: ttlSeconds })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getMirrorStatus: async (mirrorId) => {
+    const response = await authFetch(`${API_BASE}/api/mirror/status/${mirrorId}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  deleteMirrorPod: async (mirrorId) => {
+    const response = await authFetch(`${API_BASE}/api/mirror/${mirrorId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getActiveMirrors: async () => {
+    const response = await authFetch(`${API_BASE}/api/mirror/active`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getMirrorTTL: async () => {
+    const response = await authFetch(`${API_BASE}/api/admin/settings/mirror-ttl`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  setMirrorTTL: async (seconds) => {
+    const response = await authFetch(`${API_BASE}/api/admin/settings/mirror-ttl`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seconds })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // API Key Management
   getApiKeys: async () => {
     const response = await authFetch(`${API_BASE}/api/admin/api-keys`);

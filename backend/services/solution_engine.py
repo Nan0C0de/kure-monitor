@@ -256,6 +256,111 @@ class SolutionEngine:
 
         return base_solution
 
+    async def generate_pod_fix(self, manifest: str, failure_reason: str, failure_message: str,
+                               events: list, solution: str) -> dict:
+        """Generate an AI-fixed pod manifest based on failure analysis.
+
+        Returns:
+            dict with keys: fixed_manifest, explanation, is_fallback
+        """
+        if not self.llm_provider or not manifest:
+            return {
+                'fixed_manifest': '',
+                'explanation': 'No LLM configured. Cannot generate a fixed manifest automatically.',
+                'is_fallback': True
+            }
+
+        system_prompt = """You are a Kubernetes expert. You will be given a Kubernetes Pod YAML manifest, a failure reason, events, and a suggested solution.
+Your task is to produce a FIXED version of the manifest that resolves the failure.
+
+Rules:
+- Return the COMPLETE fixed YAML manifest (not a partial patch)
+- Only change what is necessary to fix the SPECIFIC failure described
+- Do NOT modify metadata fields (name, namespace, labels, annotations) unless the failure is specifically about them
+- Do NOT change fields that are unrelated to the failure, even if they could be improved
+- Preserve all existing functionality
+- If the fix requires external action (e.g., creating a Secret, adding a node) that cannot be expressed in the manifest, still return the best possible manifest and explain what else is needed
+- Do NOT add comments to the YAML
+
+Output format (follow EXACTLY):
+```yaml
+<complete fixed manifest here>
+```
+---EXPLANATION---
+<brief explanation of what was changed and why, 2-4 sentences>"""
+
+        user_prompt = f"""Pod Failure Details:
+- Failure Reason: {failure_reason}
+- Failure Message: {failure_message or 'N/A'}
+
+Events:
+{self._format_events_for_prompt(events)}
+
+Previously Suggested Solution:
+{solution}
+
+Current Pod Manifest:
+```yaml
+{manifest}
+```
+
+Please provide the fixed manifest and explanation."""
+
+        try:
+            provider_name = self.llm_provider.provider_name
+            start_time = time.monotonic()
+
+            llm_response = await self.llm_provider.generate_raw(system_prompt, user_prompt)
+
+            duration = time.monotonic() - start_time
+            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+
+            # Parse the response (same format as generate_security_fix)
+            content = llm_response.content
+            fixed_manifest = ''
+            explanation = ''
+
+            # Extract YAML block
+            yaml_match = re.search(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
+            if yaml_match:
+                fixed_manifest = yaml_match.group(1).strip()
+
+            # Extract explanation
+            explanation_match = re.search(r'---EXPLANATION---\s*\n(.*?)$', content, re.DOTALL)
+            if explanation_match:
+                explanation = explanation_match.group(1).strip()
+            elif not yaml_match:
+                explanation = content
+
+            return {
+                'fixed_manifest': fixed_manifest,
+                'explanation': explanation,
+                'is_fallback': False
+            }
+
+        except Exception as e:
+            logger.error(f"Pod fix generation failed: {e}")
+            return {
+                'fixed_manifest': '',
+                'explanation': f'Failed to generate fix: {str(e)}',
+                'is_fallback': True
+            }
+
+    def _format_events_for_prompt(self, events: list) -> str:
+        """Format events list for LLM prompt"""
+        if not events:
+            return "No events available"
+        lines = []
+        for event in events[-10:]:
+            if isinstance(event, dict):
+                lines.append(f"- {event.get('type', 'Unknown')} {event.get('reason', '')}: {event.get('message', '')}")
+            elif hasattr(event, 'type'):
+                lines.append(f"- {event.type} {event.reason}: {event.message}")
+            else:
+                lines.append(f"- {str(event)}")
+        return "\n".join(lines)
+
     async def generate_security_fix(self, manifest: str, title: str, description: str,
                                      remediation: str, resource_type: str, resource_name: str,
                                      namespace: str, severity: str) -> dict:
@@ -276,7 +381,9 @@ Your task is to produce a FIXED version of the manifest that resolves the securi
 
 Rules:
 - Return the COMPLETE fixed YAML manifest (not a partial patch)
-- Only change what is necessary to fix the security issue
+- Only change what is necessary to fix the SPECIFIC security issue described in the finding
+- Do NOT modify metadata fields (name, namespace, labels, annotations) unless the finding is specifically about them
+- Do NOT change fields that are unrelated to the security finding, even if they could be improved
 - Preserve all existing functionality
 - Use best practices from Pod Security Standards and NSA/CISA guidelines
 - Do NOT add comments to the YAML

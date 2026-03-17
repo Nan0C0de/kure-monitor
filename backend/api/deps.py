@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
@@ -11,3 +11,4 @@ class RouterDeps:
     solution_engine: SolutionEngine
     websocket_manager: WebSocketManager
     notification_service: object = None
+    mirror_service: object = None

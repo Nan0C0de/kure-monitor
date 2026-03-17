@@ -155,6 +155,12 @@ class WebSocketManager:
         logger.info(f"Broadcasting security rescan request to {len(self.active_connections)} clients")
         await self._broadcast("security_rescan_request", {})
 
+    # --- Mirror pod broadcasts ---
+
+    async def broadcast_mirror_event(self, event_type: str, data: dict):
+        """Broadcast mirror pod events (mirror_created, mirror_deleted, mirror_status_change)"""
+        await self._broadcast(event_type, data, description=f"mirror event: {event_type}")
+
     # --- WebSocket endpoint ---
 
     async def websocket_endpoint(self, websocket: WebSocket):

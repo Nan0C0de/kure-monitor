@@ -21,6 +21,7 @@ jest.mock('lucide-react', () => ({
   RotateCcw: () => <span data-testid="rotate-ccw-icon">RotateCcw</span>,
   Clock: () => <span data-testid="clock-icon">Clock</span>,
   Trash2: () => <span data-testid="trash-icon">Trash2</span>,
+  FlaskConical: () => <span data-testid="flask-icon">FlaskConical</span>,
 }));
 
 // Mock API

@@ -202,3 +202,46 @@ class LLMConfigStatus(BaseModel):
     provider: Optional[str] = None
     model: Optional[str] = None
     source: Optional[str] = None  # "database"
+
+
+# Mirror Pod models
+class MirrorDeployRequest(BaseModel):
+    ttl_seconds: Optional[int] = None  # Uses admin default if omitted
+
+
+class MirrorDeployResponse(BaseModel):
+    mirror_id: str
+    mirror_pod_name: str
+    namespace: str
+    status: str
+    ttl_seconds: int
+    created_at: str
+    fixed_manifest: Optional[str] = None
+    explanation: Optional[str] = None
+
+
+class MirrorStatusResponse(BaseModel):
+    mirror_id: str
+    mirror_pod_name: str
+    namespace: str
+    phase: str
+    conditions: List[Dict[str, Any]] = []
+    events: List[Dict[str, Any]] = []
+    created_at: str
+    expires_at: str
+
+
+class MirrorActiveItem(BaseModel):
+    mirror_id: str
+    mirror_pod_name: str
+    namespace: str
+    source_pod_name: str
+    pod_failure_id: int
+    phase: Optional[str] = None
+    ttl_seconds: int
+    created_at: str
+    expires_at: str
+
+
+class MirrorTTLSetting(BaseModel):
+    seconds: int
