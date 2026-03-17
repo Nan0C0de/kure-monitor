@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 import uuid
 import yaml
@@ -18,6 +19,111 @@ from services.websocket import WebSocketManager
 logger = logging.getLogger(__name__)
 
 DEFAULT_MIRROR_TTL_SECONDS = 180
+
+# Metadata fields that are runtime/cluster-assigned and should be stripped
+_METADATA_FIELDS_TO_REMOVE = {
+    "creationTimestamp", "creation_timestamp",
+    "deletionTimestamp", "deletion_timestamp",
+    "deletionGracePeriodSeconds", "deletion_grace_period_seconds",
+    "generateName", "generate_name",
+    "generation",
+    "resourceVersion", "resource_version",
+    "selfLink", "self_link",
+    "uid",
+    "managedFields", "managed_fields",
+    "ownerReferences", "owner_references",
+    "finalizers",
+}
+
+# Spec-level fields to always remove (scheduler/runtime assigned)
+_SPEC_FIELDS_TO_REMOVE = {
+    "nodeName", "node_name",
+    "priority",
+    "preemptionPolicy", "preemption_policy",
+    "enableServiceLinks", "enable_service_links",
+}
+
+# Per-container fields to remove
+_CONTAINER_FIELDS_TO_REMOVE = {
+    "terminationMessagePath", "termination_message_path",
+    "terminationMessagePolicy", "termination_message_policy",
+}
+
+# Status sub-fields (also covers top-level 'status' being removed entirely)
+_STATUS_FIELDS_TO_REMOVE = {
+    "podIP", "pod_ip",
+    "podIPs", "pod_ips",
+    "hostIP", "host_ip",
+    "hostIPs", "host_ips",
+    "startTime", "start_time",
+    "phase",
+    "conditions",
+    "containerStatuses", "container_statuses",
+    "initContainerStatuses", "init_container_statuses",
+    "qosClass", "qos_class",
+}
+
+
+def clean_manifest(manifest) -> str:
+    """Clean runtime/cluster-assigned fields from a pod manifest.
+
+    Accepts either a dict or a YAML string. Always returns a YAML string
+    with only user-configurable fields retained.
+    """
+    if isinstance(manifest, str):
+        manifest_dict = yaml.safe_load(manifest)
+        if not isinstance(manifest_dict, dict):
+            return manifest  # Not a valid manifest dict, return as-is
+    elif isinstance(manifest, dict):
+        # Work on a deep copy to avoid mutating the caller's dict
+        manifest_dict = copy.deepcopy(manifest)
+    else:
+        raise TypeError(f"Expected str or dict, got {type(manifest).__name__}")
+
+    _clean_manifest_dict(manifest_dict)
+    return yaml.dump(manifest_dict, default_flow_style=False)
+
+
+def _clean_manifest_dict(manifest_dict: dict) -> None:
+    """In-place removal of runtime/cluster-assigned fields from a pod manifest dict."""
+
+    # 1. Remove top-level 'status' entirely
+    manifest_dict.pop("status", None)
+
+    # 2. Clean metadata
+    metadata = manifest_dict.get("metadata")
+    if isinstance(metadata, dict):
+        for field in _METADATA_FIELDS_TO_REMOVE:
+            metadata.pop(field, None)
+
+    # 3. Clean spec
+    spec = manifest_dict.get("spec")
+    if isinstance(spec, dict):
+        # Remove scheduler/runtime spec fields
+        for field in _SPEC_FIELDS_TO_REMOVE:
+            spec.pop(field, None)
+
+        # Remove serviceAccountName only if it's "default"
+        for key in ("serviceAccountName", "service_account_name"):
+            if spec.get(key) == "default":
+                spec.pop(key, None)
+
+        # Remove priorityClassName only if empty string
+        for key in ("priorityClassName", "priority_class_name"):
+            if key in spec and spec[key] in ("", None):
+                spec.pop(key, None)
+
+        # Clean containers
+        for container in spec.get("containers", []):
+            if isinstance(container, dict):
+                for field in _CONTAINER_FIELDS_TO_REMOVE:
+                    container.pop(field, None)
+
+        # Clean initContainers
+        for container in spec.get("initContainers", spec.get("init_containers", [])) or []:
+            if isinstance(container, dict):
+                for field in _CONTAINER_FIELDS_TO_REMOVE:
+                    container.pop(field, None)
 
 
 class MirrorService:
@@ -132,11 +238,9 @@ class MirrorService:
                 )
             raise RuntimeError(f"Kubernetes API error: {e.reason}")
 
-        # Convert to YAML string for the LLM
-        original_manifest_yaml = yaml.dump(
-            client.ApiClient().sanitize_for_serialization(original_pod),
-            default_flow_style=False
-        )
+        # Convert to dict, clean runtime fields, then to YAML for the LLM
+        serialized = client.ApiClient().sanitize_for_serialization(original_pod)
+        original_manifest_yaml = clean_manifest(serialized)
 
         # 3. Build events list
         events_list = []
@@ -197,19 +301,16 @@ class MirrorService:
                 )
             raise RuntimeError(f"Kubernetes API error: {e.reason}")
 
-        # Serialize to dict
-        original_manifest_dict = original_pod.to_dict()
-        # Convert to YAML string for the LLM
-        original_manifest_yaml = yaml.dump(
-            client.ApiClient().sanitize_for_serialization(original_pod),
-            default_flow_style=False
-        )
+        # Serialize and clean runtime fields
+        serialized = client.ApiClient().sanitize_for_serialization(original_pod)
+        original_manifest_yaml = clean_manifest(serialized)
 
         # 3. Use provided manifest or generate AI-fixed manifest
         if manifest:
             # User provided an edited manifest (e.g. from the preview flow)
+            # Clean it in case it still contains runtime fields
             fix_result = {
-                "fixed_manifest": manifest,
+                "fixed_manifest": clean_manifest(manifest),
                 "explanation": "User-provided manifest",
                 "is_fallback": False,
             }
@@ -242,15 +343,15 @@ class MirrorService:
         now = datetime.now(timezone.utc)
         expires_at = datetime.fromtimestamp(now.timestamp() + ttl_seconds, tz=timezone.utc)
 
-        # Parse fixed manifest if available, otherwise use original
+        # Parse fixed manifest if available, otherwise use cleaned original
         if fix_result["fixed_manifest"]:
             try:
                 mirror_spec = yaml.safe_load(fix_result["fixed_manifest"])
             except yaml.YAMLError:
                 logger.warning("Failed to parse AI-generated manifest, using original")
-                mirror_spec = client.ApiClient().sanitize_for_serialization(original_pod)
+                mirror_spec = yaml.safe_load(original_manifest_yaml)
         else:
-            mirror_spec = client.ApiClient().sanitize_for_serialization(original_pod)
+            mirror_spec = yaml.safe_load(original_manifest_yaml)
 
         # Apply mirror pod modifications
         self._prepare_mirror_spec(
