@@ -12,6 +12,7 @@ jest.mock('lucide-react', () => ({
   Trash2: ({ className }) => <span data-testid="trash-icon" className={className}>Trash2</span>,
   AlertCircle: ({ className }) => <span data-testid="alert-circle-icon" className={className}>AlertCircle</span>,
   FlaskConical: ({ className }) => <span data-testid="flask-icon" className={className}>FlaskConical</span>,
+  FileEdit: ({ className }) => <span data-testid="file-edit-icon" className={className}>FileEdit</span>,
 }));
 
 jest.mock('../../services/api', () => ({
@@ -19,6 +20,7 @@ jest.mock('../../services/api', () => ({
     deployMirrorPod: jest.fn(),
     getMirrorStatus: jest.fn(),
     deleteMirrorPod: jest.fn(),
+    previewMirrorPod: jest.fn(),
   }
 }));
 
@@ -50,6 +52,7 @@ describe('MirrorPodModal', () => {
     expect(screen.getByText('test-pod')).toBeInTheDocument();
     expect(screen.getByText('Deploy')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
+    expect(screen.getByText('Edit Manifest')).toBeInTheDocument();
   });
 
   test('shows default TTL in confirm message', () => {
@@ -100,7 +103,7 @@ describe('MirrorPodModal', () => {
     });
 
     expect(screen.getByText('Creating mirror pod...')).toBeInTheDocument();
-    expect(api.deployMirrorPod).toHaveBeenCalledWith(1, 180);
+    expect(api.deployMirrorPod).toHaveBeenCalledWith(1, 180, null);
   });
 
   test('transitions to running state after successful deploy', async () => {
@@ -307,5 +310,160 @@ describe('MirrorPodModal', () => {
     render(<MirrorPodModal isOpen={true} onClose={jest.fn()} pod={mockPod} />);
 
     expect(screen.getByText('default')).toBeInTheDocument();
+  });
+
+  // Edit Manifest flow tests
+  test('shows loading state when Edit Manifest is clicked', async () => {
+    api.previewMirrorPod.mockImplementation(() => new Promise(() => {})); // never resolves
+
+    render(<MirrorPodModal isOpen={true} onClose={jest.fn()} pod={mockPod} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Edit Manifest'));
+    });
+
+    expect(screen.getByText('Generating fixed manifest...')).toBeInTheDocument();
+    expect(api.previewMirrorPod).toHaveBeenCalledWith(1);
+  });
+
+  test('shows edit stage with manifest after preview loads', async () => {
+    api.previewMirrorPod.mockResolvedValue({
+      fixed_manifest: 'apiVersion: v1\nkind: Pod\nmetadata:\n  name: test-pod',
+      explanation: 'Fixed the image tag to use a valid version',
+      is_fallback: false,
+    });
+
+    render(<MirrorPodModal isOpen={true} onClose={jest.fn()} pod={mockPod} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Edit Manifest'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Review and edit the AI-generated fixed manifest before deploying.')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Fixed the image tag to use a valid version')).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/apiVersion: v1/)).toBeInTheDocument();
+    expect(screen.getByText('Deploy This')).toBeInTheDocument();
+    expect(screen.getByText('Back')).toBeInTheDocument();
+  });
+
+  test('Back button in edit stage returns to confirm stage', async () => {
+    api.previewMirrorPod.mockResolvedValue({
+      fixed_manifest: 'apiVersion: v1\nkind: Pod',
+      explanation: '',
+      is_fallback: false,
+    });
+
+    render(<MirrorPodModal isOpen={true} onClose={jest.fn()} pod={mockPod} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Edit Manifest'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy This')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Back'));
+    });
+
+    expect(screen.getByText('Deploy')).toBeInTheDocument();
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
+    expect(screen.getByText('Edit Manifest')).toBeInTheDocument();
+  });
+
+  test('Deploy This sends edited manifest to deploy API', async () => {
+    api.previewMirrorPod.mockResolvedValue({
+      fixed_manifest: 'apiVersion: v1\nkind: Pod\nmetadata:\n  name: original',
+      explanation: 'Some explanation',
+      is_fallback: false,
+    });
+    api.deployMirrorPod.mockImplementation(() => new Promise(() => {})); // never resolves
+
+    render(<MirrorPodModal isOpen={true} onClose={jest.fn()} pod={mockPod} />);
+
+    // Go to edit stage
+    await act(async () => {
+      fireEvent.click(screen.getByText('Edit Manifest'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy This')).toBeInTheDocument();
+    });
+
+    // Edit the manifest
+    const textarea = screen.getByDisplayValue(/apiVersion: v1/);
+    fireEvent.change(textarea, { target: { value: 'apiVersion: v1\nkind: Pod\nmetadata:\n  name: edited' } });
+
+    // Deploy edited manifest
+    await act(async () => {
+      fireEvent.click(screen.getByText('Deploy This'));
+    });
+
+    expect(api.deployMirrorPod).toHaveBeenCalledWith(
+      1,
+      180,
+      'apiVersion: v1\nkind: Pod\nmetadata:\n  name: edited'
+    );
+  });
+
+  test('shows error when preview API fails', async () => {
+    api.previewMirrorPod.mockRejectedValue(new Error('Failed to generate preview'));
+
+    render(<MirrorPodModal isOpen={true} onClose={jest.fn()} pod={mockPod} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Edit Manifest'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to generate preview')).toBeInTheDocument();
+    });
+  });
+
+  test('edit stage does not show explanation when empty', async () => {
+    api.previewMirrorPod.mockResolvedValue({
+      fixed_manifest: 'apiVersion: v1\nkind: Pod',
+      explanation: '',
+      is_fallback: false,
+    });
+
+    render(<MirrorPodModal isOpen={true} onClose={jest.fn()} pod={mockPod} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Edit Manifest'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy This')).toBeInTheDocument();
+    });
+
+    // Explanation box should not be rendered
+    expect(screen.queryByText('Fixed the image tag')).not.toBeInTheDocument();
+  });
+
+  test('textarea in edit stage is editable', async () => {
+    api.previewMirrorPod.mockResolvedValue({
+      fixed_manifest: 'original: content',
+      explanation: '',
+      is_fallback: false,
+    });
+
+    render(<MirrorPodModal isOpen={true} onClose={jest.fn()} pod={mockPod} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Edit Manifest'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('original: content')).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByDisplayValue('original: content');
+    fireEvent.change(textarea, { target: { value: 'modified: content' } });
+    expect(screen.getByDisplayValue('modified: content')).toBeInTheDocument();
   });
 });

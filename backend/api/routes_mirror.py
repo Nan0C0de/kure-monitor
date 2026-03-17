@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 import logging
 
 from models.models import (
-    MirrorDeployRequest, MirrorDeployResponse,
+    MirrorDeployRequest, MirrorDeployResponse, MirrorPreviewResponse,
     MirrorStatusResponse, MirrorActiveItem, MirrorTTLSetting,
 )
 from services.mirror_service import MirrorService
@@ -16,13 +16,33 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
     """Mirror pod deploy, status, delete, list, and TTL settings."""
     router = APIRouter()
 
+    @router.post("/mirror/preview/{pod_id}", response_model=MirrorPreviewResponse, dependencies=[Depends(require_admin)])
+    async def preview_mirror_fix(pod_id: int):
+        """Generate an AI-fixed manifest for a failing pod without deploying it."""
+        try:
+            fix_result = await mirror_service.generate_preview(pod_failure_id=pod_id)
+            return MirrorPreviewResponse(
+                fixed_manifest=fix_result["fixed_manifest"],
+                explanation=fix_result["explanation"],
+                is_fallback=fix_result["is_fallback"],
+            )
+
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error generating mirror preview for pod_id={pod_id}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @router.post("/mirror/deploy/{pod_id}", response_model=MirrorDeployResponse, dependencies=[Depends(require_admin)])
     async def deploy_mirror_pod(pod_id: int, request: MirrorDeployRequest = MirrorDeployRequest()):
         """Deploy a mirror pod from a failing pod with an AI-generated fix applied."""
         try:
             mirror_info = await mirror_service.create_mirror(
                 pod_failure_id=pod_id,
-                ttl_seconds=request.ttl_seconds
+                ttl_seconds=request.ttl_seconds,
+                manifest=request.manifest,
             )
 
             return MirrorDeployResponse(

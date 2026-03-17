@@ -102,7 +102,65 @@ class MirrorService:
         """Set the default mirror TTL in app settings."""
         await self._db.set_app_setting("mirror_ttl_seconds", str(seconds))
 
-    async def create_mirror(self, pod_failure_id: int, ttl_seconds: Optional[int] = None) -> dict:
+    async def generate_preview(self, pod_failure_id: int) -> dict:
+        """Generate an AI-fixed manifest preview without deploying.
+
+        Returns:
+            dict with keys: fixed_manifest, explanation, is_fallback
+        """
+        self._init_k8s_client()
+
+        # 1. Get pod failure record
+        pod_failure = await self._db.get_pod_failure_by_id(pod_failure_id)
+        if not pod_failure:
+            raise ValueError(f"Pod failure record not found: {pod_failure_id}")
+
+        original_name = pod_failure.pod_name
+        namespace = pod_failure.namespace
+
+        # 2. Get original pod manifest from K8s API
+        try:
+            original_pod = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self._k8s_core_v1.read_namespaced_pod(name=original_name, namespace=namespace)
+            )
+        except client.ApiException as e:
+            if e.status == 404:
+                raise ValueError(
+                    f"Pod '{original_name}' not found in namespace '{namespace}'. "
+                    "It may have been deleted. Cannot generate preview."
+                )
+            raise RuntimeError(f"Kubernetes API error: {e.reason}")
+
+        # Convert to YAML string for the LLM
+        original_manifest_yaml = yaml.dump(
+            client.ApiClient().sanitize_for_serialization(original_pod),
+            default_flow_style=False
+        )
+
+        # 3. Build events list
+        events_list = []
+        if pod_failure.events:
+            for e in pod_failure.events:
+                if isinstance(e, dict):
+                    events_list.append(e)
+                elif hasattr(e, 'dict'):
+                    events_list.append(e.dict())
+                elif hasattr(e, 'model_dump'):
+                    events_list.append(e.model_dump())
+
+        # 4. Generate AI-fixed manifest
+        fix_result = await self._solution_engine.generate_pod_fix(
+            manifest=original_manifest_yaml,
+            failure_reason=pod_failure.failure_reason,
+            failure_message=pod_failure.failure_message or "",
+            events=events_list,
+            solution=pod_failure.solution
+        )
+
+        return fix_result
+
+    async def create_mirror(self, pod_failure_id: int, ttl_seconds: Optional[int] = None, manifest: Optional[str] = None) -> dict:
         """Create a mirror pod from a failing pod's data.
 
         Steps:
@@ -147,24 +205,32 @@ class MirrorService:
             default_flow_style=False
         )
 
-        # 3. Generate AI-fixed manifest
-        events_list = []
-        if pod_failure.events:
-            for e in pod_failure.events:
-                if isinstance(e, dict):
-                    events_list.append(e)
-                elif hasattr(e, 'dict'):
-                    events_list.append(e.dict())
-                elif hasattr(e, 'model_dump'):
-                    events_list.append(e.model_dump())
+        # 3. Use provided manifest or generate AI-fixed manifest
+        if manifest:
+            # User provided an edited manifest (e.g. from the preview flow)
+            fix_result = {
+                "fixed_manifest": manifest,
+                "explanation": "User-provided manifest",
+                "is_fallback": False,
+            }
+        else:
+            events_list = []
+            if pod_failure.events:
+                for e in pod_failure.events:
+                    if isinstance(e, dict):
+                        events_list.append(e)
+                    elif hasattr(e, 'dict'):
+                        events_list.append(e.dict())
+                    elif hasattr(e, 'model_dump'):
+                        events_list.append(e.model_dump())
 
-        fix_result = await self._solution_engine.generate_pod_fix(
-            manifest=original_manifest_yaml,
-            failure_reason=pod_failure.failure_reason,
-            failure_message=pod_failure.failure_message or "",
-            events=events_list,
-            solution=pod_failure.solution
-        )
+            fix_result = await self._solution_engine.generate_pod_fix(
+                manifest=original_manifest_yaml,
+                failure_reason=pod_failure.failure_reason,
+                failure_message=pod_failure.failure_message or "",
+                events=events_list,
+                solution=pod_failure.solution
+            )
 
         # Determine the effective TTL
         if ttl_seconds is None:

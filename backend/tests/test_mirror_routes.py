@@ -94,6 +94,67 @@ class TestMirrorRoutes:
         assert data[0]["mirror_pod_name"] == "test-kure-mirror"
         assert data[0]["source_pod_name"] == "test"
 
+    # --- POST /api/mirror/preview/{pod_id} ---
+
+    @pytest.mark.asyncio
+    async def test_preview_mirror_fix_success(self, client, mock_mirror_service):
+        """Returns AI-fixed manifest preview."""
+        mock_mirror_service.generate_preview.return_value = {
+            "fixed_manifest": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test",
+            "explanation": "Changed image tag from latest to 1.0",
+            "is_fallback": False,
+        }
+
+        response = await client.post("/api/mirror/preview/42")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["fixed_manifest"] == "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test"
+        assert data["explanation"] == "Changed image tag from latest to 1.0"
+        assert data["is_fallback"] is False
+        mock_mirror_service.generate_preview.assert_called_once_with(pod_failure_id=42)
+
+    @pytest.mark.asyncio
+    async def test_preview_mirror_fix_fallback(self, client, mock_mirror_service):
+        """Returns fallback when no LLM is configured."""
+        mock_mirror_service.generate_preview.return_value = {
+            "fixed_manifest": "",
+            "explanation": "No LLM configured. Cannot generate a fixed manifest automatically.",
+            "is_fallback": True,
+        }
+
+        response = await client.post("/api/mirror/preview/42")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_fallback"] is True
+        assert data["fixed_manifest"] == ""
+
+    @pytest.mark.asyncio
+    async def test_preview_mirror_fix_not_found(self, client, mock_mirror_service):
+        """Returns 404 when pod failure not found."""
+        mock_mirror_service.generate_preview.side_effect = ValueError("Pod failure record not found: 999")
+
+        response = await client.post("/api/mirror/preview/999")
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_preview_mirror_fix_pod_gone(self, client, mock_mirror_service):
+        """Returns 404 when the pod no longer exists in K8s."""
+        mock_mirror_service.generate_preview.side_effect = ValueError(
+            "Pod 'test-pod' not found in namespace 'default'. It may have been deleted."
+        )
+
+        response = await client.post("/api/mirror/preview/42")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_preview_mirror_fix_k8s_error(self, client, mock_mirror_service):
+        """Returns 502 when K8s API fails."""
+        mock_mirror_service.generate_preview.side_effect = RuntimeError("Kubernetes API error: Forbidden")
+
+        response = await client.post("/api/mirror/preview/42")
+        assert response.status_code == 502
+
     # --- POST /api/mirror/deploy/{pod_id} ---
 
     @pytest.mark.asyncio
@@ -133,6 +194,35 @@ class TestMirrorRoutes:
 
         response = await client.post("/api/mirror/deploy/42")
         assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_deploy_mirror_with_manifest(self, client, mock_mirror_service):
+        """Deploys using a user-provided manifest instead of AI generation."""
+        user_manifest = "apiVersion: v1\nkind: Pod\nmetadata:\n  name: my-fixed-pod"
+        mock_mirror_service.create_mirror.return_value = {
+            "mirror_id": "custom-uuid",
+            "mirror_pod_name": "pod-kure-mirror",
+            "namespace": "default",
+            "phase": "Pending",
+            "ttl_seconds": 300,
+            "created_at": "2025-01-01T00:00:00+00:00",
+            "fixed_manifest": user_manifest,
+            "explanation": "User-provided manifest",
+        }
+
+        response = await client.post(
+            "/api/mirror/deploy/42",
+            json={"ttl_seconds": 300, "manifest": user_manifest},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["mirror_id"] == "custom-uuid"
+        assert data["fixed_manifest"] == user_manifest
+        mock_mirror_service.create_mirror.assert_called_once_with(
+            pod_failure_id=42,
+            ttl_seconds=300,
+            manifest=user_manifest,
+        )
 
     @pytest.mark.asyncio
     async def test_deploy_mirror_not_found(self, client, mock_mirror_service):

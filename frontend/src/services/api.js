@@ -422,11 +422,23 @@ export const api = {
   },
 
   // Mirror Pod API
-  deployMirrorPod: async (podId, ttlSeconds) => {
+  previewMirrorPod: async (podId) => {
+    const response = await authFetch(`${API_BASE}/api/mirror/preview/${podId}`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  deployMirrorPod: async (podId, ttlSeconds, manifest = null) => {
+    const body = { ttl_seconds: ttlSeconds };
+    if (manifest) {
+      body.manifest = manifest;
+    }
     const response = await authFetch(`${API_BASE}/api/mirror/deploy/${podId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ttl_seconds: ttlSeconds })
+      body: JSON.stringify(body)
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();

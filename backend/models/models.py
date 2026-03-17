@@ -207,6 +207,13 @@ class LLMConfigStatus(BaseModel):
 # Mirror Pod models
 class MirrorDeployRequest(BaseModel):
     ttl_seconds: Optional[int] = None  # Uses admin default if omitted
+    manifest: Optional[str] = None  # Pre-edited manifest; skips AI generation when provided
+
+
+class MirrorPreviewResponse(BaseModel):
+    fixed_manifest: str
+    explanation: str
+    is_fallback: bool
 
 
 class MirrorDeployResponse(BaseModel):

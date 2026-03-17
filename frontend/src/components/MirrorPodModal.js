@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, RefreshCw, CheckCircle, XCircle, Clock, Trash2, AlertCircle, FlaskConical } from 'lucide-react';
+import { X, RefreshCw, CheckCircle, XCircle, Clock, Trash2, AlertCircle, FlaskConical, FileEdit } from 'lucide-react';
 import { api } from '../services/api';
 
 const POLL_INTERVAL = 5000;
@@ -27,12 +27,15 @@ const PhaseIndicator = ({ phase }) => {
 };
 
 const MirrorPodModal = ({ isOpen, onClose, pod, defaultTTL = 180 }) => {
-  // States: confirm | deploying | running | result | deleted | error
+  // States: confirm | loading-manifest | edit | deploying | running | result | deleted | error
   const [stage, setStage] = useState('confirm');
   const [mirrorId, setMirrorId] = useState(null);
   const [mirrorInfo, setMirrorInfo] = useState(null);
   const [error, setError] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState('');
+  const [editedManifest, setEditedManifest] = useState('');
+  const [manifestExplanation, setManifestExplanation] = useState('');
+  const [useCustomManifest, setUseCustomManifest] = useState(false);
   const pollRef = useRef(null);
   const countdownRef = useRef(null);
 
@@ -44,6 +47,9 @@ const MirrorPodModal = ({ isOpen, onClose, pod, defaultTTL = 180 }) => {
       setMirrorInfo(null);
       setError(null);
       setTimeRemaining('');
+      setEditedManifest('');
+      setManifestExplanation('');
+      setUseCustomManifest(false);
     }
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -80,12 +86,32 @@ const MirrorPodModal = ({ isOpen, onClose, pod, defaultTTL = 180 }) => {
     }
   }, []);
 
-  const handleDeploy = async () => {
+  const handleEditManifest = async () => {
+    setStage('loading-manifest');
+    setError(null);
+
+    try {
+      const preview = await api.previewMirrorPod(pod.id);
+      setEditedManifest(preview.fixed_manifest || '');
+      setManifestExplanation(preview.explanation || '');
+      setStage('edit');
+    } catch (err) {
+      setError(err.message || 'Failed to generate manifest preview');
+      setStage('error');
+    }
+  };
+
+  const handleDeployEdited = () => {
+    setUseCustomManifest(true);
+    handleDeploy(editedManifest);
+  };
+
+  const handleDeploy = async (manifest = null) => {
     setStage('deploying');
     setError(null);
 
     try {
-      const result = await api.deployMirrorPod(pod.id, defaultTTL);
+      const result = await api.deployMirrorPod(pod.id, defaultTTL, manifest);
       setMirrorId(result.mirror_id);
       setMirrorInfo(result);
       setStage('running');
@@ -153,7 +179,9 @@ const MirrorPodModal = ({ isOpen, onClose, pod, defaultTTL = 180 }) => {
         ></div>
 
         {/* Modal */}
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full ${
+          stage === 'edit' || stage === 'loading-manifest' ? 'sm:max-w-3xl' : 'sm:max-w-lg'
+        }`}>
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
@@ -186,6 +214,39 @@ const MirrorPodModal = ({ isOpen, onClose, pod, defaultTTL = 180 }) => {
                   This creates a temporary copy in the <span className="font-mono">{pod.namespace}</span> namespace
                   to verify the fix works without modifying the original pod.
                 </p>
+              </div>
+            )}
+
+            {/* Loading manifest stage */}
+            {stage === 'loading-manifest' && (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="w-6 h-6 text-blue-500 animate-spin mr-3" />
+                <span className="text-sm text-gray-600">Generating fixed manifest...</span>
+              </div>
+            )}
+
+            {/* Edit manifest stage */}
+            {stage === 'edit' && (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">
+                  Review and edit the AI-generated fixed manifest before deploying.
+                </p>
+                {manifestExplanation && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <p className="text-sm text-blue-700">{manifestExplanation}</p>
+                  </div>
+                )}
+                <textarea
+                  value={editedManifest}
+                  onChange={(e) => setEditedManifest(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 bg-gray-900 text-gray-100 p-4 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  style={{
+                    fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                    height: '400px',
+                    resize: 'vertical',
+                  }}
+                  spellCheck={false}
+                />
               </div>
             )}
 
@@ -368,15 +429,42 @@ const MirrorPodModal = ({ isOpen, onClose, pod, defaultTTL = 180 }) => {
                   </button>
                   <button
                     type="button"
+                    className="inline-flex items-center justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    onClick={handleEditManifest}
+                  >
+                    <FileEdit className="w-4 h-4 mr-2" />
+                    Edit Manifest
+                  </button>
+                  <button
+                    type="button"
                     className="inline-flex items-center justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-sm font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                    onClick={handleDeploy}
+                    onClick={() => handleDeploy()}
                   >
                     <FlaskConical className="w-4 h-4 mr-2" />
                     Deploy
                   </button>
                 </>
               )}
-              {stage !== 'confirm' && (
+              {stage === 'edit' && (
+                <>
+                  <button
+                    type="button"
+                    className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    onClick={() => setStage('confirm')}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    onClick={handleDeployEdited}
+                  >
+                    <FlaskConical className="w-4 h-4 mr-2" />
+                    Deploy This
+                  </button>
+                </>
+              )}
+              {stage !== 'confirm' && stage !== 'edit' && (
                 <button
                   type="button"
                   className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
