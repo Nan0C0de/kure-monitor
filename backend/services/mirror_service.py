@@ -41,7 +41,22 @@ _SPEC_FIELDS_TO_REMOVE = {
     "priority",
     "preemptionPolicy", "preemption_policy",
     "enableServiceLinks", "enable_service_links",
+    "schedulerName", "scheduler_name",
+    "dnsPolicy", "dns_policy",
+    "terminationGracePeriodSeconds", "termination_grace_period_seconds",
 }
+
+# Default tolerations auto-added by Kubernetes (should be stripped)
+_DEFAULT_TOLERATIONS = {
+    "node.kubernetes.io/not-ready",
+    "node.kubernetes.io/unreachable",
+}
+
+# Volume name prefixes that are auto-injected by Kubernetes
+_AUTO_INJECTED_VOLUME_PREFIXES = (
+    "kube-api-access-",
+    "default-token-",
+)
 
 # Per-container fields to remove
 _CONTAINER_FIELDS_TO_REMOVE = {
@@ -113,17 +128,52 @@ def _clean_manifest_dict(manifest_dict: dict) -> None:
             if key in spec and spec[key] in ("", None):
                 spec.pop(key, None)
 
-        # Clean containers
-        for container in spec.get("containers", []):
+        # Remove default Kubernetes tolerations (auto-injected)
+        for key in ("tolerations",):
+            if key in spec and isinstance(spec[key], list):
+                spec[key] = [
+                    t for t in spec[key]
+                    if not isinstance(t, dict) or t.get("key") not in _DEFAULT_TOLERATIONS
+                ]
+                if not spec[key]:
+                    del spec[key]
+
+        # Remove auto-injected volumes (kube-api-access-*, default-token-*)
+        for key in ("volumes",):
+            if key in spec and isinstance(spec[key], list):
+                spec[key] = [
+                    v for v in spec[key]
+                    if not isinstance(v, dict) or not any(
+                        v.get("name", "").startswith(prefix) for prefix in _AUTO_INJECTED_VOLUME_PREFIXES
+                    )
+                ]
+                if not spec[key]:
+                    del spec[key]
+
+        # Remove auto-injected volumeMounts from containers
+        def _clean_container(container):
             if isinstance(container, dict):
                 for field in _CONTAINER_FIELDS_TO_REMOVE:
                     container.pop(field, None)
+                # Remove volumeMounts referencing auto-injected volumes
+                for mounts_key in ("volumeMounts", "volume_mounts"):
+                    if mounts_key in container and isinstance(container[mounts_key], list):
+                        container[mounts_key] = [
+                            m for m in container[mounts_key]
+                            if not isinstance(m, dict) or not any(
+                                m.get("name", "").startswith(prefix) for prefix in _AUTO_INJECTED_VOLUME_PREFIXES
+                            )
+                        ]
+                        if not container[mounts_key]:
+                            del container[mounts_key]
+
+        # Clean containers
+        for container in spec.get("containers", []):
+            _clean_container(container)
 
         # Clean initContainers
         for container in spec.get("initContainers", spec.get("init_containers", [])) or []:
-            if isinstance(container, dict):
-                for field in _CONTAINER_FIELDS_TO_REMOVE:
-                    container.pop(field, None)
+            _clean_container(container)
 
 
 class MirrorService:
