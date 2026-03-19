@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import PodDetails from './PodDetails';
@@ -27,6 +27,8 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
   const [showLogs, setShowLogs] = useState(false);
   const [showMirror, setShowMirror] = useState(false);
   const [isRetryingFromModal, setIsRetryingFromModal] = useState(false);
+  const [activeMirror, setActiveMirror] = useState(null);
+  const mirrorPollRef = useRef(null);
 
   const formatTimestamp = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
@@ -35,6 +37,71 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Check for active mirror pods associated with this pod failure
+  const checkActiveMirror = useCallback(async () => {
+    try {
+      const mirrors = await api.getActiveMirrors();
+      const match = mirrors.find(m => m.pod_failure_id === pod.id);
+      if (match) {
+        // Fetch detailed status for the matched mirror
+        try {
+          const status = await api.getMirrorStatus(match.mirror_id);
+          setActiveMirror(status);
+        } catch {
+          // If status fetch fails (404 = expired), clear mirror
+          setActiveMirror(null);
+        }
+      } else {
+        setActiveMirror(null);
+      }
+    } catch {
+      // Silently ignore errors (API may not be available)
+    }
+  }, [pod.id]);
+
+  // Poll mirror status every 5 seconds when a mirror is active
+  useEffect(() => {
+    if (!activeMirror?.mirror_id) {
+      if (mirrorPollRef.current) {
+        clearInterval(mirrorPollRef.current);
+        mirrorPollRef.current = null;
+      }
+      return;
+    }
+
+    mirrorPollRef.current = setInterval(async () => {
+      try {
+        const status = await api.getMirrorStatus(activeMirror.mirror_id);
+        setActiveMirror(status);
+      } catch {
+        // Mirror gone (expired/deleted)
+        setActiveMirror(null);
+      }
+    }, 5000);
+
+    return () => {
+      if (mirrorPollRef.current) clearInterval(mirrorPollRef.current);
+    };
+  }, [activeMirror?.mirror_id]);
+
+  // Check for active mirror on mount
+  useEffect(() => {
+    checkActiveMirror();
+  }, [checkActiveMirror]);
+
+  // Handle mirror deletion
+  const handleDeleteMirror = async (mirrorId) => {
+    await api.deleteMirrorPod(mirrorId);
+    setActiveMirror(null);
+  };
+
+  // Handle closing the mirror modal (check for newly deployed mirror)
+  const handleMirrorModalClose = () => {
+    setShowMirror(false);
+    // Re-check for active mirrors after modal closes (user may have deployed one)
+    checkActiveMirror();
   };
 
   // Retry handler for ManifestModal
@@ -136,6 +203,9 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
               isDark={isDark}
               aiEnabled={aiEnabled}
               viewMode={viewMode}
+              activeMirror={activeMirror}
+              onDeleteMirror={handleDeleteMirror}
+              onRefreshMirror={checkActiveMirror}
             />
           </td>
         </tr>
@@ -160,7 +230,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
       />
       <MirrorPodModal
         isOpen={showMirror}
-        onClose={() => setShowMirror(false)}
+        onClose={handleMirrorModalClose}
         pod={pod}
       />
     </>

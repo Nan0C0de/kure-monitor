@@ -25,6 +25,22 @@ jest.mock('../MirrorPodModal', () => {
   };
 });
 
+jest.mock('../PodLogsModal', () => {
+  return function MockPodLogsModal() {
+    return null;
+  };
+});
+
+// Mock API for mirror pod checks
+jest.mock('../../services/api', () => ({
+  api: {
+    getActiveMirrors: jest.fn().mockResolvedValue([]),
+    getMirrorStatus: jest.fn().mockResolvedValue(null),
+    deleteMirrorPod: jest.fn().mockResolvedValue({}),
+    retrySolution: jest.fn().mockResolvedValue({}),
+  },
+}));
+
 const mockPod = {
   id: 1,
   pod_name: 'test-pod',
@@ -39,6 +55,10 @@ const mockPod = {
 };
 
 describe('PodTableRow', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   test('renders pod information correctly', () => {
     render(
       <table>

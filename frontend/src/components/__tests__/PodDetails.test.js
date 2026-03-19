@@ -28,6 +28,9 @@ jest.mock('lucide-react', () => ({
 jest.mock('../../services/api', () => ({
   api: {
     retrySolution: jest.fn(),
+    getActiveMirrors: jest.fn().mockResolvedValue([]),
+    getMirrorStatus: jest.fn().mockResolvedValue(null),
+    deleteMirrorPod: jest.fn().mockResolvedValue({}),
   },
 }));
 
@@ -201,5 +204,109 @@ describe('PodDetails', () => {
 
     // Check that a formatted date is displayed (exact format depends on locale)
     expect(screen.getByText(/Jan/)).toBeInTheDocument();
+  });
+
+  describe('Mirror Pod Status', () => {
+    const mockMirror = {
+      mirror_id: 'mirror-123',
+      mirror_pod_name: 'test-pod-kure-mirror',
+      namespace: 'default',
+      phase: 'Running',
+      expires_at: new Date(Date.now() + 120000).toISOString(), // 2 minutes from now
+    };
+
+    test('renders mirror pod status when activeMirror is provided', () => {
+      render(
+        <PodDetails
+          pod={mockPod}
+          onViewManifest={jest.fn()}
+          activeMirror={mockMirror}
+          onDeleteMirror={jest.fn()}
+          onRefreshMirror={jest.fn()}
+        />
+      );
+
+      expect(screen.getByText('Mirror Pod Active')).toBeInTheDocument();
+      expect(screen.getByText('test-pod-kure-mirror')).toBeInTheDocument();
+      expect(screen.getByText('Running')).toBeInTheDocument();
+    });
+
+    test('does not render mirror pod status when activeMirror is null', () => {
+      render(
+        <PodDetails
+          pod={mockPod}
+          onViewManifest={jest.fn()}
+          activeMirror={null}
+        />
+      );
+
+      expect(screen.queryByText('Mirror Pod Active')).not.toBeInTheDocument();
+    });
+
+    test('shows delete mirror button', () => {
+      render(
+        <PodDetails
+          pod={mockPod}
+          onViewManifest={jest.fn()}
+          activeMirror={mockMirror}
+          onDeleteMirror={jest.fn()}
+          onRefreshMirror={jest.fn()}
+        />
+      );
+
+      expect(screen.getByText('Delete Mirror')).toBeInTheDocument();
+    });
+
+    test('calls onDeleteMirror when delete button is clicked', async () => {
+      const onDeleteMirror = jest.fn().mockResolvedValue();
+      render(
+        <PodDetails
+          pod={mockPod}
+          onViewManifest={jest.fn()}
+          activeMirror={mockMirror}
+          onDeleteMirror={onDeleteMirror}
+          onRefreshMirror={jest.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByText('Delete Mirror'));
+
+      await waitFor(() => {
+        expect(onDeleteMirror).toHaveBeenCalledWith('mirror-123');
+      });
+    });
+
+    test('shows pending phase indicator for pending mirror', () => {
+      const pendingMirror = { ...mockMirror, phase: 'Pending' };
+      render(
+        <PodDetails
+          pod={mockPod}
+          onViewManifest={jest.fn()}
+          activeMirror={pendingMirror}
+          onDeleteMirror={jest.fn()}
+          onRefreshMirror={jest.fn()}
+        />
+      );
+
+      // Pending phase should be displayed
+      const phaseTexts = screen.getAllByText('Pending');
+      // One from pod phase, one from mirror phase
+      expect(phaseTexts.length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('shows countdown timer', () => {
+      render(
+        <PodDetails
+          pod={mockPod}
+          onViewManifest={jest.fn()}
+          activeMirror={mockMirror}
+          onDeleteMirror={jest.fn()}
+          onRefreshMirror={jest.fn()}
+        />
+      );
+
+      // Should show the "Expires:" label
+      expect(screen.getByText('Expires:')).toBeInTheDocument();
+    });
   });
 });

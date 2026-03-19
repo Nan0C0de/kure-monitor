@@ -38,7 +38,104 @@ const CodeBlock = ({ code, language }) => {
   );
 };
 
-const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpdated, onStatusChange, onDeleteRecord, aiEnabled = false, viewMode = 'active' }) => {
+const MirrorPhaseIndicator = ({ phase }) => {
+  if (!phase) return null;
+  const lower = phase.toLowerCase();
+  if (lower === 'running' || lower === 'succeeded') {
+    return <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Running" />;
+  }
+  if (lower === 'pending') {
+    return <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse" title="Pending" />;
+  }
+  return <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" title="Failed" />;
+};
+
+const formatCountdown = (expiresAt) => {
+  if (!expiresAt) return '--:--';
+  const remaining = Math.max(0, Math.floor((new Date(expiresAt) - Date.now()) / 1000));
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+const MirrorPodStatus = ({ mirror, onDelete, onRefresh }) => {
+  const [timeRemaining, setTimeRemaining] = useState(() => formatCountdown(mirror?.expires_at));
+  const [isDeleting, setIsDeleting] = useState(false);
+  const countdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!mirror?.expires_at) return;
+
+    setTimeRemaining(formatCountdown(mirror.expires_at));
+
+    countdownRef.current = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((new Date(mirror.expires_at) - Date.now()) / 1000));
+      setTimeRemaining(formatCountdown(mirror.expires_at));
+      if (remaining <= 0) {
+        clearInterval(countdownRef.current);
+        // Mirror expired, refresh to check if it's gone
+        if (onRefresh) onRefresh();
+      }
+    }, 1000);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [mirror?.expires_at, onRefresh]);
+
+  const handleDelete = async () => {
+    if (!mirror?.mirror_id) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(mirror.mirror_id);
+    } catch {
+      setIsDeleting(false);
+    }
+  };
+
+  if (!mirror) return null;
+
+  const phase = mirror.phase || 'Pending';
+
+  return (
+    <div className="border-2 border-purple-300 bg-purple-50 rounded-lg p-4">
+      <div className="flex items-center mb-3">
+        <FlaskConical className="w-4 h-4 text-purple-600 mr-2" />
+        <h4 className="text-sm font-semibold text-purple-900">Mirror Pod Active</h4>
+      </div>
+      <div className="space-y-2 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-gray-600 font-medium">Name:</span>
+          <span className="text-gray-900 font-mono text-xs truncate ml-2 max-w-xs">{mirror.mirror_pod_name}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-600 font-medium">Phase:</span>
+            <span className="text-gray-900">{phase}</span>
+            <MirrorPhaseIndicator phase={phase} />
+          </div>
+          <div className="flex items-center gap-1 text-gray-600">
+            <Clock className="w-3.5 h-3.5 text-gray-400" />
+            <span className="font-medium">Expires:</span>
+            <span className="text-gray-900 font-mono text-xs">{timeRemaining}</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex justify-end mt-3">
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-300 rounded-md hover:bg-red-100 disabled:opacity-50"
+        >
+          <Trash2 className="w-3.5 h-3.5 mr-1" />
+          {isDeleting ? 'Deleting...' : 'Delete Mirror'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpdated, onStatusChange, onDeleteRecord, aiEnabled = false, viewMode = 'active', activeMirror, onDeleteMirror, onRefreshMirror }) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -317,6 +414,15 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
             </>
           )}
         </div>
+      )}
+
+      {/* Mirror Pod Status */}
+      {activeMirror && (
+        <MirrorPodStatus
+          mirror={activeMirror}
+          onDelete={onDeleteMirror}
+          onRefresh={onRefreshMirror}
+        />
       )}
 
       {/* Complete Solution */}
