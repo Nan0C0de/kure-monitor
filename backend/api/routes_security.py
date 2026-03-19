@@ -5,6 +5,7 @@ import traceback
 
 from models.models import SecurityFindingReport, SecurityFindingResponse
 from services.prometheus_metrics import SECURITY_FINDINGS_TOTAL
+from services.mirror_service import clean_manifest
 from .auth import require_admin
 from .deps import RouterDeps
 
@@ -158,7 +159,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
                 raise HTTPException(status_code=404, detail="Finding not found")
             return {
                 "id": finding.id,
-                "manifest": finding.manifest,
+                "manifest": clean_manifest(finding.manifest) if finding.manifest else "",
                 "resource_type": finding.resource_type,
                 "resource_name": finding.resource_name,
                 "namespace": finding.namespace,
@@ -191,8 +192,9 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
                     "is_fallback": True
                 }
 
+            cleaned_manifest = clean_manifest(finding.manifest) if finding.manifest else ""
             result = await solution_engine.generate_security_fix(
-                manifest=finding.manifest,
+                manifest=cleaned_manifest,
                 title=finding.title,
                 description=finding.description,
                 remediation=finding.remediation,
@@ -204,11 +206,11 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
 
             diff = []
             if result['fixed_manifest']:
-                diff = compute_manifest_diff(finding.manifest, result['fixed_manifest'])
+                diff = compute_manifest_diff(cleaned_manifest, result['fixed_manifest'])
 
             return {
                 "finding_id": finding_id,
-                "original_manifest": finding.manifest,
+                "original_manifest": cleaned_manifest,
                 "fixed_manifest": result['fixed_manifest'],
                 "diff": diff,
                 "explanation": result['explanation'],
