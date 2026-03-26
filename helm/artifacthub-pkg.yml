@@ -1,23 +1,23 @@
 # Artifact Hub package metadata file
-version: 2.1.0
+version: 2.2.0
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
-createdAt: 2026-02-26T00:00:00Z
+createdAt: 2026-03-26T00:00:00Z
 description: |
   Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks: privileged containers, dangerous capabilities, missing seccomp/AppArmor profiles, RBAC issues, untrusted registries, and more. No Prometheus dependency required.
 license: Apache-2.0
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "2.1.0"
+appVersion: "2.2.0"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:2.1.0
+    image: ghcr.io/nan0c0de/kure-monitor/agent:2.2.0
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:2.1.0
+    image: ghcr.io/nan0c0de/kure-monitor/backend:2.2.0
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.1.0
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.2.0
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.1.0
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.2.0
 operator: false
 deprecated: false
 prerelease: false
@@ -40,28 +40,34 @@ provider:
   name: Nan0C0de
 changes:
   - kind: added
-    description: Multi-user API keys - create named API keys with admin or viewer roles from the Admin panel
+    description: Mirror pod testing - deploy a temporary copy of a failing pod with AI-generated fixes applied to test before committing to Git
   - kind: added
-    description: Role-based access control - viewer role restricts write operations (dismiss, resolve, settings changes)
+    description: Mirror pod manifest editor - review and modify AI-generated fixes before deploying
   - kind: added
-    description: API key management UI - create, list, and revoke keys with one-time plain-text key display
-  - kind: added
-    description: Admin tab hidden for viewers - dashboard hides Admin panel for non-admin users
+    description: Admin-configurable mirror pod TTL with auto-cleanup (default 3 minutes)
   - kind: changed
-    description: Bootstrap key (AUTH_API_KEY) now always grants admin role for backward compatibility
+    description: Comprehensive dark theme improvements across 14+ components
   - kind: changed
-    description: Auth endpoints return role information for role-aware frontend behavior
+    description: Security fix manifest cleanup - strips Kubernetes runtime fields before LLM analysis
+  - kind: changed
+    description: Improved diff algorithm ignores whitespace-only changes to prevent false diffs
+  - kind: fixed
+    description: Code block rendering fix for react-markdown v9 compatibility
+  - kind: changed
+    description: Exclusions tab renamed to Suppressions in admin panel
+  - kind: changed
+    description: Backend RBAC updated with pod create/delete and event list permissions for mirror pod feature
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 2.1.0 \
+  helm install kure-monitor kure-monitor/kure --version 2.2.0 \
     --create-namespace --namespace kure-system
 
   # With authentication enabled (recommended for production):
-  helm install kure-monitor kure-monitor/kure --version 2.1.0 \
+  helm install kure-monitor kure-monitor/kure --version 2.2.0 \
     --create-namespace --namespace kure-system \
     --set auth.apiKey=$(openssl rand -hex 32)
 

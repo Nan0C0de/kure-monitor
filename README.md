@@ -39,13 +39,15 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
-## What's New in v2.1.0
+## What's New in v2.2.0
 
-- **Multi-User API Keys** - Create named API keys with admin or viewer roles from the Admin panel
-- **Role-Based Access Control** - Viewer role restricts write operations (dismiss, resolve, settings changes)
-- **API Key Management UI** - Create, list, and revoke keys with one-time plain-text key display
-- **Admin Tab Hidden for Viewers** - Dashboard hides Admin panel for non-admin users
-- **Bootstrap Key Compatibility** - Original AUTH_API_KEY always grants admin role for backward compatibility
+- **Mirror Pod Testing** - Deploy a temporary copy of a failing pod with AI-generated fixes applied, to test if the fix works before committing to Git. Includes manifest editor, auto-cleanup with configurable TTL, and live status tracking.
+- **Dark Theme Improvements** - Comprehensive dark mode fixes across 14+ components including status badges, action buttons, admin panels, and modals.
+- **Security Fix Manifest Cleanup** - Security scan fix generation now strips Kubernetes runtime fields before sending to LLM, preventing false changes.
+- **Improved Diff Algorithm** - Manifest diffs now ignore whitespace-only changes to prevent false diffs from LLM reformatting.
+- **Code Block Rendering Fix** - Fixed react-markdown v9 compatibility issues with code blocks on dark backgrounds.
+- **UI Rename** - "Exclusions" tab renamed to "Suppressions" in admin panel.
+- **Backend RBAC Update** - Backend service account now has pod create/delete and event list permissions for mirror pod feature.
 
 ## Architecture
 
