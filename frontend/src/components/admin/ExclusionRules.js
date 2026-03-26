@@ -252,7 +252,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                       className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 cursor-pointer ${
                         selectedGlobalRuleTitles.includes(title)
                           ? isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'
-                          : isDark ? 'hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
+                          : isDark ? 'text-gray-300 hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
                       }`}
                     >
                       <input
@@ -320,7 +320,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                       className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 cursor-pointer ${
                         selectedRuleTitles.includes(title)
                           ? isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'
-                          : isDark ? 'hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
+                          : isDark ? 'text-gray-300 hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
                       }`}
                     >
                       <input
@@ -340,9 +340,9 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
               onChange={(e) => setRuleNamespaceScope(e.target.value)}
               className={`px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
             >
-              <option value="">All namespaces</option>
+              <option value="" className={isDark ? 'bg-gray-700 text-gray-200' : ''}>All namespaces</option>
               {availableNamespaces.map(ns => (
-                <option key={ns} value={ns}>{ns}</option>
+                <option key={ns} value={ns} className={isDark ? 'bg-gray-700 text-gray-200' : ''}>{ns}</option>
               ))}
             </select>
             <button
@@ -389,7 +389,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                 </div>
                 <button
                   onClick={() => handleRemoveRule(rule.rule_title, rule.namespace || null)}
-                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'}`}
                 >
                   <Trash2 className="w-3 h-3 mr-1" />
                   Remove

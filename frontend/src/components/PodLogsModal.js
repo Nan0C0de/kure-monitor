@@ -168,7 +168,11 @@ const PodLogsModal = ({ isOpen, onClose, pod, isDark = false }) => {
             <button
               onClick={fetchLogs}
               disabled={loading}
-              className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-50`}
+              className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium disabled:opacity-50 ${
+                isDark
+                  ? 'bg-blue-900/50 text-blue-300 hover:bg-blue-800/50'
+                  : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+              }`}
             >
               <RotateCcw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
               Refresh

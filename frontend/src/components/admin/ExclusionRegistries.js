@@ -167,7 +167,7 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
               <button
                 onClick={() => handleRemoveRegistry(reg.registry)}
                 disabled={registryLoading === reg.registry}
-                className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${registryLoading === reg.registry ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed' : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'}`}
+                className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${registryLoading === reg.registry ? (isDark ? 'text-gray-500 bg-gray-800 border-gray-700 cursor-not-allowed' : 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed') : (isDark ? 'text-red-300 bg-red-900/40 border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100')}`}
               >
                 {registryLoading === reg.registry ? (
                   <>

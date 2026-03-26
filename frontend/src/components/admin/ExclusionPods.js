@@ -156,7 +156,7 @@ const ExclusionPods = ({ isDark, onError, onSuccess }) => {
                 </div>
                 <button
                   onClick={() => handleRemovePod(pod.pod_name)}
-                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'}`}
                 >
                   <Trash2 className="w-3 h-3 mr-1" />
                   Remove

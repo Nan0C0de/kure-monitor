@@ -93,6 +93,7 @@ const ManifestModal = ({
   solution,
   onRetrySolution,
   isRetrying,
+  isDark = false,
   aiEnabled = false
 }) => {
   const textareaRef = useRef(null);
@@ -173,22 +174,26 @@ const ManifestModal = ({
         ></div>
 
         {/* Modal panel */}
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`px-4 pt-5 pb-4 sm:p-6 sm:pb-4 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                <h3 className={`text-lg leading-6 font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
                   Pod Manifest
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                   {namespace}/{podName}
                 </p>
               </div>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleCopyToClipboard}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    isDark
+                      ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
+                      : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                  }`}
                   title="Copy to clipboard"
                 >
                   <Copy className="w-4 h-4 mr-1" />
@@ -196,7 +201,11 @@ const ManifestModal = ({
                 </button>
                 <button
                   onClick={handleDownload}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    isDark
+                      ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
+                      : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                  }`}
                   title="Download YAML file"
                 >
                   <Download className="w-4 h-4 mr-1" />
@@ -204,7 +213,7 @@ const ManifestModal = ({
                 </button>
                 <button
                   onClick={onClose}
-                  className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-500 focus:outline-none"
+                  className={`inline-flex items-center justify-center w-8 h-8 focus:outline-none ${isDark ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-500'}`}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -213,10 +222,10 @@ const ManifestModal = ({
 
             {/* Legend for highlights */}
             {hasHighlights && (
-              <div className="mb-3 flex items-center text-sm text-gray-600">
+              <div className={`mb-3 flex items-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 <Sparkles className="w-4 h-4 mr-2 text-green-600" />
                 <span>
-                  <span className="inline-block w-3 h-3 bg-green-100 border border-green-300 rounded mr-1"></span>
+                  <span className={`inline-block w-3 h-3 rounded mr-1 ${isDark ? 'bg-green-900/40 border border-green-500' : 'bg-green-100 border border-green-300'}`}></span>
                   Highlighted lines indicate areas to review based on the AI solution
                 </span>
               </div>
@@ -225,7 +234,11 @@ const ManifestModal = ({
             {/* Content - Highlighted YAML */}
             <div className="mt-4">
               <div
-                className="w-full h-96 p-4 border border-gray-300 rounded-md bg-gray-50 overflow-auto"
+                className={`w-full h-96 p-4 border rounded-md overflow-auto ${
+                  isDark
+                    ? 'border-gray-600 bg-gray-900'
+                    : 'border-gray-300 bg-gray-50'
+                }`}
                 style={{ fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace' }}
               >
                 {manifest ? (
@@ -235,21 +248,23 @@ const ManifestModal = ({
                         key={line.number}
                         className={`${
                           line.highlighted
-                            ? 'bg-green-100 border-l-4 border-green-500 -ml-2 pl-2'
+                            ? isDark
+                              ? 'bg-green-900/40 border-l-4 border-green-500 -ml-2 pl-2'
+                              : 'bg-green-100 border-l-4 border-green-500 -ml-2 pl-2'
                             : ''
                         }`}
                       >
-                        <span className="text-gray-400 select-none w-8 inline-block text-right mr-4">
+                        <span className={`select-none w-8 inline-block text-right mr-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
                           {line.number}
                         </span>
-                        <span className={line.highlighted ? 'text-green-800 font-medium' : ''}>
+                        <span className={line.highlighted ? (isDark ? 'text-green-300 font-medium' : 'text-green-800 font-medium') : (isDark ? 'text-gray-300' : '')}>
                           {line.content || ' '}
                         </span>
                       </div>
                     ))}
                   </pre>
                 ) : (
-                  <span className="text-gray-500"># No manifest available</span>
+                  <span className={isDark ? 'text-gray-500' : 'text-gray-500'}># No manifest available</span>
                 )}
               </div>
               {/* Hidden textarea for clipboard fallback */}
@@ -264,7 +279,7 @@ const ManifestModal = ({
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:justify-between">
+          <div className={`px-4 py-3 sm:px-6 sm:flex sm:justify-between ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
             {/* Left side - Retry AI button (only shown when fallback) */}
             <div>
               {isFallbackSolution && onRetrySolution && (
@@ -272,7 +287,7 @@ const ManifestModal = ({
                   type="button"
                   onClick={handleRetry}
                   disabled={isCurrentlyRetrying || !aiEnabled}
-                  className="inline-flex items-center px-4 py-2 border border-blue-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'border border-blue-700 text-blue-300 bg-blue-900/50 hover:bg-blue-800/50' : 'border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'}`}
                   title={!aiEnabled ? 'AI provider not configured' : 'Retry AI to get better solution and manifest highlights'}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isCurrentlyRetrying ? 'animate-spin' : ''}`} />

@@ -308,12 +308,12 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
   };
 
   const getPodStatusColor = (status, ready) => {
-    if (status === 'Running' && ready) return 'bg-green-100 text-green-800';
-    if (status === 'Running' && !ready) return 'bg-yellow-100 text-yellow-800';
-    if (status === 'Pending') return 'bg-yellow-100 text-yellow-800';
-    if (status === 'Succeeded') return 'bg-blue-100 text-blue-800';
-    if (status === 'Failed') return 'bg-red-100 text-red-800';
-    return 'bg-gray-100 text-gray-800';
+    if (status === 'Running' && ready) return isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800';
+    if (status === 'Running' && !ready) return isDark ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800';
+    if (status === 'Pending') return isDark ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800';
+    if (status === 'Succeeded') return isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800';
+    if (status === 'Failed') return isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800';
+    return isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800';
   };
 
   // Log viewer theme styles - use global isDark theme
@@ -329,15 +329,15 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
     <div className="p-6 space-y-6">
       {/* Metrics Server Warning */}
       {!metrics.metrics_available && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className={`rounded-lg p-4 ${isDark ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'}`}>
           <div className="flex items-start">
             <AlertTriangle className="w-5 h-5 text-yellow-500 mr-3 mt-0.5" />
             <div>
-              <h3 className="text-sm font-medium text-yellow-800">Metrics Server Not Installed</h3>
-              <p className="text-sm text-yellow-700 mt-1">
+              <h3 className={`text-sm font-medium ${isDark ? 'text-yellow-300' : 'text-yellow-800'}`}>Metrics Server Not Installed</h3>
+              <p className={`text-sm mt-1 ${isDark ? 'text-yellow-400' : 'text-yellow-700'}`}>
                 CPU and memory usage data is unavailable. Install metrics-server to see real-time resource usage.
               </p>
-              <code className="block mt-2 text-xs bg-yellow-100 text-yellow-900 p-2 rounded">
+              <code className={`block mt-2 text-xs p-2 rounded ${isDark ? 'bg-yellow-900/50 text-yellow-200' : 'bg-yellow-100 text-yellow-900'}`}>
                 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
               </code>
             </div>
@@ -521,8 +521,8 @@ const MonitoringTab = ({ metrics, isDark = false }) => {
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                           status === 'Ready'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                            ? isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800'
+                            : isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800'
                         }`}>
                           {status === 'Ready' ? (
                             <CheckCircle className="w-3 h-3 mr-1" />

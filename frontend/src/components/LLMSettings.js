@@ -291,7 +291,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
             <button
               onClick={handleDelete}
               disabled={saving}
-              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 disabled:opacity-50"
+              className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'}`}
             >
               <Trash2 className="w-4 h-4 mr-1" />
               Delete

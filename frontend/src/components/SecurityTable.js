@@ -15,15 +15,15 @@ const SecurityTable = ({ findings, isDark = false, aiEnabled = false }) => {
   const getSeverityColor = (severity) => {
     switch (severity.toLowerCase()) {
       case 'critical':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return isDark ? 'bg-red-900/50 text-red-300 border-red-700' : 'bg-red-100 text-red-800 border-red-300';
       case 'high':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
+        return isDark ? 'bg-orange-900/50 text-orange-300 border-orange-700' : 'bg-orange-100 text-orange-800 border-orange-300';
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return isDark ? 'bg-yellow-900/50 text-yellow-300 border-yellow-700' : 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'low':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return isDark ? 'bg-blue-900/50 text-blue-300 border-blue-700' : 'bg-blue-100 text-blue-800 border-blue-300';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 

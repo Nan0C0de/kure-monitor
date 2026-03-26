@@ -7,17 +7,17 @@ import PodLogsModal from './PodLogsModal';
 import MirrorPodModal from './MirrorPodModal';
 import { api } from '../services/api';
 
-const getWorkflowStatusBadge = (status) => {
+const getWorkflowStatusBadge = (status, isDark) => {
   switch (status) {
     case 'investigating':
-      return { label: 'Investigating', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' };
+      return { label: 'Investigating', className: isDark ? 'bg-yellow-900/50 text-yellow-300 border-yellow-700' : 'bg-yellow-100 text-yellow-800 border-yellow-300' };
     case 'resolved':
-      return { label: 'Resolved', className: 'bg-green-100 text-green-800 border-green-300' };
+      return { label: 'Resolved', className: isDark ? 'bg-green-900/50 text-green-300 border-green-700' : 'bg-green-100 text-green-800 border-green-300' };
     case 'ignored':
-      return { label: 'Ignored', className: 'bg-gray-100 text-gray-600 border-gray-300' };
+      return { label: 'Ignored', className: isDark ? 'bg-gray-700 text-gray-400 border-gray-600' : 'bg-gray-100 text-gray-600 border-gray-300' };
     case 'new':
     default:
-      return { label: 'New', className: 'bg-red-100 text-red-800 border-red-300' };
+      return { label: 'New', className: isDark ? 'bg-red-900/50 text-red-300 border-red-700' : 'bg-red-100 text-red-800 border-red-300' };
   }
 };
 
@@ -151,10 +151,10 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
               onClick={() => setIsExpanded(!isExpanded)}
               className={`rounded transition-colors ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
             >
-              <StatusBadge reason={pod.failure_reason} />
+              <StatusBadge reason={pod.failure_reason} isDark={isDark} />
             </button>
             {(() => {
-              const badge = getWorkflowStatusBadge(pod.status);
+              const badge = getWorkflowStatusBadge(pod.status, isDark);
               return (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badge.className}`}>
                   {badge.label}
@@ -232,6 +232,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
         isOpen={showMirror}
         onClose={handleMirrorModalClose}
         pod={pod}
+        isDark={isDark}
       />
     </>
   );

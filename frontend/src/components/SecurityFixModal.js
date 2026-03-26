@@ -136,7 +136,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
               <span className={`select-none w-8 inline-block text-right mr-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
                 {i + 1}
               </span>
-              <span>{line || ' '}</span>
+              <span className={isDark ? 'text-gray-300' : ''}>{line || ' '}</span>
             </div>
           ))}
         </pre>
@@ -203,7 +203,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
             <span className={`select-none w-8 inline-block text-right mr-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
               {i + 1}
             </span>
-            <span>{line || ' '}</span>
+            <span className={isDark ? 'text-gray-300' : ''}>{line || ' '}</span>
           </div>
         ))}
       </pre>

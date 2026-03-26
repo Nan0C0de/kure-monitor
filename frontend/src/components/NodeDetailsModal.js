@@ -140,7 +140,7 @@ const NodeDetailsModal = ({ isOpen, onClose, node, isDark = false }) => {
               <h3 className={`text-lg font-medium ${textColor}`}>Node Details</h3>
               <div className="flex items-center space-x-2">
                 <p className={`text-sm ${textMuted}`}>{node.name}</p>
-                <span className={`px-2 py-0.5 text-xs rounded-full ${isReady ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+                <span className={`px-2 py-0.5 text-xs rounded-full ${isReady ? (isDark ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800') : (isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800')}`}>
                   {isReady ? 'Ready' : 'Not Ready'}
                 </span>
               </div>

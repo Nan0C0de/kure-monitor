@@ -32,7 +32,7 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
   const baseTabs = [
     { id: 'ai', label: 'AI Config', icon: Bot },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'exclusions', label: 'Exclusions', icon: EyeOff },
+    { id: 'exclusions', label: 'Suppressions', icon: EyeOff },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
