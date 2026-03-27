@@ -95,10 +95,6 @@ backend:
       cpu: 1000m
       memory: 1Gi
   
-  # Database configuration - PostgreSQL only
-  database:
-    type: postgresql
-  
   nodeSelector: {}
   tolerations: []
   affinity: {}

@@ -33,7 +33,7 @@ spec:
       initContainers:
       {{- if not .Values.postgresql.external }}
       - name: wait-for-postgres
-        image: postgres:15-alpine
+        image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
         imagePullPolicy: IfNotPresent
         command:
           - /bin/sh
