@@ -8,6 +8,12 @@ Kure is a Kubernetes health monitoring tool that helps you understand **why** yo
 
 ![Kure Monitor Demo](docs/images/demo.gif)
 
+### Mirror Pod Testing
+
+Deploy a temporary copy of a failing pod. Manually edit the manifest and deploy temporary pod to check if everything is working.
+
+![Mirror Pod](docs/images/mirror-pod.gif)
+
 ## Why Kure?
 
 Unlike tools such as K8sGPT that are CLI-focused, Kure gives you a unified web dashboard combining real-time failure diagnosis, security scanning, and AI-powered fixes in one place. It also supports Ollama for fully local, air-gapped LLM inference — so your cluster data never leaves your network.
