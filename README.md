@@ -103,7 +103,7 @@ Kure complements your existing observability stack (Prometheus, Grafana, Datadog
 | **Security Scanner** | Deployment | Audits pods for 50+ security misconfigurations with real-time change detection |
 | **Backend** | Deployment | FastAPI server — receives reports, generates AI solutions, serves API and WebSocket |
 | **Frontend** | Deployment | React dashboard with real-time updates via WebSocket |
-| **PostgreSQL** | Deployment | Stores failure history, security findings, and configuration |
+| **PostgreSQL** | StatefulSet | Stores failure history, security findings, and configuration |
 
 ## Quick Start
 

@@ -21,7 +21,7 @@ const getWorkflowStatusBadge = (status, isDark) => {
   }
 };
 
-const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, isDark = false, aiEnabled = false, viewMode = 'active' }) => {
+const PodTableRow = ({ pod, onSolutionUpdated, onLogAwareSolutionUpdated, onStatusChange, onDeleteRecord, isDark = false, aiEnabled = false, viewMode = 'active' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
@@ -198,6 +198,7 @@ const PodTableRow = ({ pod, onSolutionUpdated, onStatusChange, onDeleteRecord, i
               onViewLogs={() => setShowLogs(true)}
               onTestFix={() => setShowMirror(true)}
               onSolutionUpdated={onSolutionUpdated}
+              onLogAwareSolutionUpdated={onLogAwareSolutionUpdated}
               onStatusChange={onStatusChange}
               onDeleteRecord={onDeleteRecord}
               isDark={isDark}

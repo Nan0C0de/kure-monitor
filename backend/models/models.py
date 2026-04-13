@@ -17,6 +17,28 @@ class PodEvent(BaseModel):
     message: str
     timestamp: Optional[str] = None
 
+class ContainerLogEntry(BaseModel):
+    """Single log capture (either previous or current instance) for a container."""
+    data: str  # base64-encoded gzipped text
+    original_size: int = 0
+    lines: int = 0
+    truncated: bool = False
+
+
+class ContainerFailureLogs(BaseModel):
+    """Log captures for a single container."""
+    previous: Optional[ContainerLogEntry] = None
+    current: Optional[ContainerLogEntry] = None
+    error: Optional[str] = None  # e.g. "no_previous_instance", "permission_denied"
+
+
+class FailureLogsPayload(BaseModel):
+    """Payload sent by the agent with captured container logs."""
+    version: int = 1
+    encoding: str = "gzip+base64"
+    containers: Dict[str, ContainerFailureLogs] = {}
+
+
 class PodFailureCreate(BaseModel):
     pod_name: str
     namespace: str
@@ -29,6 +51,7 @@ class PodFailureCreate(BaseModel):
     events: List[PodEvent] = []
     logs: str = ""
     manifest: str = ""
+    failure_logs: Optional[FailureLogsPayload] = None
 
 class PodFailureReport(PodFailureCreate):
     pass
@@ -41,6 +64,9 @@ class PodFailureResponse(PodFailureReport):
     status: str = "new"  # new, investigating, resolved, ignored
     resolved_at: Optional[str] = None
     resolution_note: Optional[str] = None
+    logs_captured: bool = False
+    log_aware_solution: Optional[str] = None
+    log_aware_solution_generated_at: Optional[str] = None
 
 
 class PodStatusUpdate(BaseModel):

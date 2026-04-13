@@ -28,16 +28,15 @@ metadata:
 automountServiceAccountToken: false
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postgresql
   namespace: kure-system
   labels:
     app: postgresql
 spec:
+  serviceName: postgresql
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: postgresql
@@ -61,6 +60,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5432
+          name: postgresql
         envFrom:
         - configMapRef:
             name: postgresql-config
@@ -122,15 +122,21 @@ spec:
           successThreshold: 1
           failureThreshold: 3
       volumes:
-      - name: postgresql-storage
-        persistentVolumeClaim:
-          claimName: postgresql-pvc
       - name: tmp
         emptyDir: {}
       - name: var-tmp
         emptyDir: {}
       - name: postgres-run
         emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: postgresql-storage
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi
 ---
 apiVersion: v1
 kind: Service
@@ -146,15 +152,3 @@ spec:
   - port: 5432
     targetPort: 5432
   type: ClusterIP
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: postgresql-pvc
-  namespace: kure-system
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 2Gi

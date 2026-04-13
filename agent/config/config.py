@@ -10,3 +10,6 @@ class Config:
         self.pending_grace_period = int(os.getenv('PENDING_GRACE_PERIOD', '120'))  # seconds
         # Cluster metrics collection (can be disabled via Helm values)
         self.cluster_metrics_enabled = os.getenv('CLUSTER_METRICS_ENABLED', 'true').lower() == 'true'
+        # Failure log capture (CrashLoopBackOff / OOMKilled only). Gzip + base64 encoded.
+        self.failure_logs_enabled = os.getenv('FAILURE_LOGS_ENABLED', 'true').lower() == 'true'
+        self.failure_logs_max_lines = int(os.getenv('FAILURE_LOGS_MAX_LINES', '1000'))

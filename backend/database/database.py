@@ -197,6 +197,19 @@ class Database:
     async def cleanup_old_ignored_pods(self, retention_minutes):
         return await self._db.cleanup_old_ignored_pods(retention_minutes)
 
+    # Pod failure logs (captured previous-container logs)
+    async def save_pod_failure_logs(self, pod_failure_id, payload):
+        return await self._db.save_pod_failure_logs(pod_failure_id, payload)
+
+    async def get_pod_failure_logs(self, pod_failure_id):
+        return await self._db.get_pod_failure_logs(pod_failure_id)
+
+    async def has_captured_logs(self, pod_failure_id):
+        return await self._db.has_captured_logs(pod_failure_id)
+
+    async def update_pod_troubleshoot_solution(self, pod_failure_id, solution):
+        return await self._db.update_pod_troubleshoot_solution(pod_failure_id, solution)
+
     # API key management methods
     async def create_api_key(self, name, key_hash, role):
         return await self._db.create_api_key(name, key_hash, role)

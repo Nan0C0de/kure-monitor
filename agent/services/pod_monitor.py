@@ -29,7 +29,7 @@ class PodMonitor:
         self.config = Config()
         self.backend_client = BackendClient(self.config.backend_url)
         self.websocket_client = WebSocketClient(self.config.backend_url)
-        self.data_collector = DataCollector()
+        self.data_collector = DataCollector(self.config)
 
         # Track pods we've already reported to avoid spam
         self.reported_pods: Dict[str, datetime] = {}

@@ -243,6 +243,18 @@ const Dashboard = () => {
     });
   };
 
+  // Handle log-aware troubleshoot solution update
+  const handleLogAwareSolutionUpdated = (podId, solution, generatedAt) => {
+    const applyUpdate = (prev) => prev.map(pod =>
+      pod.id === podId
+        ? { ...pod, log_aware_solution: solution, log_aware_solution_generated_at: generatedAt }
+        : pod
+    );
+    setPods(applyUpdate);
+    setPodHistory(applyUpdate);
+    setIgnoredPods(applyUpdate);
+  };
+
   // Handle permanent deletion of a pod record (history/ignored)
   const handleDeletePodRecord = async (podId) => {
     try {
@@ -879,7 +891,7 @@ const Dashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="active" />
+                    <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="active" />
                   )}
                 </>
               )}
@@ -898,7 +910,7 @@ const Dashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <PodTable pods={filteredHistory} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="history" />
+                    <PodTable pods={filteredHistory} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="history" />
                   )}
                 </>
               )}
@@ -917,7 +929,7 @@ const Dashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <PodTable pods={filteredIgnored} onSolutionUpdated={handleSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="ignored" />
+                    <PodTable pods={filteredIgnored} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="ignored" />
                   )}
                 </>
               )}

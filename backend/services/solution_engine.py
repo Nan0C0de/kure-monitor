@@ -2,6 +2,7 @@ import logging
 import re
 import time
 from typing import Dict, List, Optional
+from core.config import LLM_LOGS_TAIL_LINES, LLM_MANIFEST_MAX_BYTES
 from models.models import PodEvent, ContainerStatus
 from .llm_factory import LLMFactory
 from .prometheus_metrics import LLM_REQUESTS_TOTAL, LLM_REQUEST_DURATION_SECONDS
@@ -169,6 +170,189 @@ class SolutionEngine:
         # Fallback to hardcoded solutions
         fallback_solution = self._get_fallback_solution(reason, message, events, container_statuses)
         return f"AI solution temporarily unavailable. Here's basic troubleshooting:\n\n{fallback_solution}"
+
+    async def get_log_aware_solution(
+        self,
+        reason: str,
+        message: Optional[str] = None,
+        events: List = None,
+        container_statuses: List = None,
+        pod_context: Dict = None,
+        manifest: str = "",
+        container_logs: List[dict] = None,
+    ) -> str:
+        """Generate an LLM-only troubleshoot solution that includes previous
+        container logs and the pod manifest as primary diagnostic signals.
+
+        There is no rule-based fallback: when no LLM is configured, a clear
+        error message is returned so the caller can surface it to the user.
+        """
+        if not self.llm_provider:
+            return (
+                "Log-aware troubleshoot is unavailable because no LLM provider is "
+                "configured. Configure an LLM provider in the Admin panel to enable "
+                "AI-powered, log-aware troubleshooting."
+            )
+
+        provider_name = self.llm_provider.provider_name
+        start_time = time.monotonic()
+
+        # Normalize events / container_statuses into list-of-dict form
+        events_dict: List[Dict] = []
+        if events:
+            for event in events:
+                if isinstance(event, dict):
+                    events_dict.append({
+                        "type": event.get("type", "Unknown"),
+                        "reason": event.get("reason", ""),
+                        "message": event.get("message", ""),
+                    })
+                elif hasattr(event, "type"):
+                    events_dict.append({
+                        "type": event.type,
+                        "reason": event.reason,
+                        "message": event.message,
+                    })
+
+        statuses_dict: List[Dict] = []
+        if container_statuses:
+            for status in container_statuses:
+                if isinstance(status, dict):
+                    statuses_dict.append({
+                        "name": status.get("name", "Unknown"),
+                        "restart_count": status.get("restart_count", 0),
+                        "last_state": status.get("last_state"),
+                    })
+                elif hasattr(status, "name"):
+                    statuses_dict.append({
+                        "name": status.name,
+                        "restart_count": status.restart_count,
+                        "last_state": getattr(status, "last_state", None),
+                    })
+
+        system_prompt = (
+            "You are a Kubernetes expert. Use the previous container logs as the "
+            "primary diagnostic signal. Identify the root cause of the failure from "
+            "the logs and propose a specific, actionable fix. Reference concrete "
+            "lines from the logs in your explanation. If the manifest is relevant "
+            "to the fix, cite the field(s) that need to change."
+        )
+
+        user_prompt = self._build_log_aware_prompt(
+            reason=reason,
+            message=message,
+            events=events_dict,
+            container_statuses=statuses_dict,
+            pod_context=pod_context,
+            manifest=manifest or "",
+            container_logs=container_logs or [],
+        )
+
+        try:
+            llm_response = await self.llm_provider.generate_raw(system_prompt, user_prompt)
+            duration = time.monotonic() - start_time
+            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+            return llm_response.content
+        except Exception as e:
+            duration = time.monotonic() - start_time
+            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
+            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+            logger.error(f"Log-aware solution generation failed: {e}")
+            return (
+                "Failed to generate log-aware troubleshoot solution: "
+                f"{str(e)}"
+            )
+
+    def _build_log_aware_prompt(
+        self,
+        reason: str,
+        message: Optional[str],
+        events: List[Dict],
+        container_statuses: List[Dict],
+        pod_context: Optional[Dict],
+        manifest: str,
+        container_logs: List[dict],
+    ) -> str:
+        """Assemble the user prompt for log-aware troubleshoot."""
+        lines: List[str] = []
+        lines.append("## Pod Failure Details")
+        lines.append(f"- Failure Reason: {reason}")
+        if message:
+            lines.append(f"- Failure Message: {message}")
+        if pod_context:
+            lines.append(f"- Pod Name: {pod_context.get('pod_name') or pod_context.get('name', 'Unknown')}")
+            lines.append(f"- Namespace: {pod_context.get('namespace', 'Unknown')}")
+            image = pod_context.get('image')
+            if image:
+                lines.append(f"- Image: {image}")
+
+        if events:
+            lines.append("")
+            lines.append("## Recent Events")
+            for event in events[-5:]:
+                lines.append(
+                    f"- {event.get('type', 'Unknown')} {event.get('reason', '')}: "
+                    f"{event.get('message', '')}"
+                )
+
+        if container_statuses:
+            lines.append("")
+            lines.append("## Container Statuses")
+            for status in container_statuses:
+                entry = (
+                    f"- {status.get('name', 'Unknown')}: "
+                    f"restart_count={status.get('restart_count', 0)}"
+                )
+                if status.get("last_state"):
+                    entry += f", last_state={status['last_state']}"
+                lines.append(entry)
+
+        # Manifest (truncated)
+        if manifest:
+            truncated_manifest = manifest
+            if len(truncated_manifest.encode("utf-8", errors="replace")) > LLM_MANIFEST_MAX_BYTES:
+                truncated_manifest = truncated_manifest.encode("utf-8", errors="replace")[
+                    :LLM_MANIFEST_MAX_BYTES
+                ].decode("utf-8", errors="replace")
+                truncated_manifest += "\n# ... manifest truncated ..."
+            lines.append("")
+            lines.append("## Pod Manifest")
+            lines.append("```yaml")
+            lines.append(truncated_manifest)
+            lines.append("```")
+
+        # Previous container logs — the primary signal
+        if container_logs:
+            lines.append("")
+            lines.append("## Previous Container Logs")
+            for entry in container_logs:
+                container_name = entry.get("container_name", "unknown")
+                source = entry.get("source", "previous")
+                log_text = entry.get("logs", "") or ""
+                log_lines = log_text.splitlines()
+                if len(log_lines) > LLM_LOGS_TAIL_LINES:
+                    log_lines = log_lines[-LLM_LOGS_TAIL_LINES:]
+                truncated_flag = (
+                    " (truncated)" if entry.get("truncated") or len(log_text.splitlines()) > LLM_LOGS_TAIL_LINES
+                    else ""
+                )
+                lines.append("")
+                lines.append(f"### Container: {container_name} [{source}]{truncated_flag}")
+                lines.append("```")
+                lines.append("\n".join(log_lines))
+                lines.append("```")
+
+        lines.append("")
+        lines.append(
+            "Please analyze the logs first, identify the root cause, and provide a "
+            "specific fix. Use this output format:\n\n"
+            "## Root Cause\n<what the logs show>\n\n"
+            "## Fix\n1. Step-by-step remediation\n\n"
+            "## Verification\n- How to confirm the fix worked"
+        )
+
+        return "\n".join(lines)
 
     def _get_fallback_solution(self, reason: str, message: Optional[str] = None,
                      events: List[PodEvent] = None,

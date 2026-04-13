@@ -1,15 +1,14 @@
 {{- if not .Values.postgresql.external }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "kure.fullname" . }}-postgresql
   labels:
     {{- include "kure.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
 spec:
+  serviceName: {{ include "kure.fullname" . }}-postgresql
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       {{- include "kure.selectorLabels" . | nindent 6 }}
@@ -78,17 +77,24 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
       volumes:
-      - name: data
-        {{- if .Values.postgresql.persistence.enabled }}
-        persistentVolumeClaim:
-          claimName: {{ include "kure.fullname" . }}-postgresql
-        {{- else }}
-        emptyDir: {}
-        {{- end }}
       - name: tmp
         emptyDir: {}
       - name: var-tmp
         emptyDir: {}
       - name: postgres-run
         emptyDir: {}
+  {{- if .Values.postgresql.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ .Values.postgresql.persistence.size | default "2Gi" }}
+      {{- if .Values.postgresql.persistence.storageClass }}
+      storageClassName: {{ .Values.postgresql.persistence.storageClass }}
+      {{- end }}
+  {{- end }}
 {{- end }}

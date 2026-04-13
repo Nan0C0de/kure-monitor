@@ -17,6 +17,14 @@ class PodFailureMixin:
         status = row.get('status', 'new')
         dismissed = status in ('resolved', 'ignored') or bool(row.get('dismissed', False))
 
+        # Optional log-aware troubleshoot fields (present when SELECTed)
+        troubleshoot_generated_at = row.get('troubleshoot_generated_at') if hasattr(row, 'get') else None
+        log_aware_solution_generated_at = (
+            troubleshoot_generated_at.isoformat() if troubleshoot_generated_at else None
+        )
+        log_aware_solution = row.get('troubleshoot_solution') if hasattr(row, 'get') else None
+        logs_captured = bool(row.get('logs_captured', False)) if hasattr(row, 'get') else False
+
         return PodFailureResponse(
             id=row['id'],
             pod_name=row['pod_name'],
@@ -36,6 +44,9 @@ class PodFailureMixin:
             status=status,
             resolved_at=resolved_at,
             resolution_note=row.get('resolution_note'),
+            logs_captured=logs_captured,
+            log_aware_solution=log_aware_solution,
+            log_aware_solution_generated_at=log_aware_solution_generated_at,
         )
 
     async def save_pod_failure(self, failure: PodFailureResponse) -> int:
@@ -91,9 +102,10 @@ class PodFailureMixin:
         async with self._acquire() as conn:
             query = """
                 SELECT * FROM (
-                    SELECT *,
-                           ROW_NUMBER() OVER (PARTITION BY pod_name, namespace ORDER BY created_at DESC) as rn
-                    FROM pod_failures
+                    SELECT pf.*,
+                           EXISTS(SELECT 1 FROM pod_failure_logs pfl WHERE pfl.pod_failure_id = pf.id) AS logs_captured,
+                           ROW_NUMBER() OVER (PARTITION BY pf.pod_name, pf.namespace ORDER BY pf.created_at DESC) as rn
+                    FROM pod_failures pf
                 ) ranked
                 WHERE rn = 1
             """
@@ -117,7 +129,12 @@ class PodFailureMixin:
         """Get a single pod failure by ID"""
         async with self._acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT * FROM pod_failures WHERE id = $1",
+                """
+                SELECT pf.*,
+                       EXISTS(SELECT 1 FROM pod_failure_logs pfl WHERE pfl.pod_failure_id = pf.id) AS logs_captured
+                FROM pod_failures pf
+                WHERE pf.id = $1
+                """,
                 failure_id
             )
             if not row:

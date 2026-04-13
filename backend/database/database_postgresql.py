@@ -10,6 +10,7 @@ from .mixins import (
     NotificationMixin,
     LLMConfigMixin,
     ApiKeyMixin,
+    FailureLogsMixin,
 )
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
@@ -23,6 +24,7 @@ class PostgreSQLDatabase(
     NotificationMixin,
     LLMConfigMixin,
     ApiKeyMixin,
+    FailureLogsMixin,
     DatabaseInterface,
 ):
     def __init__(self):
@@ -112,6 +114,39 @@ class PostgreSQLDatabase(
                     await conn.execute("ALTER TABLE pod_failures ADD COLUMN resolution_note TEXT")
                     await conn.execute("UPDATE pod_failures SET status = CASE WHEN dismissed = TRUE THEN 'ignored' ELSE 'new' END")
                     logger.info("Migrated pod_failures table: added status workflow columns")
+
+                # Migration: add log-aware troubleshoot columns if they don't exist
+                troubleshoot_col_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'pod_failures' AND column_name = 'troubleshoot_solution'
+                    )
+                """)
+                if not troubleshoot_col_exists:
+                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN IF NOT EXISTS troubleshoot_solution TEXT")
+                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN IF NOT EXISTS troubleshoot_generated_at TIMESTAMPTZ")
+                    logger.info("Migrated pod_failures table: added troubleshoot_solution columns")
+
+                # Create pod_failure_logs table (captured previous-container logs
+                # for CrashLoopBackOff / OOMKilled failures, gzipped bytes in BYTEA)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS pod_failure_logs (
+                        id SERIAL PRIMARY KEY,
+                        pod_failure_id INTEGER NOT NULL REFERENCES pod_failures(id) ON DELETE CASCADE,
+                        container_name VARCHAR(255) NOT NULL,
+                        logs_gzip BYTEA NOT NULL,
+                        raw_size_bytes INTEGER NOT NULL,
+                        line_count INTEGER NOT NULL,
+                        truncated BOOLEAN NOT NULL DEFAULT FALSE,
+                        source VARCHAR(16) NOT NULL,
+                        captured_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE (pod_failure_id, container_name, source)
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_pod_failure_logs_failure_id
+                    ON pod_failure_logs(pod_failure_id)
+                """)
 
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_pod_failures_pod_namespace

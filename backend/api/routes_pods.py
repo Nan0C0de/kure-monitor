@@ -2,12 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 import logging
 import traceback
 
+from core.config import FAILURE_LOGS_ENABLED
 from models.models import (
     PodFailureReport, PodFailureResponse, PodStatusUpdate,
 )
 from services.prometheus_metrics import POD_FAILURES_TOTAL
 from .auth import require_admin
 from .deps import RouterDeps
+
+LOG_CAPTURE_REASONS = {"CrashLoopBackOff", "OOMKilled"}
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,26 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.info(f"Saving pod failure to database: {report.namespace}/{report.pod_name}")
             pod_id = await db.save_pod_failure(response)
             response.id = pod_id
+
+            # Persist captured previous-container logs when applicable.
+            # Never fail the report due to log storage issues.
+            if (
+                FAILURE_LOGS_ENABLED
+                and report.failure_reason in LOG_CAPTURE_REASONS
+                and report.failure_logs is not None
+            ):
+                try:
+                    rows = await db.save_pod_failure_logs(pod_id, report.failure_logs)
+                    if rows:
+                        response.logs_captured = True
+                        logger.info(
+                            f"Stored {rows} log entries for pod {report.namespace}/{report.pod_name} "
+                            f"(failure_id={pod_id})"
+                        )
+                except Exception as log_err:
+                    logger.warning(
+                        f"Failed to store failure logs for pod {pod_id}: {log_err}"
+                    )
 
             logger.info(f"Broadcasting pod failure via WebSocket: {report.namespace}/{report.pod_name}")
             await websocket_manager.broadcast_pod_failure(response)
@@ -227,6 +250,76 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(error_msg)
             logger.error(f"Error details: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/pods/failed/{pod_id}/troubleshoot")
+    async def troubleshoot_pod(pod_id: int, regenerate: bool = False):
+        """Generate a log-aware AI troubleshoot solution using captured logs.
+
+        Caches the result on the pod_failures row; returns the cached value
+        on subsequent calls unless ?regenerate=true.
+        """
+        pod = await db.get_pod_failure_by_id(pod_id)
+        if not pod:
+            raise HTTPException(status_code=404, detail="Pod failure not found")
+        if pod.failure_reason not in LOG_CAPTURE_REASONS:
+            raise HTTPException(
+                status_code=400,
+                detail="Log-aware troubleshoot not available for this failure type",
+            )
+
+        logs = await db.get_pod_failure_logs(pod_id)
+        if not logs:
+            raise HTTPException(status_code=404, detail="No captured logs for this pod")
+
+        if not regenerate and pod.log_aware_solution:
+            return {
+                "solution": pod.log_aware_solution,
+                "generated_at": pod.log_aware_solution_generated_at,
+                "cached": True,
+                "log_aware": True,
+            }
+
+        try:
+            solution = await solution_engine.get_log_aware_solution(
+                reason=pod.failure_reason,
+                message=pod.failure_message or "",
+                events=pod.events,
+                container_statuses=pod.container_statuses,
+                pod_context={
+                    "pod_name": pod.pod_name,
+                    "namespace": pod.namespace,
+                    "image": "Unknown",
+                },
+                manifest=pod.manifest or "",
+                container_logs=logs,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Log-aware troubleshoot failed for pod {pod_id}: {e}")
+            logger.error(f"Error details: {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to generate log-aware troubleshoot solution: {str(e)}",
+            )
+
+        generated_at_iso = await db.update_pod_troubleshoot_solution(pod_id, solution)
+
+        try:
+            await websocket_manager.broadcast_pod_troubleshoot_updated(
+                pod_id=pod_id,
+                solution=solution,
+                generated_at=generated_at_iso,
+            )
+        except Exception as ws_err:
+            logger.warning(f"Failed to broadcast troubleshoot update: {ws_err}")
+
+        return {
+            "solution": solution,
+            "generated_at": generated_at_iso,
+            "cached": False,
+            "log_aware": True,
+        }
 
     @router.delete("/pods/records/{pod_id}", dependencies=[Depends(require_admin)])
     async def delete_pod_record(pod_id: int):

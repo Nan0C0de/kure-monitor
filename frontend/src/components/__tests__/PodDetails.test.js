@@ -22,6 +22,7 @@ jest.mock('lucide-react', () => ({
   Clock: () => <span data-testid="clock-icon">Clock</span>,
   Trash2: () => <span data-testid="trash-icon">Trash2</span>,
   FlaskConical: () => <span data-testid="flask-icon">FlaskConical</span>,
+  Wand2: ({ className }) => <span data-testid="wand-icon" className={className}>Wand2</span>,
 }));
 
 // Mock API
@@ -31,6 +32,8 @@ jest.mock('../../services/api', () => ({
     getActiveMirrors: jest.fn().mockResolvedValue([]),
     getMirrorStatus: jest.fn().mockResolvedValue(null),
     deleteMirrorPod: jest.fn().mockResolvedValue({}),
+    generateLogAwareSolution: jest.fn(),
+    regenerateLogAwareSolution: jest.fn(),
   },
 }));
 

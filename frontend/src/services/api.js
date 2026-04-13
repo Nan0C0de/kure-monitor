@@ -119,6 +119,22 @@ export const api = {
     return response.json();
   },
 
+  generateLogAwareSolution: async (podId) => {
+    const response = await authFetch(`${API_BASE}/api/pods/failed/${podId}/troubleshoot`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  regenerateLogAwareSolution: async (podId) => {
+    const response = await authFetch(`${API_BASE}/api/pods/failed/${podId}/troubleshoot?regenerate=true`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // Security findings API
   getSecurityFindings: async () => {
     const response = await authFetch(`${API_BASE}/api/security/findings`);

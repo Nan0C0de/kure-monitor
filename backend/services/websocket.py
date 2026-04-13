@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
 import json
 import logging
-from typing import List
+from typing import List, Optional
 from api.auth import AUTH_API_KEY, validate_ws_token
 from models.models import PodFailureResponse, SecurityFindingResponse, ClusterMetrics
 from services.prometheus_metrics import WEBSOCKET_CONNECTIONS_ACTIVE
@@ -104,6 +104,17 @@ class WebSocketManager:
     async def broadcast_pod_status_change(self, pod_failure: PodFailureResponse):
         """Broadcast pod status change to all connected clients"""
         await self._broadcast("pod_status_change", pod_failure)
+
+    async def broadcast_pod_troubleshoot_updated(self, pod_id: int, solution: str, generated_at: Optional[str]):
+        """Broadcast log-aware troubleshoot solution update to all connected clients"""
+        await self._broadcast(
+            "pod_troubleshoot_updated",
+            {
+                "pod_id": pod_id,
+                "solution": solution,
+                "generated_at": generated_at,
+            },
+        )
 
     # --- Security broadcasts ---
 
