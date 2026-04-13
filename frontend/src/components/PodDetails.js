@@ -401,8 +401,14 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
   );
 
   function renderSolutionSections() {
-    // Graceful rollout: if field is undefined, default to "quick".
-    const mode = pod.auto_solution_mode === 'log_aware' ? 'log_aware' : 'quick';
+    const ELIGIBLE_LOG_AWARE_REASONS = ['CrashLoopBackOff', 'OOMKilled'];
+    // If the Log-Aware Troubleshoot section will render, always show it above
+    // the AI-Generated Solution. These conditions must match TroubleshootSection.
+    const troubleshootWillRender = (
+      pod.logs_captured === true
+      && ELIGIBLE_LOG_AWARE_REASONS.includes(pod.failure_reason)
+      && aiEnabled === true
+    );
     const hasQuickSolution = !!(pod.solution && pod.solution.trim());
 
     const aiSolutionSection = (
@@ -499,7 +505,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
       />
     );
 
-    if (mode === 'log_aware') {
+    if (troubleshootWillRender) {
       return (
         <>
           {troubleshootSectionEl}

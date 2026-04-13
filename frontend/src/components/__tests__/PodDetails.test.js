@@ -283,7 +283,7 @@ describe('PodDetails', () => {
       expect(screen.queryByText('Generate AI Solution')).not.toBeInTheDocument();
     });
 
-    test('quick mode preserves current order (AI solution first, TroubleshootSection second)', () => {
+    test('quick mode with logs captured still renders TroubleshootSection first', () => {
       const pod = {
         ...logAwareEligiblePod,
         auto_solution_mode: 'quick',
@@ -303,13 +303,14 @@ describe('PodDetails', () => {
       const troubleshootIdx = headingTexts.indexOf('Log-Aware Troubleshoot');
       expect(aiIdx).toBeGreaterThan(-1);
       expect(troubleshootIdx).toBeGreaterThan(-1);
-      expect(aiIdx).toBeLessThan(troubleshootIdx);
+      expect(troubleshootIdx).toBeLessThan(aiIdx);
     });
 
-    test('undefined auto_solution_mode is treated as quick (backward compat)', () => {
+    test('non-eligible failure reason preserves AI-Generated Solution first', () => {
       const pod = {
-        ...logAwareEligiblePod,
-        // auto_solution_mode intentionally undefined
+        ...mockPod,
+        failure_reason: 'ImagePullBackOff',
+        logs_captured: false,
         solution: 'Quick solution text',
       };
 
@@ -325,8 +326,7 @@ describe('PodDetails', () => {
       const aiIdx = headingTexts.indexOf('AI-Generated Solution');
       const troubleshootIdx = headingTexts.indexOf('Log-Aware Troubleshoot');
       expect(aiIdx).toBeGreaterThan(-1);
-      expect(troubleshootIdx).toBeGreaterThan(-1);
-      expect(aiIdx).toBeLessThan(troubleshootIdx);
+      expect(troubleshootIdx).toBe(-1);
     });
 
     test('clicking Generate AI Solution calls api.retrySolution and updates state', async () => {
