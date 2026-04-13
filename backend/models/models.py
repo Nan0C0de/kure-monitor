@@ -58,7 +58,7 @@ class PodFailureReport(PodFailureCreate):
 
 class PodFailureResponse(PodFailureReport):
     id: Optional[int] = None
-    solution: str
+    solution: Optional[str] = ""
     timestamp: str
     dismissed: bool = False
     status: str = "new"  # new, investigating, resolved, ignored
@@ -67,6 +67,11 @@ class PodFailureResponse(PodFailureReport):
     logs_captured: bool = False
     log_aware_solution: Optional[str] = None
     log_aware_solution_generated_at: Optional[str] = None
+    # Which auto-generated solution path was used on ingest:
+    # "quick" = rule-based/LLM quick solution populated (default)
+    # "log_aware" = log-aware solution auto-generated; frontend should show
+    # it first and the quick solution requires a manual retry.
+    auto_solution_mode: str = "quick"
 
 
 class PodStatusUpdate(BaseModel):

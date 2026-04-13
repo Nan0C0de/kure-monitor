@@ -25,7 +25,17 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
 
     @router.post("/pods/failed", response_model=PodFailureResponse)
     async def report_failed_pod(report: PodFailureReport):
-        """Receive failed pod report from agent"""
+        """Receive failed pod report from agent.
+
+        Auto-solution routing:
+
+        - Case A (log-aware): failure_reason is CrashLoopBackOff/OOMKilled AND
+          failure_logs were captured with at least one real log entry AND an
+          LLM provider is configured. We skip the quick solution, auto-generate
+          the log-aware solution, and mark the row `auto_solution_mode=log_aware`.
+        - Case B (quick, default): all other cases. Generate the quick solution
+          (LLM or rule-based fallback) and mark `auto_solution_mode=quick`.
+        """
         logger.info(f"Received failure report for pod: {report.namespace}/{report.pod_name}")
 
         try:
@@ -38,20 +48,24 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                 "image": getattr(report, 'image', 'Unknown')
             }
 
-            logger.info(f"Generating solution for pod {report.namespace}/{report.pod_name}, failure reason: {report.failure_reason}")
-            solution = await solution_engine.get_solution(
-                reason=report.failure_reason,
-                message=report.failure_message,
-                events=report.events,
-                container_statuses=report.container_statuses,
-                pod_context=pod_context,
-                use_llm=False
+            # Whether the failure is eligible for the log-aware auto path. We
+            # still need to confirm that logs actually got stored (rows > 0)
+            # and that an LLM provider is configured.
+            logs_eligible = (
+                FAILURE_LOGS_ENABLED
+                and report.failure_reason in LOG_CAPTURE_REASONS
+                and report.failure_logs is not None
             )
+            llm_configured = bool(getattr(solution_engine, "llm_provider", None))
 
+            # Save the pod row first with an empty placeholder solution so we
+            # have an id to attach logs to. We will update the solution /
+            # auto_solution_mode below depending on which case we end up in.
             response = PodFailureResponse(
                 **report.dict(),
-                solution=solution,
-                timestamp=report.creation_timestamp
+                solution="",
+                timestamp=report.creation_timestamp,
+                auto_solution_mode="quick",
             )
 
             logger.info(f"Saving pod failure to database: {report.namespace}/{report.pod_name}")
@@ -60,23 +74,94 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
 
             # Persist captured previous-container logs when applicable.
             # Never fail the report due to log storage issues.
-            if (
-                FAILURE_LOGS_ENABLED
-                and report.failure_reason in LOG_CAPTURE_REASONS
-                and report.failure_logs is not None
-            ):
+            log_rows_written = 0
+            if logs_eligible:
                 try:
-                    rows = await db.save_pod_failure_logs(pod_id, report.failure_logs)
-                    if rows:
+                    log_rows_written = await db.save_pod_failure_logs(pod_id, report.failure_logs)
+                    if log_rows_written:
                         response.logs_captured = True
                         logger.info(
-                            f"Stored {rows} log entries for pod {report.namespace}/{report.pod_name} "
-                            f"(failure_id={pod_id})"
+                            f"Stored {log_rows_written} log entries for pod "
+                            f"{report.namespace}/{report.pod_name} (failure_id={pod_id})"
                         )
                 except Exception as log_err:
                     logger.warning(
                         f"Failed to store failure logs for pod {pod_id}: {log_err}"
                     )
+
+            # Decide Case A vs Case B. Case A requires logs were actually stored
+            # AND an LLM provider is configured; otherwise fall back to Case B.
+            use_log_aware = (
+                logs_eligible
+                and log_rows_written > 0
+                and llm_configured
+            )
+
+            if use_log_aware:
+                log_aware_ok = False
+                try:
+                    stored_logs = await db.get_pod_failure_logs(pod_id)
+                    log_aware_solution = await solution_engine.get_log_aware_solution(
+                        reason=report.failure_reason,
+                        message=report.failure_message or "",
+                        events=report.events,
+                        container_statuses=report.container_statuses,
+                        pod_context={
+                            "pod_name": report.pod_name,
+                            "namespace": report.namespace,
+                            "image": getattr(report, 'image', 'Unknown'),
+                        },
+                        manifest=report.manifest or "",
+                        container_logs=stored_logs,
+                    )
+                    generated_at_iso = await db.update_pod_troubleshoot_solution(
+                        pod_id, log_aware_solution
+                    )
+                    await db.update_pod_auto_solution_mode(pod_id, "log_aware")
+                    response.auto_solution_mode = "log_aware"
+                    response.log_aware_solution = log_aware_solution
+                    response.log_aware_solution_generated_at = generated_at_iso
+                    log_aware_ok = True
+
+                    try:
+                        await websocket_manager.broadcast_pod_troubleshoot_updated(
+                            pod_id=pod_id,
+                            solution=log_aware_solution,
+                            generated_at=generated_at_iso,
+                        )
+                    except Exception as ws_err:
+                        logger.warning(
+                            f"Failed to broadcast log-aware troubleshoot update for pod {pod_id}: {ws_err}"
+                        )
+                except Exception as log_aware_err:
+                    logger.warning(
+                        f"Log-aware auto-solution failed for pod {pod_id} "
+                        f"({report.namespace}/{report.pod_name}): {log_aware_err}. "
+                        f"Falling back to quick solution."
+                    )
+
+                if not log_aware_ok:
+                    # Fall back to Case B so the user isn't left with an empty
+                    # pod detail view. auto_solution_mode stays 'quick'.
+                    use_log_aware = False
+
+            if not use_log_aware:
+                logger.info(
+                    f"Generating quick solution for pod {report.namespace}/{report.pod_name}, "
+                    f"failure reason: {report.failure_reason}"
+                )
+                quick_solution = await solution_engine.get_solution(
+                    reason=report.failure_reason,
+                    message=report.failure_message,
+                    events=report.events,
+                    container_statuses=report.container_statuses,
+                    pod_context=pod_context,
+                    use_llm=False,
+                )
+                await db.update_pod_solution(pod_id, quick_solution)
+                # auto_solution_mode was already stored as 'quick' on insert.
+                response.solution = quick_solution
+                response.auto_solution_mode = "quick"
 
             logger.info(f"Broadcasting pod failure via WebSocket: {report.namespace}/{report.pod_name}")
             await websocket_manager.broadcast_pod_failure(response)

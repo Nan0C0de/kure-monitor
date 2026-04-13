@@ -24,6 +24,7 @@ class PodFailureMixin:
         )
         log_aware_solution = row.get('troubleshoot_solution') if hasattr(row, 'get') else None
         logs_captured = bool(row.get('logs_captured', False)) if hasattr(row, 'get') else False
+        auto_solution_mode = row.get('auto_solution_mode') if hasattr(row, 'get') else None
 
         return PodFailureResponse(
             id=row['id'],
@@ -38,7 +39,7 @@ class PodFailureMixin:
             events=json.loads(row['events']) if row['events'] else [],
             logs=row['logs'],
             manifest=row['manifest'] or '',
-            solution=row['solution'],
+            solution=row['solution'] or '',
             timestamp=timestamp,
             dismissed=dismissed,
             status=status,
@@ -47,6 +48,7 @@ class PodFailureMixin:
             logs_captured=logs_captured,
             log_aware_solution=log_aware_solution,
             log_aware_solution_generated_at=log_aware_solution_generated_at,
+            auto_solution_mode=auto_solution_mode or 'quick',
         )
 
     async def save_pod_failure(self, failure: PodFailureResponse) -> int:
@@ -65,6 +67,9 @@ class PodFailureMixin:
 
             container_statuses = json.dumps([status.dict() for status in failure.container_statuses])
             events = json.dumps([event.dict() for event in failure.events])
+            # NOT NULL column in schema; store empty string when caller passes None
+            solution_value = failure.solution if failure.solution is not None else ""
+            auto_solution_mode = getattr(failure, 'auto_solution_mode', 'quick') or 'quick'
 
             if existing:
                 await conn.execute("""
@@ -72,12 +77,14 @@ class PodFailureMixin:
                         node_name = $1, phase = $2, creation_timestamp = $3,
                         failure_reason = $4, failure_message = $5, container_statuses = $6,
                         events = $7, logs = $8, manifest = $9, solution = $10, timestamp = $11,
+                        auto_solution_mode = $12,
                         created_at = CURRENT_TIMESTAMP
-                    WHERE id = $12
+                    WHERE id = $13
                 """,
                     failure.node_name, failure.phase, creation_timestamp,
                     failure.failure_reason, failure.failure_message, container_statuses,
-                    events, failure.logs, failure.manifest, failure.solution, timestamp,
+                    events, failure.logs, failure.manifest, solution_value, timestamp,
+                    auto_solution_mode,
                     existing['id']
                 )
                 return existing['id']
@@ -86,14 +93,14 @@ class PodFailureMixin:
                     INSERT INTO pod_failures (
                         pod_name, namespace, node_name, phase, creation_timestamp,
                         failure_reason, failure_message, container_statuses, events,
-                        logs, manifest, solution, timestamp, dismissed
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                        logs, manifest, solution, timestamp, dismissed, auto_solution_mode
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                     RETURNING id
                 """,
                     failure.pod_name, failure.namespace, failure.node_name, failure.phase,
                     creation_timestamp, failure.failure_reason, failure.failure_message,
                     container_statuses, events, failure.logs, failure.manifest,
-                    failure.solution, timestamp, failure.dismissed
+                    solution_value, timestamp, failure.dismissed, auto_solution_mode
                 )
                 return result['id']
 
@@ -146,7 +153,17 @@ class PodFailureMixin:
         async with self._acquire() as conn:
             await conn.execute(
                 "UPDATE pod_failures SET solution = $1 WHERE id = $2",
-                solution, failure_id
+                solution or "", failure_id
+            )
+
+    async def update_pod_auto_solution_mode(self, failure_id: int, mode: str):
+        """Update the auto_solution_mode flag for a pod failure row."""
+        if mode not in ("quick", "log_aware"):
+            raise ValueError(f"Invalid auto_solution_mode: {mode!r}")
+        async with self._acquire() as conn:
+            await conn.execute(
+                "UPDATE pod_failures SET auto_solution_mode = $1 WHERE id = $2",
+                mode, failure_id,
             )
 
     async def update_pod_status(self, failure_id: int, status: str, resolution_note: str = None) -> Optional[PodFailureResponse]:

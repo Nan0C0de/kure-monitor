@@ -410,7 +410,14 @@ async def api_client(api_app):
 
 
 @pytest.mark.asyncio
-async def test_report_failed_pod_stores_logs_for_crashloop(api_client, test_db):
+async def test_report_failed_pod_stores_logs_for_crashloop(api_client, test_db, fake_solution_engine):
+    """CrashLoopBackOff + logs + LLM configured: auto log-aware path (Case A).
+
+    - quick `solution` on the row is left empty
+    - `troubleshoot_solution` (log-aware) is populated
+    - `auto_solution_mode` flips to "log_aware"
+    - `get_solution` (quick) is NOT called
+    """
     _require_db()
     data = _pod_report("CrashLoopBackOff", include_logs=True)
     resp = await api_client.post("/api/pods/failed", json=data)
@@ -419,14 +426,100 @@ async def test_report_failed_pod_stores_logs_for_crashloop(api_client, test_db):
     body = resp.json()
     pid = body["id"]
     assert body["logs_captured"] is True
+    assert body["auto_solution_mode"] == "log_aware"
+    assert (body["solution"] or "") == ""
+    assert body["log_aware_solution"] == "LOG-AWARE solution"
+
+    # Log-aware was generated; quick solution path was skipped.
+    assert fake_solution_engine.get_log_aware_solution.await_count == 1
+    assert fake_solution_engine.get_solution.await_count == 0
 
     # Logs were actually persisted
     stored = await test_db.get_pod_failure_logs(pid)
     assert any("PANIC" in e["logs"] for e in stored)
 
+    # DB row matches response
+    row = await test_db.get_pod_failure_by_id(pid)
+    assert row.auto_solution_mode == "log_aware"
+    assert (row.solution or "") == ""
+    assert row.log_aware_solution == "LOG-AWARE solution"
+
 
 @pytest.mark.asyncio
-async def test_report_failed_pod_skips_logs_for_imagepullbackoff(api_client, test_db):
+async def test_report_failed_pod_crashloop_no_llm_falls_back_to_quick(
+    api_client, test_db, fake_solution_engine
+):
+    """CrashLoopBackOff + logs but no LLM configured: fall back to Case B."""
+    _require_db()
+    fake_solution_engine.llm_provider = None
+
+    data = _pod_report("CrashLoopBackOff", include_logs=True)
+    resp = await api_client.post("/api/pods/failed", json=data)
+    assert resp.status_code == 200, resp.text
+
+    body = resp.json()
+    assert body["auto_solution_mode"] == "quick"
+    assert body["solution"] == "quick solution"
+    assert body.get("log_aware_solution") in (None, "")
+
+    # Quick path was used; log-aware was skipped entirely.
+    assert fake_solution_engine.get_solution.await_count == 1
+    assert fake_solution_engine.get_log_aware_solution.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_report_failed_pod_crashloop_no_previous_logs_falls_back_to_quick(
+    api_client, test_db, fake_solution_engine
+):
+    """CrashLoopBackOff but agent captured no usable logs (first crash):
+    treat as "no logs captured" and fall back to Case B (quick solution)."""
+    _require_db()
+
+    # No failure_logs field at all simulates "first crash, nothing to capture".
+    data = _pod_report("CrashLoopBackOff", include_logs=False)
+    resp = await api_client.post("/api/pods/failed", json=data)
+    assert resp.status_code == 200, resp.text
+
+    body = resp.json()
+    pid = body["id"]
+    assert body["logs_captured"] is False
+    assert body["auto_solution_mode"] == "quick"
+    assert body["solution"] == "quick solution"
+    assert fake_solution_engine.get_log_aware_solution.await_count == 0
+
+    stored = await test_db.get_pod_failure_logs(pid)
+    assert stored == []
+
+
+@pytest.mark.asyncio
+async def test_report_failed_pod_crashloop_log_aware_error_falls_back(
+    api_client, test_db, fake_solution_engine
+):
+    """Case A, but the log-aware LLM call raises. We must NOT 500 the ingest —
+    fall back to Case B: generate the quick solution and mark mode='quick',
+    with a logged warning."""
+    _require_db()
+    fake_solution_engine.get_log_aware_solution.side_effect = RuntimeError(
+        "simulated LLM timeout"
+    )
+
+    data = _pod_report("CrashLoopBackOff", include_logs=True)
+    resp = await api_client.post("/api/pods/failed", json=data)
+    assert resp.status_code == 200, resp.text
+
+    body = resp.json()
+    assert body["auto_solution_mode"] == "quick"
+    assert body["solution"] == "quick solution"
+    # log_aware was attempted then the quick path ran.
+    assert fake_solution_engine.get_log_aware_solution.await_count == 1
+    assert fake_solution_engine.get_solution.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_report_failed_pod_skips_logs_for_imagepullbackoff(
+    api_client, test_db, fake_solution_engine
+):
+    """ImagePullBackOff: never stores logs, always uses quick solution (Case B)."""
     _require_db()
     data = _pod_report("ImagePullBackOff", include_logs=True)
     resp = await api_client.post("/api/pods/failed", json=data)
@@ -434,9 +527,37 @@ async def test_report_failed_pod_skips_logs_for_imagepullbackoff(api_client, tes
     body = resp.json()
     pid = body["id"]
     assert body.get("logs_captured") is False
+    assert body["auto_solution_mode"] == "quick"
+    assert body["solution"] == "quick solution"
+    assert fake_solution_engine.get_log_aware_solution.await_count == 0
 
     stored = await test_db.get_pod_failure_logs(pid)
     assert stored == []
+
+
+@pytest.mark.asyncio
+async def test_retry_solution_works_when_current_solution_is_empty(
+    api_client, test_db, fake_solution_engine
+):
+    """After Case A ingest, the quick `solution` is empty. The existing
+    retry-solution endpoint must still be able to generate and store one."""
+    _require_db()
+    data = _pod_report("CrashLoopBackOff", include_logs=True)
+    resp = await api_client.post("/api/pods/failed", json=data)
+    pid = resp.json()["id"]
+
+    # Sanity: row currently has no quick solution.
+    row = await test_db.get_pod_failure_by_id(pid)
+    assert (row.solution or "") == ""
+
+    fake_solution_engine.get_solution.return_value = "freshly generated quick"
+    r = await api_client.post(f"/api/pods/failed/{pid}/retry-solution")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["solution"] == "freshly generated quick"
+
+    row = await test_db.get_pod_failure_by_id(pid)
+    assert row.solution == "freshly generated quick"
 
 
 @pytest.mark.asyncio

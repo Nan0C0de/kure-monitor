@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, RefreshCw, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock, Trash2, FlaskConical } from 'lucide-react';
+import { FileText, RefreshCw, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock, Trash2, FlaskConical, Sparkles } from 'lucide-react';
 import SolutionMarkdown from './SolutionMarkdown';
 import TroubleshootSection from './TroubleshootSection';
 import { api } from '../services/api';
@@ -396,20 +396,31 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
         />
       )}
 
-      {/* Complete Solution */}
+      {renderSolutionSections()}
+    </div>
+  );
+
+  function renderSolutionSections() {
+    // Graceful rollout: if field is undefined, default to "quick".
+    const mode = pod.auto_solution_mode === 'log_aware' ? 'log_aware' : 'quick';
+    const hasQuickSolution = !!(pod.solution && pod.solution.trim());
+
+    const aiSolutionSection = (
       <div>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <h4 className={`font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>AI-Generated Solution</h4>
-            <button
-              onClick={handleRetrySolution}
-              disabled={isRetrying || !aiEnabled}
-              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200'}`}
-              title={!aiEnabled ? 'AI provider not configured' : 'Retry AI Solution'}
-            >
-              <RefreshCw className={`w-3 h-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
-              {isRetrying ? 'Retrying...' : 'Retry AI'}
-            </button>
+            {hasQuickSolution && (
+              <button
+                onClick={handleRetrySolution}
+                disabled={isRetrying || !aiEnabled}
+                className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200'}`}
+                title={!aiEnabled ? 'AI provider not configured' : 'Retry AI Solution'}
+              >
+                <RefreshCw className={`w-3 h-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
+                {isRetrying ? 'Retrying...' : 'Retry AI'}
+              </button>
+            )}
           </div>
           <div className="flex items-center space-x-2">
             {aiEnabled && onTestFix && (
@@ -449,21 +460,61 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
             ? isDark ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'
             : isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'
         }`}>
-          <div className="solution-content">
-            <SolutionMarkdown content={pod.solution} isDark={isDark} />
-          </div>
+          {hasQuickSolution ? (
+            <div className="solution-content">
+              <SolutionMarkdown content={pod.solution} isDark={isDark} />
+            </div>
+          ) : isRetrying ? (
+            <div className="space-y-2" data-testid="quick-solution-skeleton">
+              <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-700' : 'bg-gray-200'} w-3/4`} />
+              <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-700' : 'bg-gray-200'} w-full`} />
+              <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-700' : 'bg-gray-200'} w-5/6`} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className={isDark ? 'text-gray-400' : 'text-gray-500'}>
+                Generate a quick AI-based solution for this failure.
+              </p>
+              <button
+                onClick={handleRetrySolution}
+                disabled={isRetrying || !aiEnabled}
+                className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200'}`}
+                title={!aiEnabled ? 'AI provider not configured' : 'Generate a quick AI solution'}
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1" />
+                Generate AI Solution
+              </button>
+            </div>
+          )}
         </div>
       </div>
+    );
 
-      {/* Log-Aware Troubleshoot Section */}
+    const troubleshootSectionEl = (
       <TroubleshootSection
         pod={pod}
         isDark={isDark}
         aiEnabled={aiEnabled}
         onLogAwareSolutionUpdated={onLogAwareSolutionUpdated}
       />
-    </div>
-  );
+    );
+
+    if (mode === 'log_aware') {
+      return (
+        <>
+          {troubleshootSectionEl}
+          {aiSolutionSection}
+        </>
+      );
+    }
+
+    return (
+      <>
+        {aiSolutionSection}
+        {troubleshootSectionEl}
+      </>
+    );
+  }
 };
 
 export default PodDetails;

@@ -66,6 +66,10 @@ spec:
             secretKeyRef:
               name: kure-encryption-secret
               key: encryption-key
+        - name: FAILURE_LOGS_ENABLED
+          value: "true"
+        - name: FAILURE_LOGS_MAX_LINES
+          value: "1000"
         # Optional: Enable dashboard authentication
         - name: AUTH_API_KEY
           valueFrom:

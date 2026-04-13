@@ -60,6 +60,10 @@ spec:
           value: "30"
         - name: CLUSTER_METRICS_ENABLED
           value: "true"
+        - name: FAILURE_LOGS_ENABLED
+          value: "true"
+        - name: FAILURE_LOGS_MAX_LINES
+          value: "1000"
         - name: PYTHONUNBUFFERED
           value: "1"
         # Optional: Required for WebSocket auth when AUTH_API_KEY is set on backend

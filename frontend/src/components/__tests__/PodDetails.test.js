@@ -23,6 +23,7 @@ jest.mock('lucide-react', () => ({
   Trash2: () => <span data-testid="trash-icon">Trash2</span>,
   FlaskConical: () => <span data-testid="flask-icon">FlaskConical</span>,
   Wand2: ({ className }) => <span data-testid="wand-icon" className={className}>Wand2</span>,
+  Sparkles: ({ className }) => <span data-testid="sparkles-icon" className={className}>Sparkles</span>,
 }));
 
 // Mock API
@@ -207,6 +208,164 @@ describe('PodDetails', () => {
 
     // Check that a formatted date is displayed (exact format depends on locale)
     expect(screen.getByText(/Jan/)).toBeInTheDocument();
+  });
+
+  describe('auto_solution_mode ordering', () => {
+    const logAwareEligiblePod = {
+      ...mockPod,
+      failure_reason: 'CrashLoopBackOff',
+      logs_captured: true,
+    };
+
+    test('log_aware mode with empty solution renders TroubleshootSection first and shows Generate AI Solution button', () => {
+      const pod = {
+        ...logAwareEligiblePod,
+        auto_solution_mode: 'log_aware',
+        solution: null,
+        log_aware_solution: '# Deep log analysis\nRoot cause: OOM.',
+        log_aware_solution_generated_at: '2025-01-01T00:00:00Z',
+      };
+
+      render(
+        <PodDetails
+          pod={pod}
+          onViewManifest={jest.fn()}
+          aiEnabled={true}
+        />
+      );
+
+      // Both headings are present and TroubleshootSection renders first
+      const headingTexts = screen.getAllByRole('heading', { level: 4 }).map(h => h.textContent);
+      const aiIdx = headingTexts.indexOf('AI-Generated Solution');
+      const troubleshootIdx = headingTexts.indexOf('Log-Aware Troubleshoot');
+      expect(aiIdx).toBeGreaterThan(-1);
+      expect(troubleshootIdx).toBeGreaterThan(-1);
+      expect(troubleshootIdx).toBeLessThan(aiIdx);
+
+      // "Generate AI Solution" button visible (for empty solution)
+      expect(screen.getByText('Generate AI Solution')).toBeInTheDocument();
+
+      // No "Retry AI" button (there's no solution to retry yet)
+      expect(screen.queryByText('Retry AI')).not.toBeInTheDocument();
+
+      // Log-aware content should be rendered immediately (no Troubleshoot button)
+      expect(screen.queryByText('Troubleshoot')).not.toBeInTheDocument();
+    });
+
+    test('log_aware mode with both solutions populated renders both cards, TroubleshootSection first', () => {
+      const pod = {
+        ...logAwareEligiblePod,
+        auto_solution_mode: 'log_aware',
+        solution: 'Quick solution text',
+        log_aware_solution: 'Log-aware solution text',
+        log_aware_solution_generated_at: '2025-01-01T00:00:00Z',
+      };
+
+      render(
+        <PodDetails
+          pod={pod}
+          onViewManifest={jest.fn()}
+          aiEnabled={true}
+        />
+      );
+
+      const headingTexts = screen.getAllByRole('heading', { level: 4 }).map(h => h.textContent);
+      const aiIdx = headingTexts.indexOf('AI-Generated Solution');
+      const troubleshootIdx = headingTexts.indexOf('Log-Aware Troubleshoot');
+      expect(aiIdx).toBeGreaterThan(-1);
+      expect(troubleshootIdx).toBeGreaterThan(-1);
+      expect(troubleshootIdx).toBeLessThan(aiIdx);
+
+      // Retry AI button visible (solution is populated)
+      expect(screen.getByText('Retry AI')).toBeInTheDocument();
+
+      // No "Generate AI Solution" button (already populated)
+      expect(screen.queryByText('Generate AI Solution')).not.toBeInTheDocument();
+    });
+
+    test('quick mode preserves current order (AI solution first, TroubleshootSection second)', () => {
+      const pod = {
+        ...logAwareEligiblePod,
+        auto_solution_mode: 'quick',
+        solution: 'Quick solution text',
+      };
+
+      render(
+        <PodDetails
+          pod={pod}
+          onViewManifest={jest.fn()}
+          aiEnabled={true}
+        />
+      );
+
+      const headingTexts = screen.getAllByRole('heading', { level: 4 }).map(h => h.textContent);
+      const aiIdx = headingTexts.indexOf('AI-Generated Solution');
+      const troubleshootIdx = headingTexts.indexOf('Log-Aware Troubleshoot');
+      expect(aiIdx).toBeGreaterThan(-1);
+      expect(troubleshootIdx).toBeGreaterThan(-1);
+      expect(aiIdx).toBeLessThan(troubleshootIdx);
+    });
+
+    test('undefined auto_solution_mode is treated as quick (backward compat)', () => {
+      const pod = {
+        ...logAwareEligiblePod,
+        // auto_solution_mode intentionally undefined
+        solution: 'Quick solution text',
+      };
+
+      render(
+        <PodDetails
+          pod={pod}
+          onViewManifest={jest.fn()}
+          aiEnabled={true}
+        />
+      );
+
+      const headingTexts = screen.getAllByRole('heading', { level: 4 }).map(h => h.textContent);
+      const aiIdx = headingTexts.indexOf('AI-Generated Solution');
+      const troubleshootIdx = headingTexts.indexOf('Log-Aware Troubleshoot');
+      expect(aiIdx).toBeGreaterThan(-1);
+      expect(troubleshootIdx).toBeGreaterThan(-1);
+      expect(aiIdx).toBeLessThan(troubleshootIdx);
+    });
+
+    test('clicking Generate AI Solution calls api.retrySolution and updates state', async () => {
+      const { api } = require('../../services/api');
+      api.retrySolution.mockResolvedValue({
+        id: 1,
+        solution: 'Freshly generated quick solution',
+      });
+
+      const pod = {
+        ...logAwareEligiblePod,
+        auto_solution_mode: 'log_aware',
+        solution: null,
+        log_aware_solution: 'Log-aware content',
+        log_aware_solution_generated_at: '2025-01-01T00:00:00Z',
+      };
+
+      const onSolutionUpdated = jest.fn();
+      render(
+        <PodDetails
+          pod={pod}
+          onViewManifest={jest.fn()}
+          onSolutionUpdated={onSolutionUpdated}
+          aiEnabled={true}
+        />
+      );
+
+      fireEvent.click(screen.getByText('Generate AI Solution'));
+
+      await waitFor(() => {
+        expect(api.retrySolution).toHaveBeenCalledWith(1);
+      });
+
+      await waitFor(() => {
+        expect(onSolutionUpdated).toHaveBeenCalledWith(
+          expect.objectContaining({ solution: 'Freshly generated quick solution' })
+        );
+      });
+    });
   });
 
   describe('Mirror Pod Status', () => {

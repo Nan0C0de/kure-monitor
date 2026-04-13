@@ -257,3 +257,9 @@ github_actions
 
 # Local
 LOCAL_TEST.md
+
+# Ignore k8s
+k8s
+
+# Ignore examples
+examples

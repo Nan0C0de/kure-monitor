@@ -127,6 +127,14 @@ class PostgreSQLDatabase(
                     await conn.execute("ALTER TABLE pod_failures ADD COLUMN IF NOT EXISTS troubleshoot_generated_at TIMESTAMPTZ")
                     logger.info("Migrated pod_failures table: added troubleshoot_solution columns")
 
+                # Migration: add auto_solution_mode column tracking which solution
+                # path (quick rule-based / quick LLM vs. log-aware LLM) was used
+                # automatically at ingest time.
+                await conn.execute(
+                    "ALTER TABLE pod_failures ADD COLUMN IF NOT EXISTS "
+                    "auto_solution_mode VARCHAR(16) NOT NULL DEFAULT 'quick'"
+                )
+
                 # Create pod_failure_logs table (captured previous-container logs
                 # for CrashLoopBackOff / OOMKilled failures, gzipped bytes in BYTEA)
                 await conn.execute("""

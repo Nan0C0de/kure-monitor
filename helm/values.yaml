@@ -19,6 +19,14 @@ agent:
   clusterMetrics:
     enabled: true  # Set to false to disable cluster metrics collection
 
+  # Failure log capture for CrashLoopBackOff and OOMKilled pods.
+  # When enabled, the agent fetches the previous container's logs on failure
+  # so the backend can generate a log-aware troubleshoot solution.
+  # Other failure types (ImagePullBackOff, Pending, etc.) are NOT affected.
+  failureLogs:
+    enabled: true   # Set to false to disable failure log capture
+    maxLines: 1000  # Max lines per container; also capped at 256 KB raw bytes
+
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/agent
     tag: "2.2.0"

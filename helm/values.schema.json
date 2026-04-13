@@ -67,6 +67,23 @@
             }
           }
         },
+        "failureLogs": {
+          "type": "object",
+          "description": "Failure log capture for CrashLoopBackOff and OOMKilled pods",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable failure log capture",
+              "default": true
+            },
+            "maxLines": {
+              "type": "integer",
+              "description": "Max lines per container (also capped at 256 KB raw bytes)",
+              "default": 1000,
+              "minimum": 1
+            }
+          }
+        },
         "resources": {
           "type": "object",
           "properties": {
