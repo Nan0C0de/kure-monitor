@@ -10,15 +10,21 @@ logger = logging.getLogger(__name__)
 class BackendClient:
     def __init__(self, backend_url: str):
         self.backend_url = backend_url.rstrip('/')
-        self._auth_token = os.environ.get("AUTH_API_KEY")
+        self._service_token = os.environ.get("SERVICE_TOKEN")
+        if not self._service_token:
+            logger.error(
+                "SERVICE_TOKEN environment variable is not set. "
+                "Outbound requests to the backend will be rejected with 401 "
+                "if the backend requires authentication."
+            )
 
     def _headers(self, content_type: str = None) -> dict:
-        """Build request headers, including auth if configured."""
+        """Build request headers, including the service token for ingest auth."""
         headers = {}
         if content_type:
             headers['Content-Type'] = content_type
-        if self._auth_token:
-            headers['Authorization'] = f'Bearer {self._auth_token}'
+        if self._service_token:
+            headers['X-Service-Token'] = self._service_token
         return headers
 
     async def report_security_finding(self, finding_data: Dict[str, Any]):

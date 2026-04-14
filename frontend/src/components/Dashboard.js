@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, BarChart3, Sun, Moon, Download, Clock, EyeOff, RefreshCw, LogOut } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, Sun, Moon, Download, Clock, EyeOff, RefreshCw, LogOut } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
-import MonitoringTab from './MonitoringTab';
 import SetupBanner from './SetupBanner';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,12 +11,12 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { exportAsCSV, exportAsJSON, exportAsPDF } from '../utils/exportFindings';
 
 const Dashboard = () => {
-  const { authEnabled, userRole, logout } = useAuth();
+  const { user, userRole, logout } = useAuth();
   const navigate = useNavigate();
+  const canWrite = userRole === 'admin' || userRole === 'write';
   const [activeTab, setActiveTab] = useState('monitoring');
   const [pods, setPods] = useState([]);
   const [securityFindings, setSecurityFindings] = useState([]);
-  const [clusterMetrics, setClusterMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -228,9 +227,6 @@ const Dashboard = () => {
       const deletedId = message.data.id;
       setPodHistory(prev => prev.filter(p => p.id !== deletedId));
       setIgnoredPods(prev => prev.filter(p => p.id !== deletedId));
-    } else if (message.type === 'cluster_metrics') {
-      // Update cluster metrics
-      setClusterMetrics(message.data);
     }
   }, [showSecurityBanner]);
 
@@ -419,20 +415,16 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [activePods, findings, config, metrics, history, ignored] = await Promise.all([
+      const [activePods, findings, config, history, ignored] = await Promise.all([
         api.getFailedPods(),
         api.getSecurityFindings(),
         api.getConfig(),
-        api.getClusterMetrics().catch(() => null),
         api.getPodHistory().catch(() => []),
         api.getIgnoredPods().catch(() => [])
       ]);
       setPods(activePods);
       setSecurityFindings(findings);
       setAiEnabled(config.ai_enabled || false);
-      if (metrics && metrics.node_count) {
-        setClusterMetrics(metrics);
-      }
       setPodHistory(history);
       setIgnoredPods(ignored);
       setError(null);
@@ -509,19 +501,30 @@ const Dashboard = () => {
                 )}
               </button>
 
-              {/* Logout Button - only show when auth is enabled */}
-              {authEnabled && (
-                <button
-                  onClick={() => { logout(); navigate('/login'); }}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDark
-                      ? 'hover:bg-gray-700 text-gray-300 hover:text-gray-100'
-                      : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                  }`}
-                  title="Sign out"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
+              {/* User identity + logout */}
+              {user && (
+                <div className="flex items-center space-x-2">
+                  <div className={`hidden sm:flex flex-col text-right leading-tight`}>
+                    <span className={`text-sm font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                      {user.username}
+                    </span>
+                    <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {user.role}
+                    </span>
+                  </div>
+                  <button
+                    onClick={async () => { await logout(); navigate('/login'); }}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isDark
+                        ? 'hover:bg-gray-700 text-gray-300 hover:text-gray-100'
+                        : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                    }`}
+                    title="Sign out"
+                    aria-label="Sign out"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
               )}
 
               {/* Connection Status */}
@@ -548,8 +551,19 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Setup Banner - shows when LLM is not configured */}
-        <SetupBanner isDark={isDark} onNavigateToAdmin={() => setActiveTab('admin')} />
+        {/* Read-only banner for read-role users */}
+        {userRole === 'read' && (
+          <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            isDark ? 'bg-blue-900/30 border-blue-800 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'
+          }`} role="status">
+            Read-only access — contact an admin to change your role.
+          </div>
+        )}
+
+        {/* Setup Banner - shows when LLM is not configured (admin only) */}
+        {userRole === 'admin' && (
+          <SetupBanner isDark={isDark} onNavigateToAdmin={() => setActiveTab('admin')} />
+        )}
 
         {/* Tabs */}
         <div className="mb-6">
@@ -588,17 +602,6 @@ const Dashboard = () => {
                     </span>
                   )}
                 </button>
-                <button
-                  onClick={() => setActiveTab('cluster')}
-                  className={`${
-                    activeTab === 'cluster'
-                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
-                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } ml-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
-                >
-                  <BarChart3 className="w-5 h-5" />
-                  <span>Cluster Metrics</span>
-                </button>
               </div>
               {userRole === 'admin' && (
               <button
@@ -617,8 +620,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Filters - hide on admin and cluster tabs */}
-        {activeTab !== 'admin' && activeTab !== 'cluster' && (
+        {/* Filters - hide on admin tab */}
+        {activeTab !== 'admin' && (
         <div className="flex justify-end mb-4 gap-4">
           {/* Severity Filter - only show on security tab */}
           {activeTab === 'security' && (
@@ -891,7 +894,7 @@ const Dashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="active" />
+                    <PodTable pods={filteredPods} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} isDark={isDark} aiEnabled={aiEnabled} viewMode="active" canWrite={canWrite} />
                   )}
                 </>
               )}
@@ -910,7 +913,7 @@ const Dashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <PodTable pods={filteredHistory} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="history" />
+                    <PodTable pods={filteredHistory} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="history" canWrite={canWrite} />
                   )}
                 </>
               )}
@@ -929,7 +932,7 @@ const Dashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <PodTable pods={filteredIgnored} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="ignored" />
+                    <PodTable pods={filteredIgnored} onSolutionUpdated={handleSolutionUpdated} onLogAwareSolutionUpdated={handleLogAwareSolutionUpdated} onStatusChange={handleStatusChange} onDeleteRecord={handleDeletePodRecord} isDark={isDark} aiEnabled={aiEnabled} viewMode="ignored" canWrite={canWrite} />
                   )}
                 </>
               )}
@@ -938,8 +941,9 @@ const Dashboard = () => {
 
           {activeTab === 'security' && (
             <>
-              {/* Rescan button */}
+              {/* Rescan button (write/admin only) */}
               <div className="flex items-center mb-4">
+                {canWrite && (
                 <button
                   onClick={handleSecurityRescan}
                   disabled={rescanRequesting || securityScanUpdating}
@@ -953,6 +957,7 @@ const Dashboard = () => {
                   <RefreshCw className={`w-4 h-4 mr-2 ${rescanRequesting || securityScanUpdating ? 'animate-spin' : ''}`} />
                   {rescanRequesting ? 'Requesting...' : securityScanUpdating ? 'Scanning...' : 'Rescan'}
                 </button>
+                )}
               </div>
 
               {/* Security scan updating notification */}
@@ -981,13 +986,9 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <SecurityTable findings={sortedSecurityFindings} isDark={isDark} aiEnabled={aiEnabled} />
+                <SecurityTable findings={sortedSecurityFindings} isDark={isDark} aiEnabled={aiEnabled} canWrite={canWrite} />
               )}
             </>
-          )}
-
-          {activeTab === 'cluster' && (
-            <MonitoringTab metrics={clusterMetrics} isDark={isDark} />
           )}
 
           {activeTab === 'admin' && userRole === 'admin' && (

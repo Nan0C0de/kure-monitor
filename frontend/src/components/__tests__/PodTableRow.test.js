@@ -3,11 +3,14 @@ import PodTableRow from '../PodTableRow';
 
 // Mock child components that have complex dependencies
 jest.mock('../PodDetails', () => {
-  return function MockPodDetails({ pod }) {
+  return function MockPodDetails({ pod, onStatusChange, onDeleteRecord, onTestFix }) {
     return (
       <div data-testid="pod-details">
         <h3>Error Details</h3>
         <p>{pod.solution}</p>
+        {onStatusChange && <button>Resolve</button>}
+        {onDeleteRecord && <button>Delete</button>}
+        {onTestFix && <button>Test fix</button>}
       </div>
     );
   };
@@ -175,7 +178,55 @@ describe('PodTableRow', () => {
         </tbody>
       </table>
     );
-    
+
     expect(screen.getByText('Click to expand')).toBeInTheDocument();
+  });
+
+  test('hides mutation action buttons when canWrite is false', () => {
+    render(
+      <table>
+        <tbody>
+          <PodTableRow
+            pod={mockPod}
+            canWrite={false}
+            onStatusChange={jest.fn()}
+            onDeleteRecord={jest.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    // Expand the row
+    const chevron = screen.getByTestId('chevron-right').closest('button');
+    fireEvent.click(chevron);
+
+    // PodDetails only renders action buttons when callbacks are passed.
+    // With canWrite=false, PodTableRow passes `undefined` for mutations.
+    expect(screen.queryByText('Resolve')).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test fix')).not.toBeInTheDocument();
+  });
+
+  test('shows mutation action buttons when canWrite is true', () => {
+    render(
+      <table>
+        <tbody>
+          <PodTableRow
+            pod={mockPod}
+            canWrite={true}
+            onStatusChange={jest.fn()}
+            onDeleteRecord={jest.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    const chevron = screen.getByTestId('chevron-right').closest('button');
+    fireEvent.click(chevron);
+
+    expect(screen.getByText('Resolve')).toBeInTheDocument();
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+    // Test fix only shows if onTestFix is passed (it is, via PodTableRow)
+    expect(screen.getByText('Test fix')).toBeInTheDocument();
   });
 });

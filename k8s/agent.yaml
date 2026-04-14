@@ -58,21 +58,19 @@ spec:
           value: "http://kure-monitor-backend:8000"
         - name: PENDING_GRACE_PERIOD
           value: "30"
-        - name: CLUSTER_METRICS_ENABLED
-          value: "true"
         - name: FAILURE_LOGS_ENABLED
           value: "true"
         - name: FAILURE_LOGS_MAX_LINES
           value: "1000"
         - name: PYTHONUNBUFFERED
           value: "1"
-        # Optional: Required for WebSocket auth when AUTH_API_KEY is set on backend
-        - name: AUTH_API_KEY
+        # Service-to-service auth: sent as X-Service-Token header on HTTP and
+        # ?token=<value> on the WebSocket. Must match backend's SERVICE_TOKEN.
+        - name: SERVICE_TOKEN
           valueFrom:
             secretKeyRef:
-              name: kure-auth-secret
-              key: api-key
-              optional: true
+              name: kure-bootstrap
+              key: service-token
         - name: NODE_NAME
           valueFrom:
             fieldRef:

@@ -70,12 +70,18 @@ spec:
           value: "true"
         - name: FAILURE_LOGS_MAX_LINES
           value: "1000"
-        # Optional: Enable dashboard authentication
-        - name: AUTH_API_KEY
+        # Service-to-service auth (agent + scanner -> backend)
+        - name: SERVICE_TOKEN
           valueFrom:
-             secretKeyRef:
-               name: kure-auth-secret
-               key: api-key
+            secretKeyRef:
+              name: kure-bootstrap
+              key: service-token
+        # Signing key for dashboard session JWTs (HttpOnly cookie kure_session)
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: kure-bootstrap
+              key: session-secret
         resources:
           requests:
             memory: "256Mi"

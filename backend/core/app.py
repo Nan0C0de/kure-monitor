@@ -13,6 +13,7 @@ from services.websocket import WebSocketManager
 from services.notification_service import NotificationService
 from services.mirror_service import MirrorService
 from api.routes import create_api_router
+from api.auth import get_service_token, get_session_secret
 from api.middleware import configure_cors, configure_exception_handlers
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,10 @@ def create_app() -> FastAPI:
         logger.info("Database initialized")
         # Expose db on app state for auth middleware
         app.state.db = db
+        # Ensure auth bootstrap values exist (generates & persists on first boot)
+        await get_session_secret(db)
+        await get_service_token(db)
+        logger.info("Auth bootstrap complete (session secret + service token ready)")
         # Initialize solution engine (loads LLM config from db or env)
         await solution_engine.initialize()
         logger.info("Solution engine initialized")

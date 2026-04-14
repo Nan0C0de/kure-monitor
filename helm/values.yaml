@@ -15,10 +15,6 @@ agent:
   # this much time to start before being flagged. Default: 120 (2 minutes).
   pendingGracePeriod: 120
 
-  # Cluster metrics collection (CPU, memory, pod counts, etc.)
-  clusterMetrics:
-    enabled: true  # Set to false to disable cluster metrics collection
-
   # Failure log capture for CrashLoopBackOff and OOMKilled pods.
   # When enabled, the agent fetches the previous container's logs on failure
   # so the backend can generate a log-aware troubleshoot solution.
@@ -223,10 +219,6 @@ postgresql:
     create: true
     name: kure-postgresql
     automountServiceAccountToken: false
-
-# Authentication
-auth:
-  apiKey: ""  # Set to enable dashboard authentication. If empty, dashboard is open (with warning).
 
 # Security settings
 security:

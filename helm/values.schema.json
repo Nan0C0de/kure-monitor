@@ -56,17 +56,6 @@
           },
           "required": ["repository", "tag"]
         },
-        "clusterMetrics": {
-          "type": "object",
-          "description": "Cluster metrics collection settings",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable cluster metrics collection",
-              "default": true
-            }
-          }
-        },
         "failureLogs": {
           "type": "object",
           "description": "Failure log capture for CrashLoopBackOff and OOMKilled pods",
@@ -410,17 +399,6 @@
               }
             }
           }
-        }
-      }
-    },
-    "auth": {
-      "type": "object",
-      "description": "Dashboard authentication configuration",
-      "properties": {
-        "apiKey": {
-          "type": "string",
-          "description": "API key for dashboard authentication. If empty, dashboard is open.",
-          "default": ""
         }
       }
     },

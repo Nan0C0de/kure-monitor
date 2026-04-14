@@ -8,7 +8,6 @@ from kubernetes.client.rest import ApiException
 from clients.backend_client import BackendClient
 from clients.websocket_client import WebSocketClient
 from services.data_collector import DataCollector
-from services.metrics_collector import MetricsCollector
 from config.config import Config
 
 logging.basicConfig(level=logging.INFO)
@@ -44,9 +43,6 @@ class PodMonitor:
         self.excluded_pods_last_refresh: Optional[datetime] = None
         self.excluded_pods_refresh_interval = timedelta(minutes=1)
 
-        # Metrics collection interval (default 30 seconds)
-        self.metrics_interval = getattr(self.config, 'metrics_interval', 30)
-
         # Initialize Kubernetes client
         try:
             config.load_incluster_config()  # For running in cluster
@@ -54,9 +50,6 @@ class PodMonitor:
             config.load_kube_config()  # For local development
 
         self.v1 = client.CoreV1Api()
-
-        # Initialize metrics collector
-        self.metrics_collector = MetricsCollector(self.v1)
 
     async def _refresh_excluded_namespaces(self):
         """Refresh the excluded namespaces cache from backend (kept for compatibility, not used for pod monitoring)"""
@@ -141,21 +134,6 @@ class PodMonitor:
                 logger.error(f"Error in monitoring loop: {e}")
                 await asyncio.sleep(5)
 
-    async def _metrics_loop(self):
-        """Metrics collection loop for sending cluster metrics to backend"""
-        await self.metrics_collector.check_metrics_server()
-
-        while True:
-            try:
-                if not self.metrics_collector.metrics_available:
-                    await self.metrics_collector.check_metrics_server()
-                metrics = await self.metrics_collector.collect_cluster_metrics()
-                await self.backend_client.report_cluster_metrics(metrics)
-                await asyncio.sleep(self.metrics_interval)
-            except Exception as e:
-                logger.error(f"Error in metrics loop: {e}")
-                await asyncio.sleep(self.metrics_interval)
-
     async def _sync_failed_pods_from_backend(self):
         """Sync reported_pods with backend on startup to detect recovered pods"""
         try:
@@ -183,18 +161,11 @@ class PodMonitor:
         self.websocket_client.set_namespace_change_handler(self._handle_namespace_change)
         self.websocket_client.set_pod_exclusion_change_handler(self._handle_pod_exclusion_change)
 
-        # Run monitoring loop, metrics loop (if enabled), and WebSocket client concurrently
+        # Run monitoring loop and WebSocket client concurrently
         tasks = [
             asyncio.create_task(self._monitoring_loop()),
             asyncio.create_task(self.websocket_client.connect()),
         ]
-
-        # Only start metrics collection if enabled
-        if self.config.cluster_metrics_enabled:
-            logger.info("Cluster metrics collection enabled")
-            tasks.append(asyncio.create_task(self._metrics_loop()))
-        else:
-            logger.info("Cluster metrics collection disabled")
 
         try:
             await asyncio.gather(*tasks)

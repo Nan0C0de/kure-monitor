@@ -376,6 +376,7 @@ async def api_app(test_db, fake_solution_engine):
     ws_manager = WebSocketManager()
     app = FastAPI()
     configure_cors(app)
+    app.state.db = test_db
 
     @app.get("/health")
     async def _h():
@@ -389,16 +390,18 @@ async def api_app(test_db, fake_solution_engine):
     )
     app.include_router(api_router)
 
-    from api.auth import require_auth, require_admin
+    from api.auth import require_user, require_write, require_admin, require_service_token
 
-    async def _no_auth(request: Request):
-        request.state.role = "admin"
+    async def _fake_user():
+        return {"id": 1, "username": "test-admin", "role": "admin"}
 
-    def _no_admin(request: Request):
-        pass
+    async def _fake_service():
+        return None
 
-    app.dependency_overrides[require_auth] = _no_auth
-    app.dependency_overrides[require_admin] = _no_admin
+    app.dependency_overrides[require_user] = _fake_user
+    app.dependency_overrides[require_write] = _fake_user
+    app.dependency_overrides[require_admin] = _fake_user
+    app.dependency_overrides[require_service_token] = _fake_service
     return app
 
 

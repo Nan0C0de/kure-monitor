@@ -31,7 +31,7 @@ Unlike tools such as K8sGPT that are CLI-focused, Kure gives you a unified web d
 - **Cluster Overview** — CPU, memory, and storage usage at a glance
 - **Export Findings** — Export security findings to CSV, JSON, and PDF
 - **Slack & Teams Notifications** — Get alerted when failures occur
-- **Dashboard Authentication** — Optional API key auth with login page and rate limiting
+- **Dashboard Authentication** — User accounts with read/write/admin roles, session cookies, and rate-limited login
 - **Prometheus Metrics** — `/metrics` endpoint with optional ServiceMonitor support
 
 ## Limitations
@@ -99,7 +99,7 @@ Kure complements your existing observability stack (Prometheus, Grafana, Datadog
 
 | Component | Type | Description |
 |-----------|------|-------------|
-| **Agent** | DaemonSet | Watches K8s API for pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and collects cluster metrics |
+| **Agent** | DaemonSet | Watches K8s API for pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) |
 | **Security Scanner** | Deployment | Audits pods for 50+ security misconfigurations with real-time change detection |
 | **Backend** | Deployment | FastAPI server — receives reports, generates AI solutions, serves API and WebSocket |
 | **Frontend** | Deployment | React dashboard with real-time updates via WebSocket |
@@ -127,15 +127,18 @@ helm install kure-monitor kure-monitor/kure \
 
 After installation, configure your LLM provider (OpenAI, Anthropic, Groq, Google Gemini, or Ollama) via the Admin panel in the web dashboard to enable AI-powered solutions.
 
-### Production Install (with Authentication)
+### Production Install
 
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
   --create-namespace \
-  --set auth.apiKey="$(openssl rand -hex 32)" \
   --set postgresql.password="$(openssl rand -hex 24)"
 ```
+
+On first visit, the dashboard will prompt you to create the initial admin
+account (username + password). Invite additional users from the Admin panel
+with **read** or **write** roles as needed.
 
 ### Access the Dashboard
 
@@ -172,11 +175,6 @@ LLM provider is configured via the Admin panel in the web dashboard after instal
 ```yaml
 agent:
   pendingGracePeriod: 120   # Seconds before reporting Pending pods
-  clusterMetrics:
-    enabled: true            # Cluster metrics collection
-
-auth:
-  apiKey: ""                 # Set to enable dashboard authentication
 
 postgresql:
   external: false            # Set true to use external PostgreSQL
@@ -209,13 +207,6 @@ See [`helm/README.md`](helm/README.md) for the full parameter reference.
 - Trusted container registries to suppress untrusted registry findings
 - Rule exclusions with global and per-namespace scopes
 
-### Cluster Metrics Tab
-- Real-time CPU, memory, and storage usage
-- Node status and details
-- Pod list with logs viewer
-- Live log streaming with play/pause
-- Namespace filtering
-
 ### Admin Panel
 - **AI Config** — Configure LLM provider (OpenAI, Anthropic, Groq, Google Gemini, or Ollama)
 - **Notifications** — Configure Slack or Microsoft Teams webhooks for alerts
@@ -237,43 +228,45 @@ kubectl logs -l app.kubernetes.io/component=security-scanner -n kure-system
 kubectl logs -l app.kubernetes.io/component=frontend -n kure-system
 ```
 
-### Metrics Server Installation
-
-For full cluster metrics (CPU/memory usage), install metrics-server:
-
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-```
-
 ## Authentication
 
-Kure Monitor supports optional API key authentication. When enabled, the dashboard requires login and all API requests must include a valid key.
+Kure Monitor uses **user accounts** for the dashboard and a separate **service token** for agent/scanner traffic. Both are wired up automatically by the Helm chart -- there is nothing to configure at install time.
 
-### Enable Authentication
+### Dashboard (user accounts)
+
+- On first visit, the dashboard prompts you to create the initial **admin** account (username + password).
+- Once signed in, invite additional users from the Admin panel and assign a role:
+
+  | Role  | Permissions |
+  |-------|-------------|
+  | `read`  | View pod failures and security findings. No mutating actions. |
+  | `write` | Everything `read` can do, plus dismiss/resolve pods, trigger rescans, edit suppressions. |
+  | `admin` | Everything `write` can do, plus user management, LLM provider config, notification settings. |
+
+- Sessions use an HttpOnly `kure_session` cookie signed with `SESSION_SECRET`. Login attempts are rate-limited.
+- For multi-replica backends, pre-provision `SESSION_SECRET` via the bootstrap Secret (the Helm chart does this for you) so cookies stay valid across replicas.
+
+### Service-to-service (agent + security scanner)
+
+- Agent and scanner authenticate to the backend with a shared `SERVICE_TOKEN`, sent as the `X-Service-Token` HTTP header (and as `?token=` on WebSocket connections).
+- The Helm chart auto-generates this token in a Secret named `<release>-bootstrap` on first install and preserves it on upgrade.
+
+### Rotating the service token
 
 ```bash
-# Generate a secure API key
-openssl rand -hex 32
+# Edit the Secret in place (or kubectl create secret ... --dry-run=client -o yaml | kubectl apply -f -)
+kubectl edit secret kure-monitor-bootstrap -n kure-system
 
-# Install with auth enabled
-helm install kure-monitor kure-monitor/kure \
-  --namespace kure-system \
-  --create-namespace \
-  --set auth.apiKey=YOUR_GENERATED_KEY
+# Restart the pods that read it
+kubectl rollout restart deployment/kure-monitor-backend deployment/kure-monitor-security-scanner -n kure-system
+kubectl rollout restart daemonset/kure-monitor-agent -n kure-system
 ```
 
-When `auth.apiKey` is set:
-- The dashboard shows a login page
-- All API and WebSocket connections require authentication
-- Agent and security scanner authenticate automatically via the same key
-- Login attempts are rate-limited (5 per 30 seconds)
-
-When `auth.apiKey` is empty (default), authentication is disabled and the dashboard is open.
+Rotating `session-secret` the same way will sign all existing dashboard users out and force them to log in again.
 
 ## Security
 
-- **Authentication** — Optional API key auth for dashboard, API, and WebSocket access
-- **Authenticated internal traffic** — Agent and scanner authenticate to backend with Bearer tokens
+- **Authentication** — User-account auth (read/write/admin roles) for the dashboard; shared `SERVICE_TOKEN` for agent/scanner -> backend traffic
 - All components run as non-root users (UID 1001)
 - Network policies restrict inter-pod communication
 - RBAC limits agent and scanner permissions to read-only access

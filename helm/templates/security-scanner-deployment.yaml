@@ -55,13 +55,11 @@ spec:
           value: "http://{{ include "kure.fullname" . }}-backend:{{ .Values.backend.service.port }}"
         - name: PYTHONUNBUFFERED
           value: "1"
-        {{- if .Values.auth.apiKey }}
-        - name: AUTH_API_KEY
+        - name: SERVICE_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ include "kure.fullname" . }}-auth
-              key: api-key
-        {{- end }}
+              name: {{ include "kure.fullname" . }}-bootstrap
+              key: service-token
         volumeMounts:
         - name: tmp
           mountPath: /tmp

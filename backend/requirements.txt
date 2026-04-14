@@ -19,3 +19,7 @@ PyYAML>=6.0
 prometheus_client>=0.20.0
 # Encryption for API keys at rest
 cryptography>=41.0.0
+# Password hashing
+bcrypt>=4.1.0
+# JWT for session cookies
+PyJWT>=2.8.0

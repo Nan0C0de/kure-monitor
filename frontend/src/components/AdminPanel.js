@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { AlertCircle, CheckCircle, Bot, Bell, EyeOff, Key, Settings, ShieldAlert, X } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { AlertCircle, CheckCircle, Bot, Bell, EyeOff, Settings, Users, Mail } from 'lucide-react';
 import NotificationSettings from './NotificationSettings';
 import LLMSettings from './LLMSettings';
 import ExclusionNamespaces from './admin/ExclusionNamespaces';
@@ -8,7 +7,8 @@ import ExclusionPods from './admin/ExclusionPods';
 import ExclusionRules from './admin/ExclusionRules';
 import ExclusionRegistries from './admin/ExclusionRegistries';
 import RetentionSettings from './admin/RetentionSettings';
-import ApiKeyManager from './admin/ApiKeyManager';
+import UsersManager from './admin/UsersManager';
+import InvitationsManager from './admin/InvitationsManager';
 
 const AdminPanel = ({ isDark = false, onConfigChange }) => {
   // Tab state
@@ -18,27 +18,14 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // Auth warning banner
-  const { authEnabled } = useAuth();
-  const [authBannerDismissed, setAuthBannerDismissed] = useState(
-    () => localStorage.getItem('kure-auth-warning-dismissed') === 'true'
-  );
-
-  const dismissAuthBanner = () => {
-    localStorage.setItem('kure-auth-warning-dismissed', 'true');
-    setAuthBannerDismissed(true);
-  };
-
-  const baseTabs = [
+  const tabs = [
     { id: 'ai', label: 'AI Config', icon: Bot },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'exclusions', label: 'Suppressions', icon: EyeOff },
     { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'users', label: 'Users', icon: Users },
+    { id: 'invitations', label: 'Invitations', icon: Mail },
   ];
-
-  const tabs = authEnabled
-    ? [...baseTabs, { id: 'api-keys', label: 'API Keys', icon: Key }]
-    : baseTabs;
 
   const handleSuccess = useCallback((message) => {
     setError(null);
@@ -78,34 +65,6 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
         })}
       </div>
 
-      {/* Auth Disabled Warning */}
-      {authEnabled === false && !authBannerDismissed && (
-        <div className={`mb-4 rounded-lg border ${isDark ? 'bg-amber-900/20 border-amber-800' : 'bg-amber-50 border-amber-200'}`}>
-          <div className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center">
-              <div className={`p-2 rounded-lg mr-3 ${isDark ? 'bg-amber-800' : 'bg-amber-100'}`}>
-                <ShieldAlert className={`w-5 h-5 ${isDark ? 'text-amber-300' : 'text-amber-600'}`} />
-              </div>
-              <div>
-                <h3 className={`text-sm font-semibold ${isDark ? 'text-amber-200' : 'text-amber-900'}`}>
-                  Authentication Disabled
-                </h3>
-                <p className={`text-sm ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
-                  Authentication is not enabled. Anyone with network access can view and modify your dashboard. Enable it via Helm: <code className={`text-xs px-1 py-0.5 rounded ${isDark ? 'bg-amber-800/50' : 'bg-amber-100'}`}>--set auth.apiKey=your-secret-key</code>
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={dismissAuthBanner}
-              className={`p-1.5 rounded-md ml-4 flex-shrink-0 ${isDark ? 'text-amber-400 hover:bg-amber-800' : 'text-amber-500 hover:bg-amber-100'}`}
-              title="Dismiss"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Error/Success Messages */}
       {error && (
         <div className={`border rounded-md p-3 mb-4 ${isDark ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200'}`}>
@@ -143,8 +102,12 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
         </div>
       )}
 
-      {activeTab === 'api-keys' && (
-        <ApiKeyManager isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
+      {activeTab === 'users' && (
+        <UsersManager isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
+      )}
+
+      {activeTab === 'invitations' && (
+        <InvitationsManager isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
       )}
     </div>
   );

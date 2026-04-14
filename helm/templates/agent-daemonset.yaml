@@ -56,19 +56,15 @@ spec:
           value: "1"
         - name: PENDING_GRACE_PERIOD
           value: "{{ .Values.agent.pendingGracePeriod }}"
-        - name: CLUSTER_METRICS_ENABLED
-          value: "{{ .Values.agent.clusterMetrics.enabled }}"
         - name: FAILURE_LOGS_ENABLED
           value: "{{ .Values.agent.failureLogs.enabled }}"
         - name: FAILURE_LOGS_MAX_LINES
           value: "{{ .Values.agent.failureLogs.maxLines }}"
-        {{- if .Values.auth.apiKey }}
-        - name: AUTH_API_KEY
+        - name: SERVICE_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ include "kure.fullname" . }}-auth
-              key: api-key
-        {{- end }}
+              name: {{ include "kure.fullname" . }}-bootstrap
+              key: service-token
         volumeMounts:
         - name: tmp
           mountPath: /tmp

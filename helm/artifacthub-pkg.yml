@@ -39,6 +39,8 @@ maintainers:
 provider:
   name: Nan0C0de
 changes:
+  - kind: changed
+    description: "BREAKING: removed `auth.apiKey`. Dashboard now uses user accounts (read/write/admin); service-to-service auth uses the auto-generated bootstrap secret (`{release}-bootstrap` containing `service-token` and `session-secret`)."
   - kind: added
     description: Mirror pod testing - deploy a temporary copy of a failing pod with AI-generated fixes applied to test before committing to Git
   - kind: added
@@ -66,11 +68,7 @@ install: |
   helm install kure-monitor kure-monitor/kure --version 2.2.0 \
     --create-namespace --namespace kure-system
 
-  # With authentication enabled (recommended for production):
-  helm install kure-monitor kure-monitor/kure --version 2.2.0 \
-    --create-namespace --namespace kure-system \
-    --set auth.apiKey=$(openssl rand -hex 32)
-
+  # On first visit, the dashboard prompts you to create the initial admin account.
   # After installation, configure LLM provider via the Admin panel
-  # to enable AI-powered troubleshooting suggestions
+  # to enable AI-powered troubleshooting suggestions.
   ```

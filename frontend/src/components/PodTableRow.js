@@ -21,7 +21,7 @@ const getWorkflowStatusBadge = (status, isDark) => {
   }
 };
 
-const PodTableRow = ({ pod, onSolutionUpdated, onLogAwareSolutionUpdated, onStatusChange, onDeleteRecord, isDark = false, aiEnabled = false, viewMode = 'active' }) => {
+const PodTableRow = ({ pod, onSolutionUpdated, onLogAwareSolutionUpdated, onStatusChange, onDeleteRecord, isDark = false, aiEnabled = false, viewMode = 'active', canWrite = true }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showManifest, setShowManifest] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
@@ -196,17 +196,18 @@ const PodTableRow = ({ pod, onSolutionUpdated, onLogAwareSolutionUpdated, onStat
               pod={pod}
               onViewManifest={() => setShowManifest(true)}
               onViewLogs={() => setShowLogs(true)}
-              onTestFix={() => setShowMirror(true)}
-              onSolutionUpdated={onSolutionUpdated}
-              onLogAwareSolutionUpdated={onLogAwareSolutionUpdated}
-              onStatusChange={onStatusChange}
-              onDeleteRecord={onDeleteRecord}
+              onTestFix={canWrite ? () => setShowMirror(true) : undefined}
+              onSolutionUpdated={canWrite ? onSolutionUpdated : undefined}
+              onLogAwareSolutionUpdated={canWrite ? onLogAwareSolutionUpdated : undefined}
+              onStatusChange={canWrite ? onStatusChange : undefined}
+              onDeleteRecord={canWrite ? onDeleteRecord : undefined}
               isDark={isDark}
               aiEnabled={aiEnabled}
               viewMode={viewMode}
               activeMirror={activeMirror}
-              onDeleteMirror={handleDeleteMirror}
+              onDeleteMirror={canWrite ? handleDeleteMirror : undefined}
               onRefreshMirror={checkActiveMirror}
+              canWrite={canWrite}
             />
           </td>
         </tr>

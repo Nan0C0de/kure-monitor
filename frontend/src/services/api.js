@@ -3,28 +3,226 @@ const API_BASE = window.location.hostname === 'localhost' && window.location.por
   ? 'http://localhost:8000'  // Development mode
   : '';  // Production mode (same origin)
 
+export { API_BASE };
+
 /**
- * Wrapper around fetch that injects the auth header and handles 401 globally.
+ * Wrapper around fetch that always sends cookies and handles 401 globally.
+ * Auth is done via an HttpOnly `kure_session` cookie set by the backend.
  */
 const authFetch = async (url, options = {}) => {
-  const apiKey = sessionStorage.getItem('kure-auth-key');
-  if (apiKey) {
-    options.headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${apiKey}`,
-    };
-  }
-  const response = await fetch(url, options);
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include',
+  });
   if (response.status === 401) {
-    // Auth failed - clear session and redirect to login
-    sessionStorage.removeItem('kure-auth-key');
-    window.location.href = '/login';
+    // Don't hard-redirect away from public routes (login/setup/invite).
+    const path = window.location.pathname;
+    const isPublicRoute =
+      path === '/login' ||
+      path === '/setup' ||
+      path.startsWith('/invite/');
+    if (!isPublicRoute) {
+      window.location.href = '/login';
+    }
     throw new Error('Authentication required');
   }
   return response;
 };
 
+// Helper to extract error messages from backend responses.
+const extractError = async (response, fallback) => {
+  try {
+    const data = await response.json();
+    if (data?.detail) return data.detail;
+    if (typeof data === 'string') return data;
+  } catch {
+    // ignore JSON parse errors
+  }
+  return fallback;
+};
+
 export const api = {
+  // ============================================================
+  // Auth endpoints
+  // ============================================================
+  getAuthSetupRequired: async () => {
+    const response = await fetch(`${API_BASE}/api/auth/setup-required`, {
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getAuthMe: async () => {
+    const response = await fetch(`${API_BASE}/api/auth/me`, {
+      credentials: 'include',
+    });
+    if (response.status === 401) {
+      const err = new Error('Not authenticated');
+      err.status = 401;
+      throw err;
+    }
+    if (!response.ok) {
+      const err = new Error(`HTTP error! status: ${response.status}`);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  setupAdmin: async ({ username, password, email }) => {
+    const body = { username, password };
+    if (email) body.email = email;
+    const response = await fetch(`${API_BASE}/api/auth/setup`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, 'Setup failed');
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  login: async ({ username, password }) => {
+    const response = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, 'Login failed');
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  logout: async () => {
+    const response = await fetch(`${API_BASE}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    // Even if server returns an error, we consider the user logged out client-side.
+    return response.ok ? response.json().catch(() => ({})) : {};
+  },
+
+  getInvitation: async (token) => {
+    const response = await fetch(
+      `${API_BASE}/api/auth/invitation/${encodeURIComponent(token)}`,
+      { credentials: 'include' }
+    );
+    if (!response.ok) {
+      const err = new Error(`HTTP error! status: ${response.status}`);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  acceptInvitation: async ({ token, username, password, email }) => {
+    const body = { token, username, password };
+    if (email) body.email = email;
+    const response = await fetch(`${API_BASE}/api/auth/accept-invitation`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, 'Failed to accept invitation');
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  // ============================================================
+  // Admin: Users
+  // ============================================================
+  getUsers: async () => {
+    const response = await authFetch(`${API_BASE}/api/admin/users`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  updateUserRole: async (userId, role) => {
+    const response = await authFetch(`${API_BASE}/api/admin/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  deleteUser: async (userId) => {
+    const response = await authFetch(`${API_BASE}/api/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json().catch(() => ({}));
+  },
+
+  // ============================================================
+  // Admin: Invitations
+  // ============================================================
+  getInvitations: async () => {
+    const response = await authFetch(`${API_BASE}/api/admin/invitations`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  createInvitation: async ({ role, expiresInHours }) => {
+    const body = { role };
+    if (expiresInHours != null) body.expires_in_hours = expiresInHours;
+    const response = await authFetch(`${API_BASE}/api/admin/invitations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, 'Failed to create invitation');
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  revokeInvitation: async (invitationId) => {
+    const response = await authFetch(`${API_BASE}/api/admin/invitations/${invitationId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json().catch(() => ({}));
+  },
+
+  // ============================================================
+  // App endpoints (all use cookie auth)
+  // ============================================================
   getConfig: async () => {
     const response = await authFetch(`${API_BASE}/api/config`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -205,7 +403,7 @@ export const api = {
     return response.json();
   },
 
-  // Admin API - Excluded Pods (Pod Monitoring Exclusions - by pod name only)
+  // Admin API - Excluded Pods
   getExcludedPods: async () => {
     const response = await authFetch(`${API_BASE}/api/admin/excluded-pods`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -357,21 +555,6 @@ export const api = {
     return response.json();
   },
 
-  // Cluster Metrics API
-  getClusterMetrics: async () => {
-    const response = await authFetch(`${API_BASE}/api/metrics/cluster`);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
-  // Pod Metrics History API
-  getPodMetricsHistory: async (namespace, podName) => {
-    const url = `${API_BASE}/api/metrics/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/history`;
-    const response = await authFetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
   // Pod Logs API
   getPodLogs: async (namespace, podName, options = {}) => {
     const params = new URLSearchParams();
@@ -385,17 +568,15 @@ export const api = {
     return response.json();
   },
 
-  // Streaming Pod Logs API (returns EventSource URL with auth token)
+  // Streaming Pod Logs API (EventSource with cookie auth)
   getStreamingLogsUrl: (namespace, podName, options = {}) => {
     const params = new URLSearchParams();
     if (options.container) params.append('container', options.container);
     if (options.tailLines) params.append('tail_lines', options.tailLines);
 
-    // Append auth token for SSE (EventSource cannot set headers)
-    const apiKey = sessionStorage.getItem('kure-auth-key');
-    if (apiKey) params.append('token', apiKey);
-
-    return `${API_BASE}/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/logs/stream?${params}`;
+    const query = params.toString();
+    const base = `${API_BASE}/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/logs/stream`;
+    return query ? `${base}?${query}` : `${base}?`;
   },
 
   // LLM Configuration API
@@ -495,30 +676,4 @@ export const api = {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
-
-  // API Key Management
-  getApiKeys: async () => {
-    const response = await authFetch(`${API_BASE}/api/admin/api-keys`);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
-  createApiKey: async (name, role) => {
-    const response = await authFetch(`${API_BASE}/api/admin/api-keys`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, role })
-    });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
-  revokeApiKey: async (keyId) => {
-    const response = await authFetch(`${API_BASE}/api/admin/api-keys/${keyId}`, {
-      method: 'DELETE'
-    });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-  },
-
 };

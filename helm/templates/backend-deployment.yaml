@@ -76,13 +76,16 @@ spec:
           value: "{{ .Values.agent.failureLogs.enabled }}"
         - name: FAILURE_LOGS_MAX_LINES
           value: "{{ .Values.agent.failureLogs.maxLines }}"
-        {{- if .Values.auth.apiKey }}
-        - name: AUTH_API_KEY
+        - name: SERVICE_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ include "kure.fullname" . }}-auth
-              key: api-key
-        {{- end }}
+              name: {{ include "kure.fullname" . }}-bootstrap
+              key: service-token
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "kure.fullname" . }}-bootstrap
+              key: session-secret
         volumeMounts:
         - name: tmp
           mountPath: /tmp

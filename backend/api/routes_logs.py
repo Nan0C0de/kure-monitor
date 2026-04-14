@@ -103,7 +103,7 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
         tail_lines: int = Query(100, description="Initial number of lines to return", ge=1, le=1000)
     ):
         """Stream logs for a specific pod (Server-Sent Events).
-        Auth is handled via ?token= query param in the require_auth dependency."""
+        Authenticated via the session cookie on the user's browser."""
         if not K8S_AVAILABLE:
             raise HTTPException(status_code=503, detail="Kubernetes client not available")
 

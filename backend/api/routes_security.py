@@ -6,7 +6,7 @@ import traceback
 from models.models import SecurityFindingReport, SecurityFindingResponse
 from services.prometheus_metrics import SECURITY_FINDINGS_TOTAL
 from services.mirror_service import clean_manifest
-from .auth import require_admin
+from .auth import require_write, require_service_token
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,6 @@ def compute_manifest_diff(original: str, fixed: str) -> list:
         elif tag == 'replace':
             orig_chunk = original_lines[i1:i2]
             fixed_chunk = fixed_lines[j1:j2]
-            # If same number of lines and only whitespace differs, treat as unchanged
             if len(orig_chunk) == len(fixed_chunk):
                 all_whitespace_only = True
                 for o, f in zip(orig_chunk, fixed_chunk):
@@ -52,11 +51,10 @@ def compute_manifest_diff(original: str, fixed: str) -> list:
     return diff_result
 
 
-def create_security_router(deps: RouterDeps) -> APIRouter:
-    """Security findings CRUD, manifest, fix generation, rescan status."""
-    router = APIRouter()
+def create_security_ingest_router(deps: RouterDeps) -> APIRouter:
+    """Security-ingest endpoints (scanner traffic). Uses service token auth."""
+    router = APIRouter(dependencies=[Depends(require_service_token)])
     db = deps.db
-    solution_engine = deps.solution_engine
     websocket_manager = deps.websocket_manager
 
     @router.post("/security/findings", response_model=SecurityFindingResponse)
@@ -69,60 +67,22 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
                 raise HTTPException(status_code=400, detail="Resource name and namespace are required")
 
             response = SecurityFindingResponse(**report.dict())
-
-            logger.info(f"Saving security finding to database: {report.resource_type}/{report.namespace}/{report.resource_name}")
             finding_id, is_new = await db.save_security_finding(response)
             response.id = finding_id
 
             if is_new:
-                logger.info(f"Broadcasting NEW security finding via WebSocket: {report.resource_type}/{report.namespace}/{report.resource_name}")
                 await websocket_manager.broadcast_security_finding(response)
-            else:
-                logger.info(f"Updated existing security finding (not broadcasting): {report.resource_type}/{report.namespace}/{report.resource_name}")
 
             SECURITY_FINDINGS_TOTAL.labels(severity=report.severity).inc()
-
-            logger.info(f"Successfully processed security finding: {report.resource_type}/{report.namespace}/{report.resource_name}")
             return response
 
         except HTTPException:
             raise
         except Exception as e:
-            error_msg = f"Failed to process security finding for {report.namespace}/{report.resource_name}: {str(e)}"
-            logger.error(error_msg)
-            logger.error(f"Error details: {traceback.format_exc()}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Internal server error while processing security finding: {str(e)}"
+            logger.error(
+                f"Failed to process security finding for {report.namespace}/{report.resource_name}: {e}"
             )
-
-    @router.get("/security/findings", response_model=list[SecurityFindingResponse])
-    async def get_security_findings():
-        """Get all security findings from database"""
-        try:
-            return await db.get_security_findings()
-        except Exception as e:
-            logger.error(f"Error getting security findings: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.delete("/security/findings/{finding_id}", dependencies=[Depends(require_admin)])
-    async def dismiss_security_finding(finding_id: int):
-        """Mark a security finding as dismissed"""
-        try:
-            await db.dismiss_security_finding(finding_id)
-            return {"message": "Security finding dismissed"}
-        except Exception as e:
-            logger.error(f"Error dismissing security finding: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @router.put("/security/findings/{finding_id}/restore", dependencies=[Depends(require_admin)])
-    async def restore_security_finding(finding_id: int):
-        """Restore a dismissed security finding"""
-        try:
-            await db.restore_security_finding(finding_id)
-            return {"message": "Security finding restored"}
-        except Exception as e:
-            logger.error(f"Error restoring security finding: {e}")
+            logger.error(f"Error details: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.post("/security/scan/clear")
@@ -150,6 +110,56 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error deleting findings by resource: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.post("/security/rescan-status")
+    async def report_security_rescan_status(data: dict):
+        """Report security rescan status from scanner (started/completed)"""
+        status = data.get("status")
+        reason = data.get("reason")
+        if status not in ["started", "completed"]:
+            raise HTTPException(status_code=400, detail="status must be 'started' or 'completed'")
+        logger.info(f"Security rescan {status}" + (f" (reason: {reason})" if reason else ""))
+        await websocket_manager.broadcast_security_rescan_status(status, reason)
+        return {"message": f"Rescan status '{status}' broadcasted"}
+
+    return router
+
+
+def create_security_router(deps: RouterDeps) -> APIRouter:
+    """User-facing security routes (read + mutation)."""
+    router = APIRouter()
+    db = deps.db
+    solution_engine = deps.solution_engine
+    websocket_manager = deps.websocket_manager
+
+    @router.get("/security/findings", response_model=list[SecurityFindingResponse])
+    async def get_security_findings():
+        """Get all security findings from database"""
+        try:
+            return await db.get_security_findings()
+        except Exception as e:
+            logger.error(f"Error getting security findings: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/security/findings/{finding_id}", dependencies=[Depends(require_write)])
+    async def dismiss_security_finding(finding_id: int):
+        """Mark a security finding as dismissed"""
+        try:
+            await db.dismiss_security_finding(finding_id)
+            return {"message": "Security finding dismissed"}
+        except Exception as e:
+            logger.error(f"Error dismissing security finding: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.put("/security/findings/{finding_id}/restore", dependencies=[Depends(require_write)])
+    async def restore_security_finding(finding_id: int):
+        """Restore a dismissed security finding"""
+        try:
+            await db.restore_security_finding(finding_id)
+            return {"message": "Security finding restored"}
+        except Exception as e:
+            logger.error(f"Error restoring security finding: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @router.get("/security/findings/{finding_id}/manifest")
     async def get_security_finding_manifest(finding_id: int):
         """Get the manifest and metadata for a security finding"""
@@ -174,7 +184,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error getting security finding manifest: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/security/findings/{finding_id}/fix")
+    @router.post("/security/findings/{finding_id}/fix", dependencies=[Depends(require_write)])
     async def generate_security_fix(finding_id: int):
         """Generate an AI-powered security fix for a finding"""
         try:
@@ -222,22 +232,11 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error generating security fix: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/security/rescan", dependencies=[Depends(require_admin)])
+    @router.post("/security/rescan", dependencies=[Depends(require_write)])
     async def trigger_security_rescan():
         """Trigger a full security rescan by broadcasting a request to the scanner via WebSocket"""
         logger.info("Manual security rescan requested")
         await websocket_manager.broadcast_security_rescan_request()
         return {"message": "Security rescan requested"}
-
-    @router.post("/security/rescan-status")
-    async def report_security_rescan_status(data: dict):
-        """Report security rescan status from scanner (started/completed)"""
-        status = data.get("status")
-        reason = data.get("reason")
-        if status not in ["started", "completed"]:
-            raise HTTPException(status_code=400, detail="status must be 'started' or 'completed'")
-        logger.info(f"Security rescan {status}" + (f" (reason: {reason})" if reason else ""))
-        await websocket_manager.broadcast_security_rescan_status(status, reason)
-        return {"message": f"Rescan status '{status}' broadcasted"}
 
     return router

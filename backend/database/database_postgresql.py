@@ -11,6 +11,7 @@ from .mixins import (
     LLMConfigMixin,
     ApiKeyMixin,
     FailureLogsMixin,
+    UserMixin,
 )
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
@@ -25,6 +26,7 @@ class PostgreSQLDatabase(
     LLMConfigMixin,
     ApiKeyMixin,
     FailureLogsMixin,
+    UserMixin,
     DatabaseInterface,
 ):
     def __init__(self):
@@ -347,6 +349,39 @@ class PostgreSQLDatabase(
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash
                     ON api_keys(key_hash)
+                """)
+
+                # Create users table (user accounts with role-based access)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        username VARCHAR(64) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        email VARCHAR(255),
+                        role VARCHAR(16) NOT NULL CHECK (role IN ('admin', 'write', 'read')),
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
+                """)
+
+                # Create invitations table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS invitations (
+                        id SERIAL PRIMARY KEY,
+                        token VARCHAR(64) UNIQUE NOT NULL,
+                        role VARCHAR(16) NOT NULL CHECK (role IN ('write', 'read')),
+                        created_by INT REFERENCES users(id) ON DELETE SET NULL,
+                        expires_at TIMESTAMPTZ NOT NULL,
+                        used_at TIMESTAMPTZ,
+                        used_by INT REFERENCES users(id) ON DELETE SET NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token)
                 """)
 
             logger.info("PostgreSQL database initialized successfully")

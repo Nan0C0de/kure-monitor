@@ -3,8 +3,8 @@ import asyncio
 import json
 import logging
 from typing import List, Optional
-from api.auth import AUTH_API_KEY, validate_ws_token
-from models.models import PodFailureResponse, SecurityFindingResponse, ClusterMetrics
+from api.auth import SESSION_COOKIE_NAME, validate_ws_auth
+from models.models import PodFailureResponse, SecurityFindingResponse
 from services.prometheus_metrics import WEBSOCKET_CONNECTIONS_ACTIVE
 
 logger = logging.getLogger(__name__)
@@ -155,12 +155,6 @@ class WebSocketManager:
             parallel=True,
         )
 
-    # --- Metrics broadcasts ---
-
-    async def broadcast_cluster_metrics(self, metrics: ClusterMetrics):
-        """Broadcast cluster metrics to all connected clients"""
-        await self._broadcast("cluster_metrics", metrics)
-
     async def broadcast_security_rescan_request(self):
         """Broadcast a security rescan request to all connected clients (scanner picks this up)"""
         logger.info(f"Broadcasting security rescan request to {len(self.active_connections)} clients")
@@ -175,16 +169,28 @@ class WebSocketManager:
     # --- WebSocket endpoint ---
 
     async def websocket_endpoint(self, websocket: WebSocket):
-        # When auth is enabled, all WebSocket connections must provide a valid token.
-        # The frontend passes the user's API key; agent/scanner pass AUTH_API_KEY
-        # from their environment.
-        if AUTH_API_KEY:
-            token = websocket.query_params.get("token")
-            db = getattr(websocket.app.state, "db", None)
-            role = await validate_ws_token(token, db)
-            if not role:
-                await websocket.close(code=4001, reason="Unauthorized")
-                return
+        """Authenticate WebSocket via user session cookie OR service-token query.
+
+        - Frontend: connects with the `kure_session` httpOnly cookie.
+        - Agent / scanner: connects with `?token=<service_token>`.
+        """
+        db = getattr(websocket.app.state, "db", None)
+        if db is None:
+            await websocket.close(code=1011, reason="Server not ready")
+            return
+
+        cookie_token = websocket.cookies.get(SESSION_COOKIE_NAME)
+        query_token = websocket.query_params.get("token")
+
+        principal = await validate_ws_auth(
+            cookie_token=cookie_token,
+            query_token=query_token,
+            db=db,
+        )
+        if not principal:
+            await websocket.close(code=4001, reason="Unauthorized")
+            return
+
         await self.connect(websocket)
         try:
             while True:

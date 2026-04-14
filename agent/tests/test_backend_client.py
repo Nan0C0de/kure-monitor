@@ -134,7 +134,64 @@ class TestBackendClient:
         """Test that backend URL is properly normalized"""
         client1 = BackendClient("http://test-backend:8000/")
         client2 = BackendClient("http://test-backend:8000")
-        
+
         # Both should have the same normalized URL
         assert client1.backend_url == "http://test-backend:8000"
         assert client2.backend_url == "http://test-backend:8000"
+
+    def test_headers_include_service_token(self, monkeypatch):
+        """Service token from env must be sent as X-Service-Token header."""
+        monkeypatch.setenv("SERVICE_TOKEN", "secret-token-123")
+        client = BackendClient("http://test-backend:8000")
+
+        headers = client._headers('application/json')
+        assert headers.get('X-Service-Token') == 'secret-token-123'
+        assert headers.get('Content-Type') == 'application/json'
+        # The old bearer scheme must not be used.
+        assert 'Authorization' not in headers
+
+    def test_headers_omit_service_token_when_unset(self, monkeypatch):
+        """When SERVICE_TOKEN is missing the header is omitted (degraded mode)."""
+        monkeypatch.delenv("SERVICE_TOKEN", raising=False)
+        client = BackendClient("http://test-backend:8000")
+
+        headers = client._headers()
+        assert 'X-Service-Token' not in headers
+        assert 'Authorization' not in headers
+
+    @pytest.mark.asyncio
+    async def test_report_failed_pod_sends_service_token_header(
+        self, mock_pod_data, monkeypatch
+    ):
+        """POST /api/pods/failed must include X-Service-Token on the outbound request."""
+        monkeypatch.setenv("SERVICE_TOKEN", "outbound-token")
+        client = BackendClient("http://test-backend:8000")
+
+        captured = {}
+
+        with patch('clients.backend_client.aiohttp.ClientSession') as mock_session_class:
+            mock_response = AsyncMock()
+            mock_response.status = 200
+
+            mock_post_cm = AsyncMock()
+            mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+
+            def fake_post(url, **kwargs):
+                captured['url'] = url
+                captured['headers'] = kwargs.get('headers')
+                return mock_post_cm
+
+            mock_session = AsyncMock()
+            mock_session.post = Mock(side_effect=fake_post)
+
+            mock_session_cm = AsyncMock()
+            mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session_cm
+
+            result = await client.report_failed_pod(mock_pod_data)
+
+            assert result is True
+            assert captured['headers']['X-Service-Token'] == 'outbound-token'
+            assert 'Authorization' not in captured['headers']

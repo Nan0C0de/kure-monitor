@@ -330,21 +330,6 @@ describe('API Service', () => {
     });
   });
 
-  describe('getClusterMetrics', () => {
-    test('fetches cluster metrics successfully', async () => {
-      const mockMetrics = { nodes: 3, pods: 10, cpu_usage: 50 };
-      fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockMetrics,
-      });
-
-      const result = await api.getClusterMetrics();
-
-      expect(fetch).toHaveBeenCalledWith('/api/metrics/cluster', expect.any(Object));
-      expect(result).toEqual(mockMetrics);
-    });
-  });
-
   describe('getPodLogs', () => {
     test('fetches pod logs without options', async () => {
       const mockLogs = { logs: 'Log line 1\nLog line 2' };
@@ -395,10 +380,8 @@ describe('API Service', () => {
     });
   });
 
-  describe('auth header injection', () => {
-    test('adds Authorization header when key is in sessionStorage', async () => {
-      sessionStorage.setItem('kure-auth-key', 'test-key-123');
-
+  describe('cookie credentials', () => {
+    test('sends credentials: include on API calls', async () => {
       fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ([]),
@@ -406,16 +389,13 @@ describe('API Service', () => {
 
       await api.getFailedPods();
 
-      expect(fetch).toHaveBeenCalledWith('/api/pods/failed', expect.objectContaining({
-        headers: expect.objectContaining({
-          'Authorization': 'Bearer test-key-123',
-        }),
-      }));
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/pods/failed',
+        expect.objectContaining({ credentials: 'include' })
+      );
     });
 
-    test('does not add Authorization header when no key', async () => {
-      sessionStorage.clear();
-
+    test('never injects Authorization header', async () => {
       fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ([]),
@@ -426,6 +406,56 @@ describe('API Service', () => {
       const callArgs = fetch.mock.calls[0];
       const options = callArgs[1] || {};
       expect(options.headers?.Authorization).toBeUndefined();
+    });
+  });
+
+  describe('auth endpoints', () => {
+    test('login posts username+password with credentials', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      await api.login({ username: 'alice', password: 'hunter2!' });
+
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/auth/login',
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+          body: JSON.stringify({ username: 'alice', password: 'hunter2!' }),
+        })
+      );
+    });
+
+    test('login on 401 throws error with status 401', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ detail: 'Invalid credentials' }),
+      });
+
+      await expect(api.login({ username: 'a', password: 'b' })).rejects.toMatchObject({
+        status: 401,
+      });
+    });
+
+    test('getAuthMe throws with status 401 on 401 response', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+      });
+
+      await expect(api.getAuthMe()).rejects.toMatchObject({ status: 401 });
+    });
+
+    test('getInvitation propagates 410 status', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 410,
+      });
+
+      await expect(api.getInvitation('tok')).rejects.toMatchObject({ status: 410 });
     });
   });
 });

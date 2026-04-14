@@ -1,98 +1,126 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { api } from '../services/api';
 
 const AuthContext = createContext(null);
 
-const API_BASE = window.location.hostname === 'localhost' && window.location.port === '3000'
-  ? 'http://localhost:8000'
-  : '';
-
+/**
+ * AuthProvider manages the currently-logged-in user.
+ *
+ * Auth is cookie-based: the backend sets an HttpOnly `kure_session` cookie.
+ * JS cannot read the cookie — we learn about the user by calling
+ * `GET /api/auth/me`. A 401 means "not logged in".
+ *
+ * Additionally, on first boot we check `GET /api/auth/setup-required` so the
+ * app can route to the first-run setup flow.
+ */
 export function AuthProvider({ children }) {
-  const [apiKey, setApiKey] = useState(() => sessionStorage.getItem('kure-auth-key'));
-  const [userRole, setUserRole] = useState(() => sessionStorage.getItem('kure-auth-role') || null);
-  const [authEnabled, setAuthEnabled] = useState(null); // null = loading
+  const [user, setUser] = useState(null);
+  const [setupRequired, setSetupRequired] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Check if auth is enabled on mount (and resolve role for existing key)
+  const refreshAuth = useCallback(async () => {
+    try {
+      const setup = await api.getAuthSetupRequired();
+      if (setup?.setup_required) {
+        setSetupRequired(true);
+        setUser(null);
+        return { setupRequired: true, user: null };
+      }
+      setSetupRequired(false);
+    } catch (err) {
+      // Setup endpoint failure: fall through; let /me decide.
+      setSetupRequired(false);
+    }
+
+    try {
+      const me = await api.getAuthMe();
+      setUser(me);
+      return { setupRequired: false, user: me };
+    } catch (err) {
+      setUser(null);
+      return { setupRequired: false, user: null };
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const headers = {};
-        const storedKey = sessionStorage.getItem('kure-auth-key');
-        if (storedKey) {
-          headers['Authorization'] = `Bearer ${storedKey}`;
-        }
-        const res = await fetch(`${API_BASE}/api/auth/status`, { headers });
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled) {
-            setAuthEnabled(data.enabled);
-            setAuthChecked(true);
-            if (data.role) {
-              setUserRole(data.role);
-              sessionStorage.setItem('kure-auth-role', data.role);
-            } else if (!data.enabled) {
-              // Auth disabled = full admin access
-              setUserRole('admin');
-              sessionStorage.setItem('kure-auth-role', 'admin');
-            }
-          }
-        } else {
-          // If endpoint doesn't exist (old backend), assume auth disabled
-          if (!cancelled) {
-            setAuthEnabled(false);
-            setUserRole('admin');
-            setAuthChecked(true);
-          }
-        }
-      } catch {
-        // Network error - assume auth disabled so dashboard still works
-        if (!cancelled) {
-          setAuthEnabled(false);
-          setUserRole('admin');
-          setAuthChecked(true);
-        }
+      await refreshAuth();
+      if (!cancelled) {
+        setAuthChecked(true);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshAuth]);
+
+  const login = useCallback(async ({ username, password }) => {
+    await api.login({ username, password });
+    const me = await api.getAuthMe();
+    setUser(me);
+    return me;
   }, []);
 
-  const isAuthenticated = authEnabled === false || !!apiKey;
+  const setup = useCallback(async ({ username, password, email }) => {
+    await api.setupAdmin({ username, password, email });
+    const me = await api.getAuthMe();
+    setUser(me);
+    setSetupRequired(false);
+    return me;
+  }, []);
 
-  const login = useCallback(async (key) => {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: key }),
-    });
-    if (!res.ok) {
-      throw new Error('Invalid API key');
+  const acceptInvitation = useCallback(async ({ token, username, password, email }) => {
+    await api.acceptInvitation({ token, username, password, email });
+    const me = await api.getAuthMe();
+    setUser(me);
+    return me;
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await api.logout();
+    } catch {
+      // ignore - we're logging out locally anyway
     }
-    const data = await res.json();
-    sessionStorage.setItem('kure-auth-key', key);
-    setApiKey(key);
-
-    const role = data.role || 'viewer';
-    sessionStorage.setItem('kure-auth-role', role);
-    setUserRole(role);
+    setUser(null);
   }, []);
 
-  const logout = useCallback(() => {
-    sessionStorage.removeItem('kure-auth-key');
-    sessionStorage.removeItem('kure-auth-role');
-    setApiKey(null);
-    setUserRole(null);
-  }, []);
+  const isAuthenticated = !!user;
+  const userRole = user?.role || null;
 
-  return (
-    <AuthContext.Provider value={{ apiKey, isAuthenticated, authEnabled, authChecked, userRole, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = {
+    user,
+    userRole,
+    isAuthenticated,
+    authChecked,
+    setupRequired,
+    refreshAuth,
+    login,
+    setup,
+    acceptInvitation,
+    logout,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
+}
+
+/**
+ * Convenience hook for components that want to know if the current user
+ * is allowed to perform mutations. `read`-role users should not see write UI.
+ */
+export function useCanWrite() {
+  const { userRole } = useAuth();
+  return userRole === 'admin' || userRole === 'write';
+}
+
+export function useIsAdmin() {
+  const { userRole } = useAuth();
+  return userRole === 'admin';
 }

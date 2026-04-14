@@ -32,7 +32,7 @@ const SkeletonBars = ({ isDark }) => {
   );
 };
 
-const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwareSolutionUpdated }) => {
+const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwareSolutionUpdated, canWrite = true }) => {
   const [solution, setSolution] = useState(pod.log_aware_solution || null);
   const [generatedAt, setGeneratedAt] = useState(pod.log_aware_solution_generated_at || null);
   const [isLoading, setIsLoading] = useState(false);
@@ -96,7 +96,7 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
             Log-aware analysis
           </span>
         </div>
-        {showEmptyState && (
+        {showEmptyState && canWrite && (
           <button
             onClick={handleTroubleshoot}
             disabled={isLoading}
@@ -142,6 +142,7 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
                   Generated {formatRelativeTime(generatedAt)}
                 </span>
               ) : <span />}
+              {canWrite && (
               <button
                 onClick={handleRegenerate}
                 disabled={isLoading}
@@ -151,6 +152,7 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
                 <RefreshCw className="w-3.5 h-3.5 mr-1" />
                 Regenerate
               </button>
+              )}
             </div>
           </>
         )}

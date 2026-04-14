@@ -42,8 +42,6 @@ _SPEC_FIELDS_TO_REMOVE = {
     "preemptionPolicy", "preemption_policy",
     "enableServiceLinks", "enable_service_links",
     "schedulerName", "scheduler_name",
-    "dnsPolicy", "dns_policy",
-    "terminationGracePeriodSeconds", "termination_grace_period_seconds",
 }
 
 # Default tolerations auto-added by Kubernetes (should be stripped)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import traceback
 
@@ -7,7 +7,7 @@ from models.models import (
     PodFailureReport, PodFailureResponse, PodStatusUpdate,
 )
 from services.prometheus_metrics import POD_FAILURES_TOTAL
-from .auth import require_admin
+from .auth import require_write, require_service_token
 from .deps import RouterDeps
 
 LOG_CAPTURE_REASONS = {"CrashLoopBackOff", "OOMKilled"}
@@ -15,9 +15,9 @@ LOG_CAPTURE_REASONS = {"CrashLoopBackOff", "OOMKilled"}
 logger = logging.getLogger(__name__)
 
 
-def create_pod_router(deps: RouterDeps) -> APIRouter:
-    """Pod CRUD, status, history, retry-solution, delete-record, dismiss-deleted, retention settings."""
-    router = APIRouter()
+def create_pod_ingest_router(deps: RouterDeps) -> APIRouter:
+    """Pod-ingest endpoints (agent traffic). Uses service token auth."""
+    router = APIRouter(dependencies=[Depends(require_service_token)])
     db = deps.db
     solution_engine = deps.solution_engine
     websocket_manager = deps.websocket_manager
@@ -48,9 +48,6 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                 "image": getattr(report, 'image', 'Unknown')
             }
 
-            # Whether the failure is eligible for the log-aware auto path. We
-            # still need to confirm that logs actually got stored (rows > 0)
-            # and that an LLM provider is configured.
             logs_eligible = (
                 FAILURE_LOGS_ENABLED
                 and report.failure_reason in LOG_CAPTURE_REASONS
@@ -58,9 +55,6 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             )
             llm_configured = bool(getattr(solution_engine, "llm_provider", None))
 
-            # Save the pod row first with an empty placeholder solution so we
-            # have an id to attach logs to. We will update the solution /
-            # auto_solution_mode below depending on which case we end up in.
             response = PodFailureResponse(
                 **report.dict(),
                 solution="",
@@ -72,8 +66,6 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             pod_id = await db.save_pod_failure(response)
             response.id = pod_id
 
-            # Persist captured previous-container logs when applicable.
-            # Never fail the report due to log storage issues.
             log_rows_written = 0
             if logs_eligible:
                 try:
@@ -89,8 +81,6 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                         f"Failed to store failure logs for pod {pod_id}: {log_err}"
                     )
 
-            # Decide Case A vs Case B. Case A requires logs were actually stored
-            # AND an LLM provider is configured; otherwise fall back to Case B.
             use_log_aware = (
                 logs_eligible
                 and log_rows_written > 0
@@ -141,8 +131,6 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                     )
 
                 if not log_aware_ok:
-                    # Fall back to Case B so the user isn't left with an empty
-                    # pod detail view. auto_solution_mode stays 'quick'.
                     use_log_aware = False
 
             if not use_log_aware:
@@ -159,7 +147,6 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                     use_llm=False,
                 )
                 await db.update_pod_solution(pod_id, quick_solution)
-                # auto_solution_mode was already stored as 'quick' on insert.
                 response.solution = quick_solution
                 response.auto_solution_mode = "quick"
 
@@ -191,6 +178,47 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                 detail=f"Internal server error while processing pod failure: {str(e)}"
             )
 
+    @router.post("/pods/dismiss-deleted")
+    async def dismiss_deleted_pod(request: dict):
+        """Auto-resolve pods when they recover or are deleted from Kubernetes"""
+        try:
+            namespace = request.get("namespace")
+            pod_name = request.get("pod_name")
+
+            if not namespace or not pod_name:
+                raise HTTPException(status_code=400, detail="namespace and pod_name required")
+
+            resolved_pods = await db.dismiss_deleted_pod(namespace, pod_name)
+
+            for pod in resolved_pods:
+                await websocket_manager.broadcast_pod_status_change(pod)
+
+            if not resolved_pods:
+                await websocket_manager.broadcast_pod_deleted(namespace, pod_name)
+
+            if notification_service:
+                await notification_service.send_pod_resolved_notification(
+                    namespace=namespace,
+                    pod_name=pod_name
+                )
+
+            logger.info(f"Auto-resolved pod: {namespace}/{pod_name} ({len(resolved_pods)} records)")
+            return {"message": "Pod auto-resolved"}
+        except Exception as e:
+            logger.error(f"Error auto-resolving pod: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return router
+
+
+def create_pod_router(deps: RouterDeps) -> APIRouter:
+    """User-facing pod routes (CRUD, status, history, retry-solution, retention settings)."""
+    router = APIRouter()
+    db = deps.db
+    solution_engine = deps.solution_engine
+    websocket_manager = deps.websocket_manager
+    notification_service = deps.notification_service
+
     @router.get("/pods/failed", response_model=list[PodFailureResponse])
     async def get_failed_pods():
         """Get all failed pods from database"""
@@ -209,7 +237,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error getting ignored pods: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.delete("/pods/failed/{pod_id}", dependencies=[Depends(require_admin)])
+    @router.delete("/pods/failed/{pod_id}", dependencies=[Depends(require_write)])
     async def dismiss_pod_failure(pod_id: int):
         """Mark a pod failure as resolved/dismissed"""
         try:
@@ -227,7 +255,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error dismissing pod failure: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.put("/pods/ignored/{pod_id}/restore", dependencies=[Depends(require_admin)])
+    @router.put("/pods/ignored/{pod_id}/restore", dependencies=[Depends(require_write)])
     async def restore_pod_failure(pod_id: int):
         """Restore/un-ignore a dismissed pod failure"""
         try:
@@ -239,7 +267,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error restoring pod failure: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.patch("/pods/failed/{pod_id}/status", response_model=PodFailureResponse, dependencies=[Depends(require_admin)])
+    @router.patch("/pods/failed/{pod_id}/status", response_model=PodFailureResponse, dependencies=[Depends(require_write)])
     async def update_pod_status(pod_id: int, request: PodStatusUpdate):
         """Update the status of a pod failure (acknowledge, resolve, ignore)"""
         valid_statuses = {'new', 'investigating', 'resolved', 'ignored'}
@@ -293,7 +321,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error getting pod history: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/pods/failed/{pod_id}/retry-solution", response_model=PodFailureResponse)
+    @router.post("/pods/failed/{pod_id}/retry-solution", response_model=PodFailureResponse, dependencies=[Depends(require_write)])
     async def retry_ai_solution(pod_id: int):
         """Retry generating AI solution for a pod failure"""
         try:
@@ -336,7 +364,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error details: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/pods/failed/{pod_id}/troubleshoot")
+    @router.post("/pods/failed/{pod_id}/troubleshoot", dependencies=[Depends(require_write)])
     async def troubleshoot_pod(pod_id: int, regenerate: bool = False):
         """Generate a log-aware AI troubleshoot solution using captured logs.
 
@@ -406,7 +434,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             "log_aware": True,
         }
 
-    @router.delete("/pods/records/{pod_id}", dependencies=[Depends(require_admin)])
+    @router.delete("/pods/records/{pod_id}", dependencies=[Depends(require_write)])
     async def delete_pod_record(pod_id: int):
         """Permanently delete a resolved or ignored pod failure record"""
         try:
@@ -434,36 +462,6 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error deleting pod record: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/pods/dismiss-deleted")
-    async def dismiss_deleted_pod(request: dict):
-        """Auto-resolve pods when they recover or are deleted from Kubernetes"""
-        try:
-            namespace = request.get("namespace")
-            pod_name = request.get("pod_name")
-
-            if not namespace or not pod_name:
-                raise HTTPException(status_code=400, detail="namespace and pod_name required")
-
-            resolved_pods = await db.dismiss_deleted_pod(namespace, pod_name)
-
-            for pod in resolved_pods:
-                await websocket_manager.broadcast_pod_status_change(pod)
-
-            if not resolved_pods:
-                await websocket_manager.broadcast_pod_deleted(namespace, pod_name)
-
-            if notification_service:
-                await notification_service.send_pod_resolved_notification(
-                    namespace=namespace,
-                    pod_name=pod_name
-                )
-
-            logger.info(f"Auto-resolved pod: {namespace}/{pod_name} ({len(resolved_pods)} records)")
-            return {"message": "Pod auto-resolved"}
-        except Exception as e:
-            logger.error(f"Error auto-resolving pod: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
     @router.get("/pods/{namespace}/{pod_name}/manifest")
     async def get_pod_manifest(namespace: str, pod_name: str):
         """Get pod manifest YAML from Kubernetes API"""
@@ -483,7 +481,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error getting history retention: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.put("/admin/settings/history-retention")
+    @router.put("/admin/settings/history-retention", dependencies=[Depends(require_write)])
     async def set_history_retention(request: dict):
         """Set the history auto-delete retention (minutes). 0 = disabled. Min 1, max 43200 (30 days)."""
         try:
@@ -511,7 +509,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error getting ignored retention: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.put("/admin/settings/ignored-retention")
+    @router.put("/admin/settings/ignored-retention", dependencies=[Depends(require_write)])
     async def set_ignored_retention(request: dict):
         """Set the ignored pods auto-delete retention (minutes). 0 = disabled. Min 1, max 43200 (30 days)."""
         try:

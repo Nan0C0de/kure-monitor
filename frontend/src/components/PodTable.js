@@ -1,7 +1,7 @@
 import React from 'react';
 import PodTableRow from './PodTableRow';
 
-const PodTable = ({ pods, onSolutionUpdated, onLogAwareSolutionUpdated, onStatusChange, onDeleteRecord, isDark = false, aiEnabled = false, viewMode = 'active' }) => {
+const PodTable = ({ pods, onSolutionUpdated, onLogAwareSolutionUpdated, onStatusChange, onDeleteRecord, isDark = false, aiEnabled = false, viewMode = 'active', canWrite = true }) => {
   return (
     <div className="overflow-hidden w-full">
       <table className={`min-w-full divide-y table-fixed ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
@@ -26,13 +26,14 @@ const PodTable = ({ pods, onSolutionUpdated, onLogAwareSolutionUpdated, onStatus
             <PodTableRow
               key={pod.id}
               pod={pod}
-              onSolutionUpdated={onSolutionUpdated}
-              onLogAwareSolutionUpdated={onLogAwareSolutionUpdated}
-              onStatusChange={onStatusChange}
-              onDeleteRecord={onDeleteRecord}
+              onSolutionUpdated={canWrite ? onSolutionUpdated : undefined}
+              onLogAwareSolutionUpdated={canWrite ? onLogAwareSolutionUpdated : undefined}
+              onStatusChange={canWrite ? onStatusChange : undefined}
+              onDeleteRecord={canWrite ? onDeleteRecord : undefined}
               isDark={isDark}
               aiEnabled={aiEnabled}
               viewMode={viewMode}
+              canWrite={canWrite}
             />
           ))}
         </tbody>

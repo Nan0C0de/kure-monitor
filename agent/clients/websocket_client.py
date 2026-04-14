@@ -12,7 +12,12 @@ class WebSocketClient:
     def __init__(self, backend_url: str):
         # Convert HTTP URL to WebSocket URL
         ws_url = backend_url.replace('http://', 'ws://').replace('https://', 'wss://').rstrip('/')
-        token = os.environ.get("AUTH_API_KEY")
+        token = os.environ.get("SERVICE_TOKEN")
+        if not token:
+            logger.error(
+                "SERVICE_TOKEN is not set; WebSocket will connect without a token "
+                "and will be rejected by the backend."
+            )
         self.ws_url = f"{ws_url}/ws?token={token}" if token else f"{ws_url}/ws"
         self.on_namespace_change: Optional[Callable] = None
         self.on_pod_exclusion_change: Optional[Callable] = None

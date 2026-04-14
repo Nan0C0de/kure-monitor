@@ -6,7 +6,7 @@ from models.models import (
     MirrorStatusResponse, MirrorActiveItem, MirrorTTLSetting,
 )
 from services.mirror_service import MirrorService
-from .auth import require_admin
+from .auth import require_write
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
     """Mirror pod deploy, status, delete, list, and TTL settings."""
     router = APIRouter()
 
-    @router.post("/mirror/preview/{pod_id}", response_model=MirrorPreviewResponse, dependencies=[Depends(require_admin)])
+    @router.post("/mirror/preview/{pod_id}", response_model=MirrorPreviewResponse, dependencies=[Depends(require_write)])
     async def preview_mirror_fix(pod_id: int):
         """Generate an AI-fixed manifest for a failing pod without deploying it."""
         try:
@@ -35,7 +35,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             logger.error(f"Error generating mirror preview for pod_id={pod_id}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.post("/mirror/deploy/{pod_id}", response_model=MirrorDeployResponse, dependencies=[Depends(require_admin)])
+    @router.post("/mirror/deploy/{pod_id}", response_model=MirrorDeployResponse, dependencies=[Depends(require_write)])
     async def deploy_mirror_pod(pod_id: int, request: MirrorDeployRequest = MirrorDeployRequest()):
         """Deploy a mirror pod from a failing pod with an AI-generated fix applied."""
         try:
@@ -79,7 +79,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             logger.error(f"Error getting mirror status for {mirror_id}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.delete("/mirror/{mirror_id}", dependencies=[Depends(require_admin)])
+    @router.delete("/mirror/{mirror_id}", dependencies=[Depends(require_write)])
     async def delete_mirror_pod(mirror_id: str):
         """Manually delete a mirror pod."""
         try:
@@ -127,7 +127,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             logger.error(f"Error getting mirror TTL: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.put("/admin/settings/mirror-ttl", response_model=MirrorTTLSetting, dependencies=[Depends(require_admin)])
+    @router.put("/admin/settings/mirror-ttl", response_model=MirrorTTLSetting, dependencies=[Depends(require_write)])
     async def set_mirror_ttl(request: MirrorTTLSetting):
         """Set the default mirror pod TTL (seconds). Min 30, max 3600."""
         try:

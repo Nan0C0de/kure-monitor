@@ -15,35 +15,32 @@ helm install kure-monitor kure-monitor/kure \
   --create-namespace
 ```
 
-After installation, access the dashboard and configure your LLM provider via the Admin panel.
+After installation, the dashboard will prompt you to create the initial admin account on first visit, and you can configure your LLM provider via the Admin panel.
 
-## Production Install (with Authentication)
-
-For production deployments, enable API key authentication to protect the dashboard:
+## Production Install
 
 ```bash
-# Generate a secure API key
-API_KEY=$(openssl rand -hex 32)
-
-# Install with authentication enabled
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
   --create-namespace \
-  --set auth.apiKey="$API_KEY" \
   --set postgresql.password="$(openssl rand -hex 24)"
-
-# Save the API key - you'll need it to log in
-echo "Dashboard API key: $API_KEY"
 ```
 
-When `auth.apiKey` is set, Helm automatically creates the required Kubernetes secrets (`kure-monitor-auth` and `kure-monitor-encryption`) and injects the auth configuration into all components (backend, agent, security scanner). No manual secret creation is needed.
+The chart auto-generates a Secret named `<release>-bootstrap` on first install
+containing a `service-token` (used by the agent and security scanner to
+authenticate to the backend) and a `session-secret` (used to sign dashboard
+session cookies). Both values are read back on `helm upgrade` via `lookup`, so
+upgrades preserve the existing tokens and don't invalidate sessions.
+
+If you scale the backend to multiple replicas, the shared `session-secret`
+ensures users stay signed in regardless of which pod handles the request.
 
 ## Features
 
 - **Instant Failure Detection** -- Detects pod failures across all namespaces in real-time
 - **AI-Powered Troubleshooting** -- Generates contextual solutions using OpenAI, Anthropic, Groq, Google Gemini, or Ollama
 - **Security Scanning** -- 50+ checks for security misconfigurations with AI-generated remediation
-- **Dashboard Authentication** -- Optional API key auth with login page and rate limiting
+- **Dashboard Authentication** -- User accounts (read/write/admin) with rate-limited login and HttpOnly session cookies
 - **Live Pod Logs** -- Stream logs on-demand for troubleshooting
 - **Cluster Overview** -- CPU, memory, and storage usage at a glance
 - **Slack & Teams Notifications** -- Get alerted when failures occur
@@ -54,27 +51,37 @@ When `auth.apiKey` is set, Helm automatically creates the required Kubernetes se
 
 ### Authentication
 
+The chart manages auth automatically -- there are no `auth.*` values to set at install time.
+
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `auth.apiKey` | API key for dashboard authentication. If empty, dashboard is open (with warning). | `""` |
 | `security.encryptionKey` | Fernet key for API key encryption. Auto-generated if empty. | `""` |
 
-When `auth.apiKey` is set:
-- The dashboard shows a login page requiring the API key
-- All API and WebSocket connections require authentication
-- Agent and security scanner automatically authenticate to the backend
-- Login attempts are rate-limited (5 attempts per 30 seconds)
+How it works:
 
-When `auth.apiKey` is empty (default):
-- The dashboard is fully open with no login required
-- The Admin panel shows a warning banner recommending you enable authentication
+- A Secret named `{{ release }}-bootstrap` is created on first install with two
+  keys: `service-token` and `session-secret`. Both are randomly generated
+  (`randAlphaNum 48`).
+- On `helm upgrade`, the chart uses `lookup` to read the existing values back so
+  the tokens are preserved -- service traffic keeps working and active dashboard
+  sessions stay valid.
+- The backend, agent, and security-scanner pods all consume `SERVICE_TOKEN`
+  from this Secret; the backend additionally consumes `SESSION_SECRET`.
+- Dashboard users are created in-app: the first visitor is prompted to create
+  the initial admin account, and the admin invites further users (read / write
+  / admin roles).
+- Login attempts are rate-limited (5 attempts per 30 seconds).
+
+To rotate either token, edit the bootstrap Secret and restart the affected
+pods (backend + agent + security-scanner for the service token; backend only
+for the session secret -- note that rotating the session secret signs all
+existing users out).
 
 ### Core Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `agent.pendingGracePeriod` | Seconds before reporting Pending pods as failed | `120` |
-| `agent.clusterMetrics.enabled` | Enable cluster metrics collection | `true` |
 | `agent.image.tag` | Agent image tag | `2.2.0` |
 | `securityScanner.image.tag` | Security scanner image tag | `2.2.0` |
 | `backend.replicaCount` | Backend replica count | `1` |
@@ -171,7 +178,7 @@ ingress:
 
 | Component | Description |
 |-----------|-------------|
-| **Agent** | DaemonSet that monitors pods for failures and collects cluster metrics |
+| **Agent** | DaemonSet that monitors pods for failures |
 | **Security Scanner** | Scans pods for security misconfigurations (50+ checks) |
 | **Backend** | FastAPI server with solution engine, LLM integration, and WebSocket support |
 | **Frontend** | React dashboard for cluster health visualization |
@@ -184,23 +191,24 @@ ingress:
 kubectl port-forward svc/kure-monitor-frontend 8080:8080 -n kure-system
 ```
 
-Then open http://localhost:8080. If authentication is enabled, you'll be prompted to enter the API key.
+Then open http://localhost:8080. On first visit you'll be prompted to create the initial admin account.
 
 ## Examples
 
-### Minimal install (open dashboard, no auth)
+### Minimal install
 
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system --create-namespace
 ```
 
-### Production install (auth + custom DB password)
+The dashboard will prompt you to create the initial admin account on first visit.
+
+### Production install (custom DB password)
 
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system --create-namespace \
-  --set auth.apiKey="$(openssl rand -hex 32)" \
   --set postgresql.password="$(openssl rand -hex 24)"
 ```
 
@@ -237,7 +245,6 @@ helm install kure-monitor kure-monitor/kure \
 
 - Kubernetes 1.20+
 - Helm 3.0+
-- (Optional) metrics-server for CPU/memory metrics
 
 ## Upgrade
 

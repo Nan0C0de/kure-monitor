@@ -223,5 +223,46 @@ class Database:
     async def validate_api_key(self, key_hash):
         return await self._db.validate_api_key(key_hash)
 
+    # User accounts
+    async def count_users(self):
+        return await self._db.count_users()
 
+    async def count_admins(self):
+        return await self._db.count_admins()
 
+    async def create_user(self, username, password_hash, role, email=None):
+        return await self._db.create_user(username, password_hash, role, email)
+
+    async def get_user_by_id(self, user_id):
+        return await self._db.get_user_by_id(user_id)
+
+    async def get_user_by_username(self, username):
+        return await self._db.get_user_by_username(username)
+
+    async def list_users(self):
+        return await self._db.list_users()
+
+    async def update_user_role(self, user_id, role):
+        return await self._db.update_user_role(user_id, role)
+
+    async def delete_user(self, user_id):
+        return await self._db.delete_user(user_id)
+
+    # Invitations
+    async def create_invitation(self, token, role, created_by, expires_in_hours=72):
+        return await self._db.create_invitation(token, role, created_by, expires_in_hours)
+
+    async def get_invitation_by_token(self, token):
+        return await self._db.get_invitation_by_token(token)
+
+    async def get_invitation_by_id(self, invitation_id):
+        return await self._db.get_invitation_by_id(invitation_id)
+
+    async def list_active_invitations(self):
+        return await self._db.list_active_invitations()
+
+    async def mark_invitation_used(self, invitation_id, used_by):
+        return await self._db.mark_invitation_used(invitation_id, used_by)
+
+    async def delete_invitation(self, invitation_id):
+        return await self._db.delete_invitation(invitation_id)

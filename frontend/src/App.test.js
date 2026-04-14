@@ -13,26 +13,42 @@ jest.mock('./components/Dashboard', () => {
   };
 });
 
-// Mock the Login component
 jest.mock('./components/Login', () => {
   return function MockLogin() {
     return <div>Login Page</div>;
   };
 });
 
-// Mock the AuthContext to simulate auth-disabled (open access)
+jest.mock('./components/Setup', () => {
+  return function MockSetup() {
+    return <div>Setup Page</div>;
+  };
+});
+
+jest.mock('./components/InviteAccept', () => {
+  return function MockInvite() {
+    return <div>Invite Page</div>;
+  };
+});
+
+// Mock the AuthContext to simulate an authenticated admin user
 jest.mock('./contexts/AuthContext', () => {
-  const React = require('react');
   return {
     AuthProvider: ({ children }) => children,
     useAuth: () => ({
-      apiKey: null,
+      user: { id: 1, username: 'admin', role: 'admin' },
+      userRole: 'admin',
       isAuthenticated: true,
-      authEnabled: false,
       authChecked: true,
+      setupRequired: false,
       login: jest.fn(),
       logout: jest.fn(),
+      setup: jest.fn(),
+      acceptInvitation: jest.fn(),
+      refreshAuth: jest.fn(),
     }),
+    useCanWrite: () => true,
+    useIsAdmin: () => true,
   };
 });
 

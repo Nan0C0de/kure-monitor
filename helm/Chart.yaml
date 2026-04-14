@@ -22,6 +22,8 @@ maintainers:
     email: nano.code@outlook.com
 annotations:
   artifacthub.io/changes: |
+    - kind: changed
+      description: "BREAKING: removed `auth.apiKey`. Dashboard now uses user accounts (read/write/admin); service-to-service auth uses the auto-generated bootstrap secret (`{release}-bootstrap` containing `service-token` and `session-secret`)."
     - kind: added
       description: Mirror pod testing - deploy a temporary copy of a failing pod with AI-generated fixes applied to test before committing to Git
     - kind: added

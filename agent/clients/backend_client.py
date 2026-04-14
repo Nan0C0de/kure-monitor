@@ -11,15 +11,20 @@ logger = logging.getLogger(__name__)
 class BackendClient:
     def __init__(self, backend_url: str):
         self.backend_url = backend_url.rstrip('/')
-        self._auth_token = os.environ.get("AUTH_API_KEY")
+        self._service_token = os.environ.get("SERVICE_TOKEN")
+        if not self._service_token:
+            logger.error(
+                "SERVICE_TOKEN is not set; outbound requests will be sent without "
+                "an X-Service-Token header and will be rejected by the backend with 401."
+            )
 
     def _headers(self, content_type: str = None) -> dict:
-        """Build request headers, including auth if configured."""
+        """Build request headers, including the service token for ingest auth."""
         headers = {}
         if content_type:
             headers['Content-Type'] = content_type
-        if self._auth_token:
-            headers['Authorization'] = f'Bearer {self._auth_token}'
+        if self._service_token:
+            headers['X-Service-Token'] = self._service_token
         return headers
 
     async def report_failed_pod(self, pod_data: Dict[str, Any]):
@@ -196,29 +201,3 @@ class BackendClient:
             logger.warning(f"Error fetching failed pods: {e}")
             return []
 
-    async def report_cluster_metrics(self, metrics: Dict[str, Any]) -> bool:
-        """Send cluster metrics to backend"""
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                        f"{self.backend_url}/api/metrics/cluster",
-                        json=metrics,
-                        headers=self._headers('application/json'),
-                        timeout=aiohttp.ClientTimeout(total=10)
-                ) as response:
-                    if response.status == 200:
-                        logger.debug("Successfully reported cluster metrics")
-                        return True
-                    else:
-                        logger.warning(f"Backend returned HTTP {response.status} for cluster metrics")
-                        return False
-
-        except asyncio.TimeoutError:
-            logger.warning("Timeout while reporting cluster metrics (10s)")
-            return False
-        except aiohttp.ClientError as e:
-            logger.warning(f"HTTP client error while reporting cluster metrics: {e}")
-            return False
-        except Exception as e:
-            logger.warning(f"Error reporting cluster metrics: {e}")
-            return False

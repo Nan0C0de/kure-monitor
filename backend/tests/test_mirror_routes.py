@@ -9,18 +9,13 @@ from fastapi import Request
 from api.routes_mirror import create_mirror_router
 from api.deps import RouterDeps
 from api.middleware import configure_cors
-from api.auth import require_auth, require_admin
+from api.auth import require_user, require_write, require_admin
 from services.mirror_service import MirrorService
 
 
-async def _no_auth(request: Request):
-    """No-op auth dependency for tests."""
-    request.state.role = "admin"
-
-
-def _no_admin(request: Request):
-    """No-op admin check for tests."""
-    pass
+async def _fake_user():
+    """Fake authenticated user for tests."""
+    return {"id": 1, "username": "test-admin", "role": "admin"}
 
 
 class TestMirrorRoutes:
@@ -40,8 +35,9 @@ class TestMirrorRoutes:
         configure_cors(test_app)
 
         # Override auth dependencies so tests don't need real auth
-        test_app.dependency_overrides[require_auth] = _no_auth
-        test_app.dependency_overrides[require_admin] = _no_admin
+        test_app.dependency_overrides[require_user] = _fake_user
+        test_app.dependency_overrides[require_write] = _fake_user
+        test_app.dependency_overrides[require_admin] = _fake_user
 
         deps = RouterDeps(
             db=AsyncMock(),

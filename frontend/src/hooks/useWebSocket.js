@@ -20,14 +20,13 @@ export const useWebSocket = (onMessage) => {
 
     isConnectingRef.current = true;
 
-    const baseWsUrl = process.env.REACT_APP_WS_URL ||
+    // Cookie auth: the browser attaches the `kure_session` cookie automatically
+    // for same-origin connections. In dev the frontend talks cross-origin to
+    // localhost:8000, so we rely on CORS (handled by the backend).
+    const WS_URL = process.env.REACT_APP_WS_URL ||
       (window.location.hostname === 'localhost' && window.location.port === '3000' ?
         'ws://localhost:8000/ws' :
         `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
-
-    // Append auth token if available
-    const apiKey = sessionStorage.getItem('kure-auth-key');
-    const WS_URL = apiKey ? `${baseWsUrl}?token=${encodeURIComponent(apiKey)}` : baseWsUrl;
 
     const websocket = new WebSocket(WS_URL);
 
@@ -60,7 +59,7 @@ export const useWebSocket = (onMessage) => {
       }, 5000);
     };
 
-    websocket.onerror = (error) => {
+    websocket.onerror = () => {
       isConnectingRef.current = false;
       console.warn('WebSocket connection error - this is normal if backend is not running');
     };

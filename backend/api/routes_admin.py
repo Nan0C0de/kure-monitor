@@ -9,7 +9,7 @@ from models.models import (
     TrustedRegistry,
     NotificationSettingCreate, NotificationSettingResponse,
 )
-from .auth import require_admin
+from .auth import require_write
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def create_admin_router(deps: RouterDeps) -> APIRouter:
     """Excluded namespaces/pods/rules, trusted registries, notifications."""
-    router = APIRouter(dependencies=[Depends(require_admin)])
+    router = APIRouter(dependencies=[Depends(require_write)])
     db = deps.db
     websocket_manager = deps.websocket_manager
     notification_service = deps.notification_service

@@ -4,10 +4,11 @@ import { Server, LogIn } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
-  const [key, setKey] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, setupRequired } = useAuth();
   const navigate = useNavigate();
 
   // Read theme from localStorage (same key as Dashboard)
@@ -26,24 +27,32 @@ const Login = () => {
     }
   }, [isDark]);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated, or if setup is required
   useEffect(() => {
-    if (isAuthenticated) {
+    if (setupRequired) {
+      navigate('/setup', { replace: true });
+    } else if (isAuthenticated) {
       navigate('/', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, setupRequired, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!key.trim()) return;
+    if (!username.trim() || !password) return;
 
     setLoading(true);
     setError('');
     try {
-      await login(key.trim());
+      await login({ username: username.trim(), password });
       navigate('/', { replace: true });
-    } catch {
-      setError('Invalid API key. Please try again.');
+    } catch (err) {
+      if (err?.status === 429) {
+        setError('Too many attempts — try again soon.');
+      } else if (err?.status === 401) {
+        setError('Invalid credentials');
+      } else {
+        setError(err?.message || 'Login failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -58,24 +67,25 @@ const Login = () => {
             Kure Monitor
           </h1>
           <p className={`mt-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Enter your API key to access the dashboard
+            Sign in to access the dashboard
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label
-              htmlFor="api-key"
+              htmlFor="username"
               className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
             >
-              API Key
+              Username
             </label>
             <input
-              id="api-key"
-              type="password"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder="Enter your API key"
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
+              autoComplete="username"
               autoFocus
               className={`w-full px-4 py-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isDark
@@ -85,17 +95,42 @@ const Login = () => {
             />
           </div>
 
+          <div>
+            <label
+              htmlFor="password"
+              className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              className={`w-full px-4 py-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isDark
+                  ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+              }`}
+            />
+          </div>
+
           {error && (
-            <div className={`text-sm p-3 rounded-md ${isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-50 text-red-700'}`}>
+            <div
+              role="alert"
+              className={`text-sm p-3 rounded-md ${isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-50 text-red-700'}`}
+            >
               {error}
             </div>
           )}
 
           <button
             type="submit"
-            disabled={loading || !key.trim()}
+            disabled={loading || !username.trim() || !password}
             className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-md text-sm font-medium text-white transition-colors ${
-              loading || !key.trim()
+              loading || !username.trim() || !password
                 ? 'bg-blue-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}

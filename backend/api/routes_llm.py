@@ -4,7 +4,7 @@ import logging
 from models.models import (
     LLMConfigCreate, LLMConfigResponse, LLMConfigStatus,
 )
-from .auth import require_admin
+from .auth import require_write
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def create_llm_router(deps: RouterDeps) -> APIRouter:
     """LLM status/config/test routes."""
-    router = APIRouter(dependencies=[Depends(require_admin)])
+    router = APIRouter(dependencies=[Depends(require_write)])
     db = deps.db
     solution_engine = deps.solution_engine
     websocket_manager = deps.websocket_manager

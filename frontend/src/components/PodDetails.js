@@ -101,7 +101,7 @@ const MirrorPodStatus = ({ mirror, onDelete, onRefresh, isDark = false }) => {
   );
 };
 
-const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpdated, onLogAwareSolutionUpdated, onStatusChange, onDeleteRecord, isDark = false, aiEnabled = false, viewMode = 'active', activeMirror, onDeleteMirror, onRefreshMirror }) => {
+const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpdated, onLogAwareSolutionUpdated, onStatusChange, onDeleteRecord, isDark = false, aiEnabled = false, viewMode = 'active', activeMirror, onDeleteMirror, onRefreshMirror, canWrite = true }) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -416,7 +416,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <h4 className={`font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>AI-Generated Solution</h4>
-            {hasQuickSolution && (
+            {hasQuickSolution && canWrite && (
               <button
                 onClick={handleRetrySolution}
                 disabled={isRetrying || !aiEnabled}
@@ -502,6 +502,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
         isDark={isDark}
         aiEnabled={aiEnabled}
         onLogAwareSolutionUpdated={onLogAwareSolutionUpdated}
+        canWrite={canWrite}
       />
     );
 

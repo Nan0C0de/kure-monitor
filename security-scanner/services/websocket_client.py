@@ -12,7 +12,13 @@ class WebSocketClient:
     def __init__(self, backend_url: str):
         # Convert HTTP URL to WebSocket URL
         ws_url = backend_url.replace('http://', 'ws://').replace('https://', 'wss://').rstrip('/')
-        token = os.environ.get("AUTH_API_KEY")
+        token = os.environ.get("SERVICE_TOKEN")
+        if not token:
+            logger.error(
+                "SERVICE_TOKEN environment variable is not set. "
+                "WebSocket connection will be rejected with 401 if the "
+                "backend requires authentication."
+            )
         self.ws_url = f"{ws_url}/ws?token={token}" if token else f"{ws_url}/ws"
         self.on_namespace_change: Optional[Callable] = None
         self.on_rule_change: Optional[Callable] = None
