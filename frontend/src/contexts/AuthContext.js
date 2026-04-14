@@ -34,8 +34,9 @@ export function AuthProvider({ children }) {
 
     try {
       const me = await api.getAuthMe();
-      setUser(me);
-      return { setupRequired: false, user: me };
+      const u = me?.user ?? me;
+      setUser(u);
+      return { setupRequired: false, user: u };
     } catch (err) {
       setUser(null);
       return { setupRequired: false, user: null };
@@ -58,23 +59,26 @@ export function AuthProvider({ children }) {
   const login = useCallback(async ({ username, password }) => {
     await api.login({ username, password });
     const me = await api.getAuthMe();
-    setUser(me);
-    return me;
+    const u = me?.user ?? me;
+    setUser(u);
+    return u;
   }, []);
 
   const setup = useCallback(async ({ username, password, email }) => {
     await api.setupAdmin({ username, password, email });
     const me = await api.getAuthMe();
-    setUser(me);
+    const u = me?.user ?? me;
+    setUser(u);
     setSetupRequired(false);
-    return me;
+    return u;
   }, []);
 
   const acceptInvitation = useCallback(async ({ token, username, password, email }) => {
     await api.acceptInvitation({ token, username, password, email });
     const me = await api.getAuthMe();
-    setUser(me);
-    return me;
+    const u = me?.user ?? me;
+    setUser(u);
+    return u;
   }, []);
 
   const logout = useCallback(async () => {
