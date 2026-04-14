@@ -46,7 +46,7 @@
             },
             "tag": {
               "type": "string",
-              "default": "2.2.0"
+              "default": "2.3.0"
             },
             "pullPolicy": {
               "type": "string",
@@ -129,7 +129,7 @@
             },
             "tag": {
               "type": "string",
-              "default": "2.2.0"
+              "default": "2.3.0"
             },
             "pullPolicy": {
               "type": "string",
@@ -200,7 +200,7 @@
             },
             "tag": {
               "type": "string",
-              "default": "2.2.0"
+              "default": "2.3.0"
             },
             "pullPolicy": {
               "type": "string",
@@ -267,7 +267,7 @@
             },
             "tag": {
               "type": "string",
-              "default": "2.2.0"
+              "default": "2.3.0"
             },
             "pullPolicy": {
               "type": "string",

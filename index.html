@@ -240,14 +240,15 @@ helm repo update</code></pre>
                 Install Chart
             </h2>
             <pre><code># Basic install (configure LLM via Admin panel)
-helm install kure-monitor kure-monitor/kure --version 2.2.0 \
+helm install kure-monitor kure-monitor/kure --version 2.3.0 \
     --create-namespace --namespace kure-system
 
-# With authentication enabled (recommended for production)
-helm install kure-monitor kure-monitor/kure --version 2.2.0 \
+# Production install with custom DB password
+helm install kure-monitor kure-monitor/kure --version 2.3.0 \
     --create-namespace --namespace kure-system \
-    --set auth.apiKey=$(openssl rand -hex 32)
+    --set postgresql.password="$(openssl rand -hex 24)"
 
+# On first visit, the dashboard prompts you to create the initial admin account.
 # After installation, configure LLM provider via the Admin panel
 # to enable AI-powered troubleshooting suggestions</code></pre>
         </div>

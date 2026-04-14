@@ -42,7 +42,6 @@ ensures users stay signed in regardless of which pod handles the request.
 - **Security Scanning** -- 50+ checks for security misconfigurations with AI-generated remediation
 - **Dashboard Authentication** -- User accounts (read/write/admin) with rate-limited login and HttpOnly session cookies
 - **Live Pod Logs** -- Stream logs on-demand for troubleshooting
-- **Cluster Overview** -- CPU, memory, and storage usage at a glance
 - **Slack & Teams Notifications** -- Get alerted when failures occur
 - **Manual Security Rescan** -- Trigger full re-scans on demand
 - **Admin Panel** -- Configure AI provider, notifications, exclusions, and trusted registries via UI
@@ -82,11 +81,11 @@ existing users out).
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `agent.pendingGracePeriod` | Seconds before reporting Pending pods as failed | `120` |
-| `agent.image.tag` | Agent image tag | `2.2.0` |
-| `securityScanner.image.tag` | Security scanner image tag | `2.2.0` |
+| `agent.image.tag` | Agent image tag | `2.3.0` |
+| `securityScanner.image.tag` | Security scanner image tag | `2.3.0` |
 | `backend.replicaCount` | Backend replica count | `1` |
-| `backend.image.tag` | Backend image tag | `2.2.0` |
-| `frontend.image.tag` | Frontend image tag | `2.2.0` |
+| `backend.image.tag` | Backend image tag | `2.3.0` |
+| `frontend.image.tag` | Frontend image tag | `2.3.0` |
 
 ### LLM Configuration
 
@@ -251,7 +250,7 @@ helm install kure-monitor kure-monitor/kure \
 
 ```bash
 helm repo update
-helm upgrade kure-monitor kure-monitor/kure --version 2.2.0 -n kure-system
+helm upgrade kure-monitor kure-monitor/kure --version 2.3.0 -n kure-system
 ```
 
 ## Uninstall

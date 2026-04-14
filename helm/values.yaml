@@ -25,7 +25,7 @@ agent:
 
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/agent
-    tag: "2.2.0"
+    tag: "2.3.0"
     pullPolicy: IfNotPresent
 
   resources:
@@ -53,7 +53,7 @@ agent:
 securityScanner:
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/security-scanner
-    tag: "2.2.0"
+    tag: "2.3.0"
     pullPolicy: IfNotPresent
 
   resources:
@@ -83,7 +83,7 @@ backend:
   
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/backend
-    tag: "2.2.0"
+    tag: "2.3.0"
     pullPolicy: IfNotPresent
   
   service:
@@ -118,7 +118,7 @@ frontend:
 
   image:
     repository: ghcr.io/nan0c0de/kure-monitor/frontend
-    tag: "2.2.0"
+    tag: "2.3.0"
     pullPolicy: IfNotPresent
 
   service:

@@ -1,26 +1,27 @@
 # Artifact Hub package metadata file
-version: 2.2.0
+version: 2.3.0
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
-createdAt: 2026-03-26T00:00:00Z
+createdAt: 2026-04-14T00:00:00Z
 description: |
   Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks: privileged containers, dangerous capabilities, missing seccomp/AppArmor profiles, RBAC issues, untrusted registries, and more. No Prometheus dependency required.
 license: Apache-2.0
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "2.2.0"
+appVersion: "2.3.0"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:2.2.0
+    image: ghcr.io/nan0c0de/kure-monitor/agent:2.3.0
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:2.2.0
+    image: ghcr.io/nan0c0de/kure-monitor/backend:2.3.0
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.2.0
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.3.0
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.2.0
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.3.0
 operator: false
 deprecated: false
 prerelease: false
+containsSecurityUpdates: true
 keywords:
   - kubernetes
   - troubleshooting
@@ -40,32 +41,24 @@ provider:
   name: Nan0C0de
 changes:
   - kind: changed
-    description: "BREAKING: removed `auth.apiKey`. Dashboard now uses user accounts (read/write/admin); service-to-service auth uses the auto-generated bootstrap secret (`{release}-bootstrap` containing `service-token` and `session-secret`)."
+    description: "BREAKING: auth overhaul - legacy single-key `AUTH_API_KEY` / `auth.apiKey` model removed. Dashboard now uses user accounts (first-install forces admin creation; invite-based onboarding with read/write/admin roles). Service-to-service traffic uses a separate shared `SERVICE_TOKEN`. Helm auto-generates both tokens in a `{release}-bootstrap` Secret and preserves them across upgrades via `lookup`."
+  - kind: removed
+    description: "BREAKING: cluster metrics feature removed - Monitoring tab, cluster metrics ingestion, pod metrics history, and `metrics-server` requirement are gone. Agent no longer collects or reports metrics. `agent.clusterMetrics` Helm values removed. Only `/api/metrics/security-scan-duration` (Prometheus scrape) remains."
   - kind: added
-    description: Mirror pod testing - deploy a temporary copy of a failing pod with AI-generated fixes applied to test before committing to Git
-  - kind: added
-    description: Mirror pod manifest editor - review and modify AI-generated fixes before deploying
-  - kind: added
-    description: Admin-configurable mirror pod TTL with auto-cleanup (default 3 minutes)
+    description: "New LLM provider: GitHub Copilot (GitHub Models) - OpenAI-compatible via `https://models.github.ai/inference`, authenticated with a GitHub fine-grained PAT (Models permission). Aliases: `copilot`, `github`, `github_models`. Default model `openai/gpt-5-mini`."
   - kind: changed
-    description: Comprehensive dark theme improvements across 14+ components
-  - kind: changed
-    description: Security fix manifest cleanup - strips Kubernetes runtime fields before LLM analysis
-  - kind: changed
-    description: Improved diff algorithm ignores whitespace-only changes to prevent false diffs
+    description: "LLM provider model refresh - OpenAI: gpt-5, gpt-5-mini (default), gpt-4.1; Anthropic: claude-opus-4-5, claude-sonnet-4-5 (default), claude-haiku-4-5; Gemini: gemini-2.5-pro, gemini-2.5-flash (default), gemini-2.5-flash-lite; Ollama: llama3.3, llama3.2 (default), qwen2.5."
   - kind: fixed
-    description: Code block rendering fix for react-markdown v9 compatibility
-  - kind: changed
-    description: Exclusions tab renamed to Suppressions in admin panel
-  - kind: changed
-    description: Backend RBAC updated with pod create/delete and event list permissions for mirror pod feature
+    description: "Admin user couldn't see Admin tab - `/api/auth/me` returns `{user: {...}}` (wrapped), but `AuthContext.js` was calling `setUser(me)` directly so `user.role` was undefined. Fixed by unwrapping `me.user` in all four auth flows (refresh, login, setup, acceptInvitation)."
+  - kind: fixed
+    description: "Log-Aware Troubleshoot section now renders above the AI-Generated Solution for CrashLoopBackOff / OOMKilled pods (was rendering below)."
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 2.2.0 \
+  helm install kure-monitor kure-monitor/kure --version 2.3.0 \
     --create-namespace --namespace kure-system
 
   # On first visit, the dashboard prompts you to create the initial admin account.

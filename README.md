@@ -28,7 +28,6 @@ Unlike tools such as K8sGPT that are CLI-focused, Kure gives you a unified web d
 
 **Dashboard**
 - **Live Pod Logs** — Stream logs in real-time with container selection
-- **Cluster Overview** — CPU, memory, and storage usage at a glance
 - **Export Findings** — Export security findings to CSV, JSON, and PDF
 - **Slack & Teams Notifications** — Get alerted when failures occur
 - **Dashboard Authentication** — User accounts with read/write/admin roles, session cookies, and rate-limited login
@@ -45,15 +44,18 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
-## What's New in v2.2.0
+## What's New in v2.3.0
 
-- **Mirror Pod Testing** - Deploy a temporary copy of a failing pod with AI-generated fixes applied, to test if the fix works before committing to Git. Includes manifest editor, auto-cleanup with configurable TTL, and live status tracking.
-- **Dark Theme Improvements** - Comprehensive dark mode fixes across 14+ components including status badges, action buttons, admin panels, and modals.
-- **Security Fix Manifest Cleanup** - Security scan fix generation now strips Kubernetes runtime fields before sending to LLM, preventing false changes.
-- **Improved Diff Algorithm** - Manifest diffs now ignore whitespace-only changes to prevent false diffs from LLM reformatting.
-- **Code Block Rendering Fix** - Fixed react-markdown v9 compatibility issues with code blocks on dark backgrounds.
-- **UI Rename** - "Exclusions" tab renamed to "Suppressions" in admin panel.
-- **Backend RBAC Update** - Backend service account now has pod create/delete and event list permissions for mirror pod feature.
+- **BREAKING: Auth overhaul** - Legacy single-key `AUTH_API_KEY` / `auth.apiKey` model removed. The dashboard now uses user accounts: on first install, visitors are prompted to create an **admin** account, and further users are invited with **read**, **write**, or **admin** roles. Agent and security scanner authenticate to the backend with a separate shared `SERVICE_TOKEN`. The Helm chart auto-generates both secrets in a `<release>-bootstrap` Secret and preserves them across upgrades via `lookup`. See [docs/MIGRATING-2.2-TO-2.3.md](docs/MIGRATING-2.2-TO-2.3.md) for the upgrade guide.
+- **BREAKING: Cluster metrics feature removed** - The Monitoring tab, cluster metrics ingestion, pod metrics history, and `metrics-server` requirement are gone. The agent no longer collects or reports metrics. The `agent.clusterMetrics` Helm values have been removed. Only `/api/metrics/security-scan-duration` (Prometheus scrape) remains.
+- **New LLM provider: GitHub Copilot (GitHub Models)** - OpenAI-compatible via `https://models.github.ai/inference`, authenticated with a GitHub fine-grained PAT (Models permission). Aliases: `copilot`, `github`, `github_models`. Default model: `openai/gpt-5-mini`.
+- **LLM provider model refresh** - Updated model catalogs:
+  - OpenAI: `gpt-5`, `gpt-5-mini` (default), `gpt-4.1`
+  - Anthropic: `claude-opus-4-5`, `claude-sonnet-4-5` (default), `claude-haiku-4-5`
+  - Gemini: `gemini-2.5-pro`, `gemini-2.5-flash` (default), `gemini-2.5-flash-lite`
+  - Ollama: `llama3.3`, `llama3.2` (default), `qwen2.5`
+- **Fix: Admin user couldn't see Admin tab** - `/api/auth/me` returns `{user: {...}}` (wrapped), but `AuthContext.js` was calling `setUser(me)` directly so `user.role` was undefined and the Admin tab never rendered. Fixed by unwrapping `me.user` across all four auth flows (refresh, login, setup, accept-invitation).
+- **Fix: Log-Aware Troubleshoot ordering** - The Log-Aware Troubleshoot section now renders above the AI-Generated Solution for CrashLoopBackOff / OOMKilled pods (was rendering below).
 
 ## Architecture
 
