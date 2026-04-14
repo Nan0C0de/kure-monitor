@@ -15,7 +15,7 @@ class GeminiProvider(LLMProvider):
 
     @property
     def default_model(self) -> str:
-        return "gemini-2.0-flash"
+        return "gemini-2.5-flash"
 
     async def generate_solution(
         self,

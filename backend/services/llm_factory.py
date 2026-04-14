@@ -6,7 +6,8 @@ from llm_providers import (
     AnthropicProvider,
     GroqProvider,
     GeminiProvider,
-    OllamaProvider
+    OllamaProvider,
+    CopilotProvider,
 )
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,9 @@ class LLMFactory:
         "gemini": GeminiProvider,
         "google": GeminiProvider,  # Alias for gemini
         "ollama": OllamaProvider,
+        "copilot": CopilotProvider,
+        "github": CopilotProvider,  # Alias for copilot
+        "github_models": CopilotProvider,  # Alias for copilot
     }
 
     @classmethod

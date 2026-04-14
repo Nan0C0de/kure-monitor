@@ -4,6 +4,7 @@ from .anthropic_provider import AnthropicProvider
 from .groq_provider import GroqProvider
 from .gemini_provider import GeminiProvider
 from .ollama_provider import OllamaProvider
+from .copilot_provider import CopilotProvider
 
 __all__ = [
     'LLMProvider',
@@ -12,5 +13,6 @@ __all__ = [
     'AnthropicProvider',
     'GroqProvider',
     'GeminiProvider',
-    'OllamaProvider'
+    'OllamaProvider',
+    'CopilotProvider',
 ]

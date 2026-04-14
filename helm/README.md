@@ -38,7 +38,7 @@ ensures users stay signed in regardless of which pod handles the request.
 ## Features
 
 - **Instant Failure Detection** -- Detects pod failures across all namespaces in real-time
-- **AI-Powered Troubleshooting** -- Generates contextual solutions using OpenAI, Anthropic, Groq, Google Gemini, or Ollama
+- **AI-Powered Troubleshooting** -- Generates contextual solutions using OpenAI, Anthropic, Groq, Google Gemini, GitHub Copilot (GitHub Models), or Ollama
 - **Security Scanning** -- 50+ checks for security misconfigurations with AI-generated remediation
 - **Dashboard Authentication** -- User accounts (read/write/admin) with rate-limited login and HttpOnly session cookies
 - **Live Pod Logs** -- Stream logs on-demand for troubleshooting
@@ -97,10 +97,11 @@ Supported providers:
 | Provider | Default Model | Notes |
 |----------|---------------|-------|
 | **Ollama** | `llama3.2` | Local inference, no API key needed. Set the Ollama URL in Admin panel. |
-| **OpenAI** | `gpt-4.1-mini` | Requires OpenAI API key |
-| **Anthropic** | `claude-sonnet-4-20250514` | Requires Anthropic API key |
-| **Groq** | `llama-4-scout-17b-16e-instruct` | Requires Groq API key |
-| **Google Gemini** | `gemini-2.0-flash` | Requires Google AI API key |
+| **OpenAI** | `gpt-5-mini` | Requires OpenAI API key |
+| **Anthropic** | `claude-sonnet-4-5` | Requires Anthropic API key |
+| **Groq** | `meta-llama/llama-4-scout-17b-16e-instruct` | Requires Groq API key |
+| **Google Gemini** | `gemini-2.5-flash` | Requires Google AI API key |
+| **GitHub Copilot** (GitHub Models) | `openai/gpt-5-mini` | Requires a GitHub PAT (fine-grained, `Models` permission). OpenAI-compatible API at `https://models.github.ai/inference`. |
 
 If no LLM is configured, Kure uses built-in rule-based solutions as a fallback.
 

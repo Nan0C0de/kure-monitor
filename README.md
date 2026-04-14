@@ -21,7 +21,7 @@ Unlike tools such as K8sGPT that are CLI-focused, Kure gives you a unified web d
 ## Features
 
 **Core Diagnosis**
-- **AI-Powered Troubleshooting** — Get contextual solutions generated from pod events, logs, and manifest analysis using OpenAI, Anthropic, Groq, Google Gemini, or Ollama
+- **AI-Powered Troubleshooting** — Get contextual solutions generated from pod events, logs, and manifest analysis using OpenAI, Anthropic, Groq, Google Gemini, GitHub Copilot (GitHub Models), or Ollama
 - **Real-time Failure Detection** — Know immediately when pods enter CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled, or other failure states
 - **Security Scanning** — 50+ checks including privileged containers, host namespace access, dangerous capabilities, missing seccomp/AppArmor profiles, root containers, RBAC misconfigurations, untrusted image registries, and missing resource limits
 - **Pod Lifecycle Management** — Track pods through investigating, resolved, and ignored states with configurable history retention
@@ -84,7 +84,7 @@ Kure complements your existing observability stack (Prometheus, Grafana, Datadog
                           │   LLM Provider   │
                           │ OpenAI/Anthropic │
                           │ Groq/Gemini/     │
-                          │ Ollama (local)   │
+                          │ Copilot/Ollama   │
                           └──────────────────┘
 ```
 
@@ -125,7 +125,7 @@ helm install kure-monitor kure-monitor/kure \
   --create-namespace
 ```
 
-After installation, configure your LLM provider (OpenAI, Anthropic, Groq, Google Gemini, or Ollama) via the Admin panel in the web dashboard to enable AI-powered solutions.
+After installation, configure your LLM provider (OpenAI, Anthropic, Groq, Google Gemini, GitHub Copilot, or Ollama) via the Admin panel in the web dashboard to enable AI-powered solutions.
 
 ### Production Install
 
@@ -160,15 +160,19 @@ LLM provider is configured via the Admin panel in the web dashboard after instal
 
 ### Supported LLM Providers
 
-| Provider | Default Model | Alternative Models |
-|----------|---------------|--------------------|
-| **Ollama** (local) | `llama3.2` | Any model available in your Ollama instance |
-| **OpenAI** | `gpt-4.1-mini` | `gpt-4.1`, `gpt-4o` |
-| **Anthropic** | `claude-sonnet-4-20250514` | `claude-opus-4-5-20251124`, `claude-haiku-4-5-20251015` |
-| **Groq** | `meta-llama/llama-4-scout-17b-16e-instruct` | `meta-llama/llama-4-maverick-17b-128e-instruct`, `llama-3.3-70b-versatile` |
-| **Google Gemini** | `gemini-2.0-flash` | `gemini-2.5-pro-preview-05-06`, `gemini-2.0-flash-lite` |
+| Provider | Alias | Default Model |
+|----------|-------|---------------|
+| **Ollama** (local) | `ollama` | `llama3.2` |
+| **OpenAI** | `openai` | `gpt-5-mini` |
+| **Anthropic** | `anthropic`, `claude` | `claude-sonnet-4-5` |
+| **Groq** | `groq`, `groq_cloud` | `meta-llama/llama-4-scout-17b-16e-instruct` |
+| **Google Gemini** | `gemini`, `google` | `gemini-2.5-flash` |
+| **GitHub Copilot** (GitHub Models) | `copilot`, `github`, `github_models` | `openai/gpt-5-mini` |
 
-**Provider Aliases:** `claude` -> `anthropic`, `groq_cloud` -> `groq`, `google` -> `gemini`
+**GitHub Copilot notes:** authenticates with a GitHub Personal Access Token
+(fine-grained, `Models` permission). Defaults to base URL
+`https://models.github.ai/inference` and exposes an OpenAI-compatible API.
+Example models: `openai/gpt-5`, `openai/gpt-5-mini`, `anthropic/claude-sonnet-4`.
 
 ### Key Helm Values
 
@@ -208,7 +212,7 @@ See [`helm/README.md`](helm/README.md) for the full parameter reference.
 - Rule exclusions with global and per-namespace scopes
 
 ### Admin Panel
-- **AI Config** — Configure LLM provider (OpenAI, Anthropic, Groq, Google Gemini, or Ollama)
+- **AI Config** — Configure LLM provider (OpenAI, Anthropic, Groq, Google Gemini, GitHub Copilot, or Ollama)
 - **Notifications** — Configure Slack or Microsoft Teams webhooks for alerts
 - **Exclusions** — Exclude namespaces, pods, and security rules from monitoring
 - **Trusted Registries** — Mark container registries as trusted to filter findings

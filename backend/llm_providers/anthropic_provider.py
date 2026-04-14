@@ -15,7 +15,7 @@ class AnthropicProvider(LLMProvider):
     
     @property
     def default_model(self) -> str:
-        return "claude-sonnet-4-20250514"
+        return "claude-sonnet-4-5"
     
     async def generate_solution(
         self,

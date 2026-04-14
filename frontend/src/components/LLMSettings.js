@@ -27,11 +27,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       needsBaseUrl: true,
       defaultBaseUrl: 'http://ollama:11434',
       defaultModel: 'llama3.2',
+      baseUrlHelper: 'The URL where your Ollama instance is running',
       models: [
+        { value: 'llama3.3', label: 'Llama 3.3 (Latest)' },
         { value: 'llama3.2', label: 'Llama 3.2 (Recommended)' },
-        { value: 'llama3.1', label: 'Llama 3.1' },
-        { value: 'mistral', label: 'Mistral' },
-        { value: 'gemma2', label: 'Gemma 2' }
+        { value: 'qwen2.5', label: 'Qwen 2.5' }
       ]
     },
     {
@@ -41,11 +41,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to OpenAI',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'gpt-4.1-mini',
+      defaultModel: 'gpt-5-mini',
       models: [
-        { value: 'gpt-4.1', label: 'GPT-4.1 (Latest)' },
-        { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini (Recommended)' },
-        { value: 'gpt-4o', label: 'GPT-4o' }
+        { value: 'gpt-5', label: 'GPT-5 (Latest)' },
+        { value: 'gpt-5-mini', label: 'GPT-5 Mini (Recommended)' },
+        { value: 'gpt-4.1', label: 'GPT-4.1' }
       ]
     },
     {
@@ -55,11 +55,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to Anthropic',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'claude-sonnet-4-20250514',
+      defaultModel: 'claude-sonnet-4-5',
       models: [
-        { value: 'claude-opus-4-5-20251124', label: 'Claude Opus 4.5 (Latest)' },
-        { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Recommended)' },
-        { value: 'claude-haiku-4-5-20251015', label: 'Claude Haiku 4.5 (Fast)' }
+        { value: 'claude-opus-4-5', label: 'Claude Opus 4.5 (Best)' },
+        { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Recommended)' },
+        { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Fast)' }
       ]
     },
     {
@@ -83,11 +83,28 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to Google',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'gemini-2.0-flash',
+      defaultModel: 'gemini-2.5-flash',
       models: [
-        { value: 'gemini-2.5-pro-preview-05-06', label: 'Gemini 2.5 Pro (Latest)' },
-        { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Recommended)' },
-        { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Fast)' }
+        { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Latest)' },
+        { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
+        { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Fast)' }
+      ]
+    },
+    {
+      value: 'copilot',
+      label: 'GitHub Copilot (GitHub Models)',
+      trust: 'external',
+      trustLabel: 'External - data sent to GitHub/Microsoft',
+      needsApiKey: true,
+      needsBaseUrl: true,
+      defaultBaseUrl: 'https://models.github.ai/inference',
+      defaultModel: 'openai/gpt-5-mini',
+      apiKeyHelper: 'Use a GitHub PAT with Models permission',
+      baseUrlHelper: 'GitHub Models inference endpoint',
+      models: [
+        { value: 'openai/gpt-5', label: 'GPT-5 (Latest)' },
+        { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (Recommended)' },
+        { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4' }
       ]
     }
   ];
@@ -359,6 +376,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
                   {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {currentProvider.apiKeyHelper && (
+                <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {currentProvider.apiKeyHelper}
+                </p>
+              )}
             </div>
           )}
 
@@ -375,9 +397,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
                 placeholder={currentProvider.defaultBaseUrl}
                 className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
               />
-              <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                The URL where your Ollama instance is running
-              </p>
+              {currentProvider.baseUrlHelper && (
+                <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {currentProvider.baseUrlHelper}
+                </p>
+              )}
             </div>
           )}
 

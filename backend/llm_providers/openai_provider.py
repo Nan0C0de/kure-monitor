@@ -8,14 +8,17 @@ logger = logging.getLogger(__name__)
 
 class OpenAIProvider(LLMProvider):
     """OpenAI GPT provider"""
-    
+
+    # Subclasses targeting OpenAI-compatible APIs can override this.
+    API_URL = "https://api.openai.com/v1/chat/completions"
+
     @property
     def provider_name(self) -> str:
         return "openai"
-    
+
     @property
     def default_model(self) -> str:
-        return "gpt-4.1-mini"
+        return "gpt-5-mini"
     
     async def generate_solution(
         self,
@@ -54,7 +57,7 @@ class OpenAIProvider(LLMProvider):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://api.openai.com/v1/chat/completions",
+                    self.API_URL,
                     headers=headers,
                     json=payload
                 ) as response:
@@ -62,18 +65,18 @@ class OpenAIProvider(LLMProvider):
                         error_text = await response.text()
                         logger.error(f"OpenAI API error {response.status}: {error_text}")
                         raise Exception(f"OpenAI API error: {response.status}")
-                    
+
                     data = await response.json()
                     content = data["choices"][0]["message"]["content"]
                     tokens_used = data.get("usage", {}).get("total_tokens")
-                    
+
                     return LLMResponse(
                         content=content,
                         provider=self.provider_name,
                         model=self.model,
                         tokens_used=tokens_used
                     )
-        
+
         except Exception as e:
             logger.error(f"Error calling OpenAI API: {e}")
             # Re-raise to let solution engine use its better fallback
@@ -99,7 +102,7 @@ class OpenAIProvider(LLMProvider):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://api.openai.com/v1/chat/completions",
+                    self.API_URL,
                     headers=headers,
                     json=payload
                 ) as response:
