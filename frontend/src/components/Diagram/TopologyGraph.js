@@ -232,8 +232,61 @@ const Legend = ({ isDark, groups, collapsedGroups, onToggleGroup }) => {
   );
 };
 
+const computeFocusedSet = (focusedEdgeId, nodes, edges) => {
+  if (!focusedEdgeId) return { focusedNodeIds: null, focusedEdgeIds: null };
+  const clicked = edges.find((e) => e.id === focusedEdgeId);
+  if (!clicked) return { focusedNodeIds: null, focusedEdgeIds: null };
+
+  const outgoing = new Map();
+  const incoming = new Map();
+  edges.forEach((e) => {
+    if (!outgoing.has(e.source)) outgoing.set(e.source, []);
+    outgoing.get(e.source).push(e);
+    if (!incoming.has(e.target)) incoming.set(e.target, []);
+    incoming.get(e.target).push(e);
+  });
+
+  const focusedNodeIds = new Set();
+  const focusedEdgeIds = new Set([clicked.id]);
+
+  // Forward BFS from clicked.target along outgoing edges (descendants).
+  const fwdQueue = [clicked.target];
+  focusedNodeIds.add(clicked.source);
+  focusedNodeIds.add(clicked.target);
+  while (fwdQueue.length) {
+    const id = fwdQueue.shift();
+    const outs = outgoing.get(id) || [];
+    for (const e of outs) {
+      if (focusedEdgeIds.has(e.id)) continue;
+      focusedEdgeIds.add(e.id);
+      if (!focusedNodeIds.has(e.target)) {
+        focusedNodeIds.add(e.target);
+        fwdQueue.push(e.target);
+      }
+    }
+  }
+
+  // Backward BFS from clicked.source along incoming edges (ancestors).
+  const backQueue = [clicked.source];
+  while (backQueue.length) {
+    const id = backQueue.shift();
+    const ins = incoming.get(id) || [];
+    for (const e of ins) {
+      if (focusedEdgeIds.has(e.id)) continue;
+      focusedEdgeIds.add(e.id);
+      if (!focusedNodeIds.has(e.source)) {
+        focusedNodeIds.add(e.source);
+        backQueue.push(e.source);
+      }
+    }
+  }
+
+  return { focusedNodeIds, focusedEdgeIds };
+};
+
 const Inner = ({ data, isDark }) => {
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [focusedEdgeId, setFocusedEdgeId] = useState(null);
   const [modalState, setModalState] = useState({
     isOpen: false,
     namespace: '',
@@ -245,10 +298,50 @@ const Inner = ({ data, isDark }) => {
   });
   const { fitView } = useReactFlow();
 
-  const { nodes, edges } = useMemo(
+  const { nodes: baseNodes, edges: baseEdges } = useMemo(
     () => buildGraphElements(data, isDark, collapsedGroups),
     [data, isDark, collapsedGroups]
   );
+
+  // Clear focus if the focused edge no longer exists after data/collapse refresh.
+  useEffect(() => {
+    if (focusedEdgeId && !baseEdges.some((e) => e.id === focusedEdgeId)) {
+      setFocusedEdgeId(null);
+    }
+  }, [baseEdges, focusedEdgeId]);
+
+  const { focusedNodeIds, focusedEdgeIds } = useMemo(
+    () => computeFocusedSet(focusedEdgeId, baseNodes, baseEdges),
+    [focusedEdgeId, baseNodes, baseEdges]
+  );
+
+  const nodes = useMemo(() => {
+    if (!focusedNodeIds) return baseNodes;
+    return baseNodes.map((n) => {
+      if (focusedNodeIds.has(n.id)) {
+        return { ...n, style: { ...(n.style || {}), opacity: 1 }, zIndex: 1 };
+      }
+      return { ...n, style: { ...(n.style || {}), opacity: 0.15 }, zIndex: 0 };
+    });
+  }, [baseNodes, focusedNodeIds]);
+
+  const edges = useMemo(() => {
+    if (!focusedEdgeIds) return baseEdges;
+    return baseEdges.map((e) => {
+      if (e.id === focusedEdgeId) {
+        const baseStrokeWidth = e.style?.strokeWidth || 1.5;
+        return {
+          ...e,
+          style: { ...(e.style || {}), opacity: 1, strokeWidth: baseStrokeWidth + 1.5 },
+          zIndex: 2,
+        };
+      }
+      if (focusedEdgeIds.has(e.id)) {
+        return { ...e, style: { ...(e.style || {}), opacity: 1 }, zIndex: 1 };
+      }
+      return { ...e, style: { ...(e.style || {}), opacity: 0.15 }, zIndex: 0 };
+    });
+  }, [baseEdges, focusedEdgeIds, focusedEdgeId]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -259,7 +352,7 @@ const Inner = ({ data, isDark }) => {
       }
     }, 50);
     return () => clearTimeout(t);
-  }, [nodes, fitView]);
+  }, [baseNodes, fitView]);
 
   const handleToggleGroup = useCallback((groupId) => {
     setCollapsedGroups((prev) => {
@@ -316,6 +409,14 @@ const Inner = ({ data, isDark }) => {
     setModalState((s) => ({ ...s, isOpen: false }));
   }, []);
 
+  const handleEdgeClick = useCallback((_evt, edge) => {
+    setFocusedEdgeId((prev) => (prev === edge.id ? null : edge.id));
+  }, []);
+
+  const handlePaneClick = useCallback(() => {
+    setFocusedEdgeId(null);
+  }, []);
+
   const groups = data?.groups || [];
 
   return (
@@ -325,6 +426,8 @@ const Inner = ({ data, isDark }) => {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodeClick={handleNodeClick}
+        onEdgeClick={handleEdgeClick}
+        onPaneClick={handlePaneClick}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         proOptions={{ hideAttribution: true }}

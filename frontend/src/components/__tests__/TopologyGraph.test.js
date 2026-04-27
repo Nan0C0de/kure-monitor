@@ -84,6 +84,75 @@ describe('TopologyGraph', () => {
     expect(api.getResourceManifest).not.toHaveBeenCalled();
   });
 
+  describe('edge focus', () => {
+    const focusData = {
+      scope: 'namespace',
+      nodes: [
+        { id: 'A', kind: 'Deployment', name: 'A', namespace: 'ns' },
+        { id: 'B', kind: 'ReplicaSet', name: 'B', namespace: 'ns' },
+        { id: 'C', kind: 'Pod', name: 'C', namespace: 'ns' },
+        { id: 'D', kind: 'ConfigMap', name: 'D', namespace: 'ns' },
+      ],
+      edges: [
+        { source: 'A', target: 'B', type: 'owns' },
+        { source: 'B', target: 'C', type: 'owns' },
+      ],
+      groups: [],
+    };
+
+    test('clicking an edge focuses its path and dims disconnected nodes', () => {
+      render(<TopologyGraph data={focusData} />);
+
+      // Before clicking, everything is at full opacity.
+      expect(screen.getByTestId('node-A').getAttribute('data-opacity')).toBe('1');
+      expect(screen.getByTestId('node-D').getAttribute('data-opacity')).toBe('1');
+
+      // Click the A->B edge. There are two `edge-owns` elements; pick the A->B one.
+      const ownsEdges = screen.getAllByTestId('edge-owns');
+      const aToB = ownsEdges.find(
+        (el) => el.getAttribute('data-source') === 'A' && el.getAttribute('data-target') === 'B'
+      );
+      expect(aToB).toBeTruthy();
+      fireEvent.click(aToB);
+
+      // A, B, C are all in the path (forward from B reaches C; backward from A reaches none).
+      expect(screen.getByTestId('node-A').getAttribute('data-opacity')).toBe('1');
+      expect(screen.getByTestId('node-B').getAttribute('data-opacity')).toBe('1');
+      expect(screen.getByTestId('node-C').getAttribute('data-opacity')).toBe('1');
+      // Disconnected D is dimmed.
+      expect(screen.getByTestId('node-D').getAttribute('data-opacity')).toBe('0.15');
+
+      // Both edges remain in the path.
+      const focusedOwns = screen
+        .getAllByTestId('edge-owns')
+        .filter((el) => el.getAttribute('data-opacity') === '1');
+      expect(focusedOwns).toHaveLength(2);
+    });
+
+    test('clicking the same edge again clears focus (toggle)', () => {
+      render(<TopologyGraph data={focusData} />);
+
+      const ownsEdges = screen.getAllByTestId('edge-owns');
+      const aToB = ownsEdges.find(
+        (el) => el.getAttribute('data-source') === 'A' && el.getAttribute('data-target') === 'B'
+      );
+
+      fireEvent.click(aToB);
+      expect(screen.getByTestId('node-D').getAttribute('data-opacity')).toBe('0.15');
+
+      // Re-resolve since a re-render replaced the DOM elements.
+      const aToB2 = screen
+        .getAllByTestId('edge-owns')
+        .find(
+          (el) => el.getAttribute('data-source') === 'A' && el.getAttribute('data-target') === 'B'
+        );
+      fireEvent.click(aToB2);
+
+      expect(screen.getByTestId('node-D').getAttribute('data-opacity')).toBe('1');
+      expect(screen.getByTestId('node-A').getAttribute('data-opacity')).toBe('1');
+    });
+  });
+
   test('shows the no-read-access info when the backend returns 403 for a non-derived resource', async () => {
     const err = new Error('Forbidden');
     err.status = 403;

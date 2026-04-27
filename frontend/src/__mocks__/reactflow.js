@@ -31,21 +31,40 @@ export const useReactFlow = () => ({
   getEdges: () => [],
 });
 
-const ReactFlow = ({ nodes = [], edges = [], nodeTypes = {}, onNodeClick, children }) => {
+const ReactFlow = ({
+  nodes = [],
+  edges = [],
+  nodeTypes = {},
+  onNodeClick,
+  onEdgeClick,
+  onPaneClick,
+  children,
+}) => {
+  const handlePaneClick = (evt) => {
+    if (onPaneClick) onPaneClick(evt);
+  };
   return React.createElement(
     'div',
-    { 'data-testid': 'react-flow' },
+    { 'data-testid': 'react-flow', onClick: handlePaneClick },
     React.createElement(
       'div',
       { 'data-testid': 'rf-edges' },
-      edges.map((e) =>
-        React.createElement('div', {
+      edges.map((e) => {
+        const handleEdgeClick = (evt) => {
+          evt.stopPropagation();
+          if (onEdgeClick) onEdgeClick(evt, e);
+        };
+        return React.createElement('div', {
           key: e.id,
           'data-testid': `edge-${e.data?.edgeType || 'unknown'}`,
+          'data-edge-id': e.id,
           'data-source': e.source,
           'data-target': e.target,
-        })
-      )
+          'data-opacity': e.style?.opacity != null ? String(e.style.opacity) : '1',
+          'data-stroke-width': e.style?.strokeWidth != null ? String(e.style.strokeWidth) : '',
+          onClick: handleEdgeClick,
+        });
+      })
     ),
     React.createElement(
       'div',
@@ -53,6 +72,7 @@ const ReactFlow = ({ nodes = [], edges = [], nodeTypes = {}, onNodeClick, childr
       nodes.map((n) => {
         const Comp = nodeTypes[n.type];
         const handleClick = (evt) => {
+          evt.stopPropagation();
           if (onNodeClick) onNodeClick(evt, n);
         };
         return React.createElement(
@@ -61,6 +81,7 @@ const ReactFlow = ({ nodes = [], edges = [], nodeTypes = {}, onNodeClick, childr
             key: n.id,
             'data-testid': `node-${n.id}`,
             'data-kind': n.data?.kind,
+            'data-opacity': n.style?.opacity != null ? String(n.style.opacity) : '1',
             onClick: handleClick,
           },
           Comp ? React.createElement(Comp, { data: n.data }) : null
