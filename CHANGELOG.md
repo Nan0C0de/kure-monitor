@@ -5,6 +5,103 @@ All notable changes to Kure Monitor are documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2026-04-27
+
+This release adds the **Diagram tab** -- an interactive Kubernetes topology
+graph with click-to-view-manifest and click-to-focus-a-path. The backend
+ClusterRole has been expanded; cluster operators must reapply RBAC after
+the upgrade.
+
+### Added
+
+- **Diagram tab.** New top-level dashboard tab that renders an interactive
+  Kubernetes topology graph. Two modes:
+  - **Per-namespace** -- shows all workloads in a namespace and how they
+    connect through services, endpoints, ingresses, HPAs, network
+    policies, and volume / `envFrom` references.
+  - **Per-workload** -- focuses on a single workload (Deployment,
+    StatefulSet, DaemonSet, Job, CronJob) plus its ancestors and
+    descendants.
+  - **Click a node** -> opens a side panel with the live manifest fetched
+    from the cluster. Secret nodes intentionally show a "no read access by
+    design" info banner instead of fetching (see Security note below).
+  - **Click an edge** -> focus that path. Ancestors and descendants stay
+    highlighted, everything else dims. Click the same edge again or the
+    background to clear.
+  - **Group collapse / expand** by `app.kubernetes.io/name` (or `app`)
+    label.
+  - Layout via [`reactflow`](https://reactflow.dev/) (`^11.11.4`) and
+    [`@dagrejs/dagre`](https://github.com/dagrejs/dagre) (`^3.0.0`).
+- **Backend topology service** (`backend/services/topology_service.py`).
+  Deterministic graph builder from owner refs, label selectors,
+  service -> endpoints, ingress backends, HPA targets, NetworkPolicy
+  selectors, and volume / envFrom references. 15s in-memory TTL cache.
+  EndpointSlice with Endpoints fallback. 21 new unit tests in
+  `backend/tests/test_topology_service.py`.
+- **Backend diagram API** (`backend/api/routes_diagram.py`). Four new
+  endpoints, all gated by `require_read`:
+  - `GET /api/diagram/namespaces`
+  - `GET /api/diagram/namespace/{ns}`
+  - `GET /api/diagram/workload/{ns}/{kind}/{name}`
+  - `GET /api/diagram/manifest/{ns}/{kind}/{name}`
+- **New Pydantic models** in `backend/models/models.py`: `DiagramNode`,
+  `DiagramEdge`, `DiagramGroup`, `DiagramResponse`.
+- **Frontend tests.** Two new tests in `TopologyGraph.test.js` cover the
+  edge-focus toggle (click to focus, click again / click background to
+  clear). Full frontend suite (173 tests) green.
+
+### Changed
+
+- **`ManifestModal` is now reusable.** Added opt-in props: `title`,
+  `subtitle`, `infoMessage`, `loading`. All four are backwards-compatible
+  -- existing call sites are unaffected.
+- **Frontend Jest config moved into `package.json`.** The standalone
+  `jest.config.js` was being ignored by Create React App; the equivalent
+  config now lives under the `jest` key in `package.json`. A
+  `structuredClone` polyfill was added to `setupTests.js` for the new
+  topology tests.
+
+### Notes for operators
+
+- **Reapply RBAC after upgrade.** The backend ClusterRole has been
+  expanded so the new topology service can read the resources it graphs.
+  New permissions for the `kure-backend` ServiceAccount:
+  - `core` (`""`): `namespaces` (list), `services / endpoints /
+    configmaps / persistentvolumeclaims` (get, list), `serviceaccounts`
+    (get).
+  - `apps`: extended from `deployments` to `deployments / replicasets /
+    statefulsets / daemonsets` (get, list).
+  - `batch`: `jobs / cronjobs` (get, list).
+  - `networking.k8s.io`: `ingresses / networkpolicies` (get, list).
+  - `discovery.k8s.io`: `endpointslices` (get, list).
+  - `autoscaling`: `horizontalpodautoscalers` (get, list).
+
+  After upgrading, reapply RBAC:
+
+  ```bash
+  # Helm
+  helm upgrade kure-monitor kure-monitor/kure -n kure-system --version 2.3.2
+
+  # Raw manifests
+  kubectl apply -f k8s/rbac.yaml
+  ```
+
+  Without this step, the backend will get HTTP 403s from the Kubernetes
+  API and the Diagram tab will fail to load. No data migration is needed.
+
+- **`secrets` is intentionally NOT granted.** Secret nodes in the diagram
+  are derived purely from workload spec references (env, envFrom, volume
+  mounts). The manifest endpoint hard-rejects `kind=Secret` with HTTP
+  403 by design and the UI shows a "no read access by design" info
+  banner. This is a deliberate security choice: Kure Monitor never reads
+  Secret values.
+
+- **Image tags** for `agent`, `security-scanner`, `backend`, and
+  `frontend` move from `2.3.0` to `2.3.2`. Helm values default to the
+  matching chart version.
+
+- **Agent and security-scanner are unchanged** in this release.
+
 ## [2.3.0] - 2026-04-14
 
 This release contains **two breaking changes** (auth overhaul, cluster metrics
@@ -78,5 +175,6 @@ the upgrade guide.
 - **BREAKING**: removed `auth.apiKey` in favor of the bootstrap Secret model
   (fully overhauled in 2.3.0)
 
+[2.3.2]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.2
 [2.3.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.0
 [2.2.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.2.0

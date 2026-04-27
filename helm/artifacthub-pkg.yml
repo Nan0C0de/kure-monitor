@@ -1,23 +1,23 @@
 # Artifact Hub package metadata file
-version: 2.3.0
+version: 2.3.2
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
-createdAt: 2026-04-14T00:00:00Z
+createdAt: 2026-04-27T00:00:00Z
 description: |
   Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks: privileged containers, dangerous capabilities, missing seccomp/AppArmor profiles, RBAC issues, untrusted registries, and more. No Prometheus dependency required.
 license: Apache-2.0
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "2.3.0"
+appVersion: "2.3.2"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:2.3.0
+    image: ghcr.io/nan0c0de/kure-monitor/agent:2.3.2
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:2.3.0
+    image: ghcr.io/nan0c0de/kure-monitor/backend:2.3.2
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.3.0
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.3.2
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.3.0
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.3.2
 operator: false
 deprecated: false
 prerelease: false
@@ -40,25 +40,21 @@ maintainers:
 provider:
   name: Nan0C0de
 changes:
-  - kind: changed
-    description: "BREAKING: auth overhaul - legacy single-key `AUTH_API_KEY` / `auth.apiKey` model removed. Dashboard now uses user accounts (first-install forces admin creation; invite-based onboarding with read/write/admin roles). Service-to-service traffic uses a separate shared `SERVICE_TOKEN`. Helm auto-generates both tokens in a `{release}-bootstrap` Secret and preserves them across upgrades via `lookup`."
-  - kind: removed
-    description: "BREAKING: cluster metrics feature removed - Monitoring tab, cluster metrics ingestion, pod metrics history, and `metrics-server` requirement are gone. Agent no longer collects or reports metrics. `agent.clusterMetrics` Helm values removed. Only `/api/metrics/security-scan-duration` (Prometheus scrape) remains."
   - kind: added
-    description: "New LLM provider: GitHub Copilot (GitHub Models) - OpenAI-compatible via `https://models.github.ai/inference`, authenticated with a GitHub fine-grained PAT (Models permission). Aliases: `copilot`, `github`, `github_models`. Default model `openai/gpt-5-mini`."
+    description: "New Diagram tab - interactive Kubernetes topology graph with per-namespace and per-workload modes. Click any node to view its manifest; click any edge to focus on that path (highlights ancestors + descendants, dims the rest)."
+  - kind: added
+    description: "Backend topology service builds a deterministic graph from owner refs, label selectors, service->endpoints, ingress backends, HPA targets, NetworkPolicy selectors, and volume / envFrom references. EndpointSlice with Endpoints fallback. 15s in-memory cache. New endpoints under `/api/diagram/*` gated by `require_read`."
   - kind: changed
-    description: "LLM provider model refresh - OpenAI: gpt-5, gpt-5-mini (default), gpt-4.1; Anthropic: claude-opus-4-5, claude-sonnet-4-5 (default), claude-haiku-4-5; Gemini: gemini-2.5-pro, gemini-2.5-flash (default), gemini-2.5-flash-lite; Ollama: llama3.3, llama3.2 (default), qwen2.5."
-  - kind: fixed
-    description: "Admin user couldn't see Admin tab - `/api/auth/me` returns `{user: {...}}` (wrapped), but `AuthContext.js` was calling `setUser(me)` directly so `user.role` was undefined. Fixed by unwrapping `me.user` in all four auth flows (refresh, login, setup, acceptInvitation)."
-  - kind: fixed
-    description: "Log-Aware Troubleshoot section now renders above the AI-Generated Solution for CrashLoopBackOff / OOMKilled pods (was rendering below)."
+    description: "BREAKING for cluster operators: backend ClusterRole expanded for the topology graph. New permissions for the `kure-backend` ServiceAccount on namespaces, services, endpoints, configmaps, persistentvolumeclaims, serviceaccounts, replicasets / statefulsets / daemonsets (apps), jobs / cronjobs (batch), ingresses / networkpolicies (networking.k8s.io), endpointslices (discovery.k8s.io), and horizontalpodautoscalers (autoscaling). Reapply RBAC after upgrade: `kubectl apply -f k8s/rbac.yaml` (raw manifests) or `helm upgrade` (Helm)."
+  - kind: added
+    description: "Security: `secrets` is intentionally NOT granted to the backend. Secret nodes in the diagram are derived purely from workload spec references; the manifest endpoint hard-rejects `kind=Secret` with HTTP 403 by design and the UI shows a 'no read access by design' info banner."
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 2.3.0 \
+  helm install kure-monitor kure-monitor/kure --version 2.3.2 \
     --create-namespace --namespace kure-system
 
   # On first visit, the dashboard prompts you to create the initial admin account.

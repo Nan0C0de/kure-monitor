@@ -27,6 +27,7 @@ Unlike tools such as K8sGPT that are CLI-focused, Kure gives you a unified web d
 - **Pod Lifecycle Management** — Track pods through investigating, resolved, and ignored states with configurable history retention
 
 **Dashboard**
+- **Diagram Tab** — Interactive Kubernetes topology graph. Switch between per-namespace and per-workload views, click any node to view its manifest, click an edge to focus that path (highlights ancestors and descendants, dims everything else)
 - **Live Pod Logs** — Stream logs in real-time with container selection
 - **Export Findings** — Export security findings to CSV, JSON, and PDF
 - **Slack & Teams Notifications** — Get alerted when failures occur
@@ -43,6 +44,13 @@ Kure is focused on failure diagnosis, not general observability:
 - **Single cluster only** — Monitors one Kubernetes cluster per installation
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
+
+## What's New in v2.3.2
+
+- **New: Diagram tab** - Interactive Kubernetes topology graph with two view modes (per-namespace and per-workload). The graph is built from owner refs, label selectors, service-to-endpoints relationships, ingress backends, HPA targets, NetworkPolicy selectors, and volume / envFrom references. Click any node to view its manifest in a side panel; click any edge to focus on that path -- ancestors and descendants stay highlighted while everything else dims. Click again or click the background to clear. Nodes are grouped by `app.kubernetes.io/name` (or `app`) label and groups can be collapsed.
+- **Backend: topology service** - New `/api/diagram/*` endpoints (namespaces list, per-namespace graph, per-workload graph, manifest fetch). Deterministic graph builder with a 15s in-memory cache and EndpointSlice -> Endpoints fallback. Gated by `require_read`.
+- **Security by design: no Secret reads** - The backend ServiceAccount is intentionally NOT granted access to `secrets`. Secret nodes are derived purely from workload spec references; the manifest endpoint hard-rejects `kind=Secret` with HTTP 403 and the UI shows a "no read access by design" info banner instead of the manifest body.
+- **OPERATOR ACTION REQUIRED: Reapply RBAC** - The backend ClusterRole has been expanded to support the topology graph. New verbs on `namespaces`, `services`, `endpoints`, `configmaps`, `persistentvolumeclaims`, `serviceaccounts`, `replicasets / statefulsets / daemonsets` (apps), `jobs / cronjobs` (batch), `ingresses / networkpolicies` (networking.k8s.io), `endpointslices` (discovery.k8s.io), and `horizontalpodautoscalers` (autoscaling). Run `kubectl apply -f k8s/rbac.yaml` (raw manifests) or `helm upgrade` (Helm) after upgrading.
 
 ## What's New in v2.3.0
 

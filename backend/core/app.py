@@ -31,7 +31,9 @@ async def history_cleanup_task(db: Database):
             if retention_minutes > 0:
                 count = await db.cleanup_old_resolved_pods(retention_minutes)
                 if count > 0:
-                    logger.info(f"History cleanup: deleted {count} resolved pods older than {retention_minutes}m")
+                    logger.info(
+                        f"History cleanup: deleted {count} resolved pods older than {retention_minutes}m"
+                    )
 
             # Cleanup ignored pods
             ignored_value = await db.get_app_setting("ignored_retention_minutes")
@@ -39,7 +41,9 @@ async def history_cleanup_task(db: Database):
             if ignored_minutes > 0:
                 count = await db.cleanup_old_ignored_pods(ignored_minutes)
                 if count > 0:
-                    logger.info(f"Ignored cleanup: deleted {count} ignored pods older than {ignored_minutes}m")
+                    logger.info(
+                        f"Ignored cleanup: deleted {count} ignored pods older than {ignored_minutes}m"
+                    )
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -54,7 +58,9 @@ def create_app() -> FastAPI:
     solution_engine = SolutionEngine(db=db)  # Pass db for LLM config loading
     websocket_manager = WebSocketManager()
     notification_service = NotificationService(db)
-    mirror_service = MirrorService(db=db, solution_engine=solution_engine, websocket_manager=websocket_manager)
+    mirror_service = MirrorService(
+        db=db, solution_engine=solution_engine, websocket_manager=websocket_manager
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -90,7 +96,7 @@ def create_app() -> FastAPI:
         await db.close()
 
     # Create FastAPI app
-    app = FastAPI(title="Kure Backend", version="2.3.0", lifespan=lifespan)
+    app = FastAPI(title="Kure Backend", version="2.3.2", lifespan=lifespan)
 
     # Configure middleware and exception handlers
     configure_cors(app)
@@ -112,7 +118,9 @@ def create_app() -> FastAPI:
         )
 
     # Include routers
-    api_router = create_api_router(db, solution_engine, websocket_manager, notification_service, mirror_service)
+    api_router = create_api_router(
+        db, solution_engine, websocket_manager, notification_service, mirror_service
+    )
     app.include_router(api_router)
     app.include_router(websocket_manager.router)
 
