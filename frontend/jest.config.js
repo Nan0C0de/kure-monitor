@@ -5,6 +5,8 @@ module.exports = {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^react-markdown$': '<rootDir>/src/__mocks__/react-markdown.js',
     '^lucide-react$': '<rootDir>/src/__mocks__/lucide-react.js',
+    '^reactflow$': '<rootDir>/src/__mocks__/reactflow.js',
+    '^@dagrejs/dagre$': '<rootDir>/src/__mocks__/dagre.js',
   },
   collectCoverageFrom: [
     'src/**/*.{js,jsx}',

@@ -676,4 +676,48 @@ export const api = {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
+
+  // Diagram API
+  getDiagramNamespaces: async () => {
+    const response = await authFetch(`${API_BASE}/api/diagram/namespaces`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getDiagramNamespace: async (namespace) => {
+    const response = await authFetch(
+      `${API_BASE}/api/diagram/namespace/${encodeURIComponent(namespace)}`
+    );
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getDiagramWorkload: async (namespace, kind, name) => {
+    const url = `${API_BASE}/api/diagram/workload/${encodeURIComponent(namespace)}/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`;
+    const response = await authFetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getResourceManifest: async (namespace, kind, name) => {
+    const url = `${API_BASE}/api/diagram/manifest/${encodeURIComponent(namespace)}/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`;
+    const response = await authFetch(url);
+    if (response.status === 403) {
+      const err = new Error('Forbidden');
+      err.status = 403;
+      try {
+        const data = await response.json();
+        if (data?.detail) err.message = data.detail;
+      } catch {
+        // ignore
+      }
+      throw err;
+    }
+    if (!response.ok) {
+      const err = new Error(`HTTP error! status: ${response.status}`);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
 };

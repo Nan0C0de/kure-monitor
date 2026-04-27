@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, Sun, Moon, Download, Clock, EyeOff, RefreshCw, LogOut } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, Sun, Moon, Download, Clock, EyeOff, RefreshCw, LogOut, Network } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
 import SetupBanner from './SetupBanner';
+import DiagramTab from './Diagram/DiagramTab';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -592,7 +593,7 @@ const Dashboard = () => {
                     activeTab === 'security'
                       ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
                       : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                  } mr-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                 >
                   <Shield className="w-5 h-5" />
                   <span>Security Scan</span>
@@ -601,6 +602,17 @@ const Dashboard = () => {
                       {securityFindings.length}
                     </span>
                   )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('diagram')}
+                  className={`${
+                    activeTab === 'diagram'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                >
+                  <Network className="w-5 h-5" />
+                  <span>Diagram</span>
                 </button>
               </div>
               {userRole === 'admin' && (
@@ -620,8 +632,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Filters - hide on admin tab */}
-        {activeTab !== 'admin' && (
+        {/* Filters - hide on admin and diagram tabs */}
+        {activeTab !== 'admin' && activeTab !== 'diagram' && (
         <div className="flex justify-end mb-4 gap-4">
           {/* Severity Filter - only show on security tab */}
           {activeTab === 'security' && (
@@ -989,6 +1001,10 @@ const Dashboard = () => {
                 <SecurityTable findings={sortedSecurityFindings} isDark={isDark} aiEnabled={aiEnabled} canWrite={canWrite} />
               )}
             </>
+          )}
+
+          {activeTab === 'diagram' && (
+            <DiagramTab isDark={isDark} />
           )}
 
           {activeTab === 'admin' && userRole === 'admin' && (

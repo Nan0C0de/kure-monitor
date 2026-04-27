@@ -217,3 +217,34 @@ class MirrorActiveItem(BaseModel):
 
 class MirrorTTLSetting(BaseModel):
     seconds: int
+
+
+# Diagram (topology) models
+class DiagramNode(BaseModel):
+    id: str
+    kind: str
+    name: str
+    namespace: str
+    group: Optional[str] = None
+    status: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class DiagramEdge(BaseModel):
+    source: str
+    target: str
+    type: str
+
+
+class DiagramGroup(BaseModel):
+    id: str
+    label: str
+    node_ids: List[str]
+
+
+class DiagramResponse(BaseModel):
+    scope: str
+    root_id: Optional[str] = None
+    nodes: List[DiagramNode]
+    edges: List[DiagramEdge]
+    groups: List[DiagramGroup] = []

@@ -94,7 +94,11 @@ const ManifestModal = ({
   onRetrySolution,
   isRetrying,
   isDark = false,
-  aiEnabled = false
+  aiEnabled = false,
+  title,
+  subtitle,
+  infoMessage,
+  loading = false
 }) => {
   const textareaRef = useRef(null);
   const [localRetrying, setLocalRetrying] = useState(false);
@@ -143,7 +147,7 @@ const ManifestModal = ({
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
-    a.download = `${podName}-manifest.yaml`;
+    a.download = `${podName || 'resource'}-manifest.yaml`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -180,10 +184,10 @@ const ManifestModal = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className={`text-lg leading-6 font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-                  Pod Manifest
+                  {title || 'Pod Manifest'}
                 </h3>
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {namespace}/{podName}
+                  {subtitle || `${namespace}/${podName}`}
                 </p>
               </div>
               <div className="flex items-center space-x-2">
@@ -231,6 +235,20 @@ const ManifestModal = ({
               </div>
             )}
 
+            {/* Info / loading messages */}
+            {infoMessage && (
+              <div
+                role="status"
+                className={`mb-3 rounded-md border px-4 py-3 text-sm ${
+                  isDark
+                    ? 'bg-blue-900/30 border-blue-700 text-blue-200'
+                    : 'bg-blue-50 border-blue-200 text-blue-800'
+                }`}
+              >
+                {infoMessage}
+              </div>
+            )}
+
             {/* Content - Highlighted YAML */}
             <div className="mt-4">
               <div
@@ -241,7 +259,9 @@ const ManifestModal = ({
                 }`}
                 style={{ fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace' }}
               >
-                {manifest ? (
+                {loading ? (
+                  <span className={isDark ? 'text-gray-400' : 'text-gray-500'}># Loading manifest...</span>
+                ) : manifest ? (
                   <pre className="text-sm leading-relaxed">
                     {highlightedLines.map((line) => (
                       <div
@@ -263,6 +283,8 @@ const ManifestModal = ({
                       </div>
                     ))}
                   </pre>
+                ) : infoMessage ? (
+                  <span className={isDark ? 'text-gray-500' : 'text-gray-500'}># Manifest not shown — see message above</span>
                 ) : (
                   <span className={isDark ? 'text-gray-500' : 'text-gray-500'}># No manifest available</span>
                 )}

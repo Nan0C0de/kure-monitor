@@ -15,6 +15,7 @@ from .routes_metrics import create_metrics_ingest_router
 from .routes_logs import create_logs_router
 from .routes_llm import create_llm_router
 from .routes_mirror import create_mirror_router
+from .routes_diagram import create_diagram_router
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
     authed.include_router(create_logs_router(deps))
     authed.include_router(create_llm_router(deps))
     authed.include_router(create_users_router(deps))
+    authed.include_router(create_diagram_router(deps))
 
     if mirror_service:
         authed.include_router(create_mirror_router(deps, mirror_service))
