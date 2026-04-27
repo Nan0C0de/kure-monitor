@@ -101,7 +101,7 @@ jobs:
 
   deploy-agent:
     needs: [detect-changes, build-agent]
-    runs-on: [self-hosted, kind]
+    runs-on: kind
     steps:
       - uses: actions/checkout@v4
 
@@ -143,7 +143,7 @@ jobs:
 
   deploy-backend:
     needs: [detect-changes, build-backend]
-    runs-on: [self-hosted, kind]
+    runs-on: kind
     steps:
       - uses: actions/checkout@v4
 
@@ -185,7 +185,7 @@ jobs:
 
   deploy-frontend:
     needs: [detect-changes, build-frontend]
-    runs-on: [self-hosted, kind]
+    runs-on: kind
     steps:
       - uses: actions/checkout@v4
 
@@ -227,7 +227,7 @@ jobs:
 
   deploy-security-scanner:
     needs: [detect-changes, build-security-scanner]
-    runs-on: [self-hosted, kind]
+    runs-on: kind
     steps:
       - uses: actions/checkout@v4
 

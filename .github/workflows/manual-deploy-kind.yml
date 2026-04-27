@@ -98,7 +98,7 @@ jobs:
   deploy-backend:
     needs: [validate, build-backend]
     if: always() && inputs.deploy_backend && needs.validate.result == 'success' && (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped')
-    runs-on: [self-hosted, kind]
+    runs-on: kind
     steps:
       - uses: actions/checkout@v4
 
@@ -142,7 +142,7 @@ jobs:
   deploy-frontend:
     needs: [validate, build-frontend]
     if: always() && inputs.deploy_frontend && needs.validate.result == 'success' && (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped')
-    runs-on: [self-hosted, kind]
+    runs-on: kind
     steps:
       - uses: actions/checkout@v4
 
@@ -186,7 +186,7 @@ jobs:
   deploy-agent:
     needs: [validate, build-agent]
     if: always() && inputs.deploy_agent && needs.validate.result == 'success' && (needs.build-agent.result == 'success' || needs.build-agent.result == 'skipped')
-    runs-on: [self-hosted, kind]
+    runs-on: kind
     steps:
       - uses: actions/checkout@v4
 
@@ -230,7 +230,7 @@ jobs:
   deploy-security-scanner:
     needs: [validate, build-security-scanner]
     if: always() && inputs.deploy_security_scanner && needs.validate.result == 'success' && (needs.build-security-scanner.result == 'success' || needs.build-security-scanner.result == 'skipped')
-    runs-on: [self-hosted, kind]
+    runs-on: kind
     steps:
       - uses: actions/checkout@v4
 
