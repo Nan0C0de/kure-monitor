@@ -4,7 +4,6 @@ import { api } from '../../services/api';
 
 const ROLES = ['write', 'read'];
 const DEFAULT_EXPIRES_HOURS = 72;
-const MAX_EXPIRES_HOURS = 720;
 
 const buildInviteUrl = (inviteUrlPath) => {
   if (!inviteUrlPath) return '';
@@ -19,6 +18,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
   const [creating, setCreating] = useState(false);
   const [newRole, setNewRole] = useState('read');
   const [newExpires, setNewExpires] = useState(DEFAULT_EXPIRES_HOURS);
+  const [permanent, setPermanent] = useState(true);
   const [createdInvite, setCreatedInvite] = useState(null);
   const [copied, setCopied] = useState(false);
 
@@ -40,6 +40,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
   const openModal = () => {
     setNewRole('read');
     setNewExpires(DEFAULT_EXPIRES_HOURS);
+    setPermanent(true);
     setCreatedInvite(null);
     setCopied(false);
     setShowModal(true);
@@ -55,8 +56,10 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
     e.preventDefault();
     setCreating(true);
     try {
-      const hours = Math.min(Math.max(parseInt(newExpires, 10) || DEFAULT_EXPIRES_HOURS, 1), MAX_EXPIRES_HOURS);
-      const result = await api.createInvitation({ role: newRole, expiresInHours: hours });
+      const expiresInHours = permanent
+        ? null
+        : Math.max(parseInt(newExpires, 10) || DEFAULT_EXPIRES_HOURS, 1);
+      const result = await api.createInvitation({ role: newRole, expiresInHours });
       setCreatedInvite(result);
       onSuccess?.('Invitation created');
       await fetchInvitations();
@@ -168,7 +171,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                     {formatDate(inv.created_at)}
                   </td>
                   <td className={`px-4 py-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {formatDate(inv.expires_at)}
+                    {inv.expires_at ? formatDate(inv.expires_at) : 'Never'}
                   </td>
                   <td className={`px-4 py-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                     {inv.created_by || inv.created_by_username || '—'}
@@ -233,23 +236,38 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                   </div>
 
                   <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <label className={`flex items-center gap-2 text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={permanent}
+                        onChange={(e) => setPermanent(e.target.checked)}
+                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      Permanent invite (never expires)
+                    </label>
+                    <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                      Permanent invitations remain revocable from this list.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'} ${permanent ? 'opacity-50' : ''}`}>
                       Expires in (hours)
                     </label>
                     <input
                       type="number"
                       min={1}
-                      max={MAX_EXPIRES_HOURS}
                       value={newExpires}
                       onChange={(e) => setNewExpires(e.target.value)}
-                      className={`w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                      disabled={permanent}
+                      className={`w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isDark
                           ? 'bg-gray-900 border-gray-600 text-white'
                           : 'bg-white border-gray-300 text-gray-900'
                       }`}
                     />
-                    <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                      Default {DEFAULT_EXPIRES_HOURS} hours, maximum {MAX_EXPIRES_HOURS} hours.
+                    <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'} ${permanent ? 'opacity-50' : ''}`}>
+                      Default {DEFAULT_EXPIRES_HOURS} hours. Used only when "Permanent invite" is unchecked.
                     </p>
                   </div>
 

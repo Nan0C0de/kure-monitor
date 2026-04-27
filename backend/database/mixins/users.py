@@ -102,10 +102,18 @@ class UserMixin:
         token: str,
         role: str,
         created_by: Optional[int],
-        expires_in_hours: int = 72,
+        expires_in_hours: Optional[int] = 72,
     ) -> dict:
-        """Insert a new invitation. Returns {id, token, role, expires_at, created_at}."""
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=expires_in_hours)
+        """Insert a new invitation. Returns {id, token, role, expires_at, created_at}.
+
+        Pass `expires_in_hours=None` for a permanent invitation (no expiry).
+        Permanent invitations remain revocable via delete_invitation.
+        """
+        expires_at = (
+            None
+            if expires_in_hours is None
+            else datetime.now(timezone.utc) + timedelta(hours=expires_in_hours)
+        )
         async with self._acquire() as conn:
             row = await conn.fetchrow(
                 """
@@ -143,13 +151,17 @@ class UserMixin:
             return _invitation_row_to_dict(row) if row else None
 
     async def list_active_invitations(self) -> list[dict]:
-        """List invitations that are not used and not expired."""
+        """List invitations that are not used and not expired.
+
+        Permanent invitations (expires_at IS NULL) are included as long as they
+        have not been consumed.
+        """
         async with self._acquire() as conn:
             rows = await conn.fetch(
                 """
                 SELECT id, token, role, created_by, expires_at, used_at, used_by, created_at
                 FROM invitations
-                WHERE used_at IS NULL AND expires_at > now()
+                WHERE used_at IS NULL AND (expires_at IS NULL OR expires_at > now())
                 ORDER BY created_at DESC
                 """
             )

@@ -367,18 +367,24 @@ class PostgreSQLDatabase(
                     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
                 """)
 
-                # Create invitations table
+                # Create invitations table.
+                # expires_at NULL means a permanent (non-expiring) invitation.
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS invitations (
                         id SERIAL PRIMARY KEY,
                         token VARCHAR(64) UNIQUE NOT NULL,
                         role VARCHAR(16) NOT NULL CHECK (role IN ('write', 'read')),
                         created_by INT REFERENCES users(id) ON DELETE SET NULL,
-                        expires_at TIMESTAMPTZ NOT NULL,
+                        expires_at TIMESTAMPTZ,
                         used_at TIMESTAMPTZ,
                         used_by INT REFERENCES users(id) ON DELETE SET NULL,
                         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                     )
+                """)
+                # Migration for clusters created before permanent invitations existed:
+                # drop the NOT NULL constraint on expires_at (idempotent, no-op if already dropped).
+                await conn.execute("""
+                    ALTER TABLE invitations ALTER COLUMN expires_at DROP NOT NULL
                 """)
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token)

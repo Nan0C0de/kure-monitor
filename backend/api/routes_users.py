@@ -18,7 +18,8 @@ class UpdateRoleRequest(BaseModel):
 
 class CreateInvitationRequest(BaseModel):
     role: str = Field(..., description="One of 'write', 'read'")
-    expires_in_hours: int = Field(72, ge=1, le=720)
+    # None means the invitation never expires (still revocable by admin).
+    expires_in_hours: Optional[int] = Field(72, ge=1)
 
 
 def _public_user(user: dict) -> dict:

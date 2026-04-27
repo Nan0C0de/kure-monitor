@@ -391,6 +391,59 @@ async def test_invitation_revoke(auth_app):
         await admin.aclose()
 
 
+@pytest.mark.asyncio
+async def test_invitation_permanent_no_expiry(auth_app):
+    """Permanent invitation: expires_in_hours=null → expires_at is null,
+    invite is valid for lookup and acceptance, and shows up in the active list."""
+    admin = await _setup_admin(auth_app)
+    try:
+        inv = await admin.post(
+            "/api/admin/invitations",
+            json={"role": "read", "expires_in_hours": None},
+        )
+        assert inv.status_code == 200, inv.text
+        body = inv.json()
+        assert body["expires_at"] is None
+        token = body["token"]
+
+        # Lookup works and reports null expires_at
+        lookup = await admin.get(f"/api/auth/invitation/{token}")
+        assert lookup.status_code == 200
+        assert lookup.json()["expires_at"] is None
+
+        # Permanent invite appears in the active list
+        listed = await admin.get("/api/admin/invitations")
+        assert listed.status_code == 200
+        ids = [i["id"] for i in listed.json()]
+        assert body["id"] in ids
+
+        # Accept it as a new user — should succeed (no expiry to check)
+        transport = ASGITransport(app=auth_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            ok = await c.post(
+                "/api/auth/accept-invitation",
+                json={"token": token, "username": "permuser", "password": "password123"},
+            )
+            assert ok.status_code == 200, ok.text
+    finally:
+        await admin.aclose()
+
+
+@pytest.mark.asyncio
+async def test_invitation_long_expiry_above_old_cap(auth_app):
+    """Backend no longer enforces a 720-hour cap. A 1-year value (8760h) must be accepted."""
+    admin = await _setup_admin(auth_app)
+    try:
+        inv = await admin.post(
+            "/api/admin/invitations",
+            json={"role": "read", "expires_in_hours": 8760},
+        )
+        assert inv.status_code == 200, inv.text
+        assert inv.json()["expires_at"] is not None
+    finally:
+        await admin.aclose()
+
+
 # ---------------------------------------------------------------------------
 # Service token (ingest endpoints)
 # ---------------------------------------------------------------------------

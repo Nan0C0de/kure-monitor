@@ -56,11 +56,11 @@ describe('InvitationsManager', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /create invitation/i }));
 
-    // Modal is open — submit the form with defaults.
+    // Modal is open. Default is permanent (checkbox checked) → submit sends null.
     fireEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     await waitFor(() => {
-      expect(createInvitationMock).toHaveBeenCalledWith({ role: 'read', expiresInHours: 72 });
+      expect(createInvitationMock).toHaveBeenCalledWith({ role: 'read', expiresInHours: null });
     });
 
     // Success view with the URL.
@@ -73,6 +73,66 @@ describe('InvitationsManager', () => {
     expect(code.textContent).toContain(window.location.origin);
 
     expect(screen.getByLabelText(/copy invitation link/i)).toBeInTheDocument();
+  });
+
+  test('permanent invite checkbox is checked by default and the hours input is disabled', async () => {
+    getInvitationsMock.mockResolvedValueOnce([]);
+    render(<InvitationsManager isDark={false} onError={jest.fn()} onSuccess={jest.fn()} />);
+    await screen.findByText(/no active invitations/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /create invitation/i }));
+
+    const permanentCheckbox = screen.getByRole('checkbox', { name: /permanent invite/i });
+    expect(permanentCheckbox).toBeChecked();
+
+    // The number input (hours) should be disabled while permanent is checked.
+    const hoursInput = screen.getByRole('spinbutton');
+    expect(hoursInput).toBeDisabled();
+  });
+
+  test('unchecking permanent enables the hours input and submit sends the parsed hours', async () => {
+    getInvitationsMock.mockResolvedValueOnce([]);
+    createInvitationMock.mockResolvedValueOnce({
+      id: 2,
+      role: 'write',
+      invite_url_path: '/invite/some-token',
+    });
+    getInvitationsMock.mockResolvedValueOnce([]);
+
+    render(<InvitationsManager isDark={false} onError={jest.fn()} onSuccess={jest.fn()} />);
+    await screen.findByText(/no active invitations/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /create invitation/i }));
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /permanent invite/i }));
+
+    const hoursInput = screen.getByRole('spinbutton');
+    expect(hoursInput).not.toBeDisabled();
+    fireEvent.change(hoursInput, { target: { value: '168' } });
+
+    // Role select is the only combobox in the modal.
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'write' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^create$/i }));
+
+    await waitFor(() => {
+      expect(createInvitationMock).toHaveBeenCalledWith({ role: 'write', expiresInHours: 168 });
+    });
+  });
+
+  test('renders "Never" in the expires column for invitations with no expiry', async () => {
+    getInvitationsMock.mockResolvedValueOnce([
+      {
+        id: 99,
+        role: 'read',
+        created_at: '2026-01-01T00:00:00Z',
+        expires_at: null,
+        created_by: 'admin',
+      },
+    ]);
+    render(<InvitationsManager isDark={false} onError={jest.fn()} onSuccess={jest.fn()} />);
+    await screen.findByText('read');
+    expect(screen.getByText('Never')).toBeInTheDocument();
   });
 
   test('revoke button calls revokeInvitation after confirm', async () => {
