@@ -699,6 +699,26 @@ export const api = {
     return response.json();
   },
 
+  getDiagramRoles: async () => {
+    const response = await authFetch(`${API_BASE}/api/diagram/roles`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getDiagramRole: async (namespace, name) => {
+    const url = `${API_BASE}/api/diagram/role/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`;
+    const response = await authFetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getDiagramClusterRole: async (name) => {
+    const url = `${API_BASE}/api/diagram/clusterrole/${encodeURIComponent(name)}`;
+    const response = await authFetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   getResourceManifest: async (namespace, kind, name) => {
     const url = `${API_BASE}/api/diagram/manifest/${encodeURIComponent(namespace)}/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`;
     const response = await authFetch(url);

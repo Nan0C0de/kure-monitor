@@ -10,8 +10,12 @@ import {
   Lock,
   Database,
   User,
+  Users,
   TrendingUp,
   Shield,
+  ShieldCheck,
+  Key,
+  Link as LinkIcon,
   RefreshCw,
   Calendar,
   Briefcase,
@@ -36,6 +40,14 @@ const KIND_STYLE = {
   NetworkPolicy:           { icon: Shield,       light: 'bg-orange-50 border-orange-300 text-orange-900',     dark: 'bg-orange-900/40 border-orange-700 text-orange-100' },
   Job:                     { icon: Briefcase,    light: 'bg-slate-50 border-slate-300 text-slate-900',        dark: 'bg-slate-800/60 border-slate-600 text-slate-100' },
   CronJob:                 { icon: Calendar,     light: 'bg-stone-50 border-stone-300 text-stone-900',        dark: 'bg-stone-800/60 border-stone-600 text-stone-100' },
+  // RBAC kinds
+  Role:                    { icon: ShieldCheck,  light: 'bg-amber-50 border-amber-400 text-amber-900',        dark: 'bg-amber-900/40 border-amber-600 text-amber-100' },
+  ClusterRole:             { icon: ShieldCheck,  light: 'bg-amber-100 border-amber-500 text-amber-900',       dark: 'bg-amber-800/50 border-amber-500 text-amber-50' },
+  RoleBinding:             { icon: LinkIcon,     light: 'bg-indigo-50 border-indigo-300 text-indigo-900',     dark: 'bg-indigo-900/40 border-indigo-700 text-indigo-100' },
+  ClusterRoleBinding:      { icon: LinkIcon,     light: 'bg-indigo-100 border-indigo-400 text-indigo-900',    dark: 'bg-indigo-800/50 border-indigo-500 text-indigo-50' },
+  'Subject:User':          { icon: User,         light: 'bg-slate-50 border-slate-300 text-slate-900',        dark: 'bg-slate-800/60 border-slate-600 text-slate-100' },
+  'Subject:Group':         { icon: Users,        light: 'bg-slate-100 border-slate-400 text-slate-900',       dark: 'bg-slate-700/60 border-slate-500 text-slate-50' },
+  Permission:              { icon: Key,          light: 'bg-neutral-50 border-neutral-300 text-neutral-900',  dark: 'bg-neutral-800/60 border-neutral-600 text-neutral-100' },
 };
 
 const DEFAULT_STYLE = { icon: HelpCircle, light: 'bg-gray-50 border-gray-300 text-gray-900', dark: 'bg-gray-800 border-gray-600 text-gray-100' };

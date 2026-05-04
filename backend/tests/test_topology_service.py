@@ -25,13 +25,20 @@ from services.topology_service import (
     normalise_kind,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fake K8s objects (use SimpleNamespace so attribute access works).
 # ---------------------------------------------------------------------------
 
-def _meta(name, namespace, labels=None, annotations=None, owner_kind=None, owner_name=None,
-          creation_timestamp=None):
+
+def _meta(
+    name,
+    namespace,
+    labels=None,
+    annotations=None,
+    owner_kind=None,
+    owner_name=None,
+    creation_timestamp=None,
+):
     owners = []
     if owner_kind and owner_name:
         owners.append(SimpleNamespace(kind=owner_kind, name=owner_name))
@@ -45,14 +52,26 @@ def _meta(name, namespace, labels=None, annotations=None, owner_kind=None, owner
     )
 
 
-def _make_deployment(name, namespace, labels=None, replicas=2, image="nginx:1",
-                     volumes=None, env_from=None, env=None, service_account=None):
+def _make_deployment(
+    name,
+    namespace,
+    labels=None,
+    replicas=2,
+    image="nginx:1",
+    volumes=None,
+    env_from=None,
+    env=None,
+    service_account=None,
+):
     template_spec = SimpleNamespace(
-        containers=[SimpleNamespace(
-            name="app", image=image,
-            env_from=env_from or [],
-            env=env or [],
-        )],
+        containers=[
+            SimpleNamespace(
+                name="app",
+                image=image,
+                env_from=env_from or [],
+                env=env or [],
+            )
+        ],
         init_containers=[],
         volumes=volumes or [],
         service_account_name=service_account,
@@ -67,8 +86,15 @@ def _make_deployment(name, namespace, labels=None, replicas=2, image="nginx:1",
     )
 
 
-def _make_replica_set(name, namespace, deployment_name, replicas=2, revision="1",
-                       creation_timestamp="2025-01-01T00:00:00Z", labels=None):
+def _make_replica_set(
+    name,
+    namespace,
+    deployment_name,
+    replicas=2,
+    revision="1",
+    creation_timestamp="2025-01-01T00:00:00Z",
+    labels=None,
+):
     return SimpleNamespace(
         metadata=SimpleNamespace(
             name=name,
@@ -83,11 +109,19 @@ def _make_replica_set(name, namespace, deployment_name, replicas=2, revision="1"
     )
 
 
-def _make_pod(name, namespace, labels=None, owner_kind="ReplicaSet", owner_name="rs",
-              phase="Running", image="nginx:1"):
+def _make_pod(
+    name,
+    namespace,
+    labels=None,
+    owner_kind="ReplicaSet",
+    owner_name="rs",
+    phase="Running",
+    image="nginx:1",
+):
     return SimpleNamespace(
-        metadata=_meta(name, namespace, labels=labels, owner_kind=owner_kind,
-                       owner_name=owner_name),
+        metadata=_meta(
+            name, namespace, labels=labels, owner_kind=owner_kind, owner_name=owner_name
+        ),
         spec=SimpleNamespace(
             containers=[SimpleNamespace(name="app", image=image)],
         ),
@@ -107,7 +141,9 @@ def _make_service(name, namespace, selector, svc_type="ClusterIP", labels=None):
 
 def _make_endpoint_slice(name, namespace, service_name):
     return SimpleNamespace(
-        metadata=_meta(name, namespace, labels={"kubernetes.io/service-name": service_name}),
+        metadata=_meta(
+            name, namespace, labels={"kubernetes.io/service-name": service_name}
+        ),
     )
 
 
@@ -168,6 +204,7 @@ def _list_wrapper(items):
 # MagicMocks. Each test customises the mocks before calling.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def topo():
     svc = TopologyService()
@@ -178,6 +215,7 @@ def topo():
     svc._networking = MagicMock()
     svc._discovery = MagicMock()
     svc._autoscaling = MagicMock()
+    svc._rbac = MagicMock()
 
     # Default empty list responses
     svc._core.list_namespaced_pod.return_value = _list_wrapper([])
@@ -193,14 +231,22 @@ def topo():
     svc._batch.list_namespaced_cron_job.return_value = _list_wrapper([])
     svc._networking.list_namespaced_ingress.return_value = _list_wrapper([])
     svc._networking.list_namespaced_network_policy.return_value = _list_wrapper([])
-    svc._autoscaling.list_namespaced_horizontal_pod_autoscaler.return_value = _list_wrapper([])
+    svc._autoscaling.list_namespaced_horizontal_pod_autoscaler.return_value = (
+        _list_wrapper([])
+    )
     svc._discovery.list_namespaced_endpoint_slice.return_value = _list_wrapper([])
+    svc._rbac.list_cluster_role.return_value = _list_wrapper([])
+    svc._rbac.list_role_for_all_namespaces.return_value = _list_wrapper([])
+    svc._rbac.list_cluster_role_binding.return_value = _list_wrapper([])
+    svc._rbac.list_role_binding_for_all_namespaces.return_value = _list_wrapper([])
+    svc._rbac.list_namespaced_role_binding.return_value = _list_wrapper([])
     return svc
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestNormaliseKind:
     def test_lowercase_input(self):
@@ -248,18 +294,42 @@ class TestWorkloadTraversal:
     async def test_deployment_two_replica_sets_only_current_pods_linked(self, topo):
         ns = "default"
         dep = _make_deployment("api", ns, labels={"app": "api"})
-        rs_old = _make_replica_set("api-old", ns, "api", replicas=0, revision="1",
-                                    creation_timestamp="2025-01-01T00:00:00Z")
-        rs_new = _make_replica_set("api-new", ns, "api", replicas=2, revision="2",
-                                    creation_timestamp="2025-02-01T00:00:00Z")
+        rs_old = _make_replica_set(
+            "api-old",
+            ns,
+            "api",
+            replicas=0,
+            revision="1",
+            creation_timestamp="2025-01-01T00:00:00Z",
+        )
+        rs_new = _make_replica_set(
+            "api-new",
+            ns,
+            "api",
+            replicas=2,
+            revision="2",
+            creation_timestamp="2025-02-01T00:00:00Z",
+        )
         # Two pods owned by the new RS, none by the old RS
-        pod1 = _make_pod("api-new-aaa", ns, labels={"app": "api"},
-                         owner_kind="ReplicaSet", owner_name="api-new")
-        pod2 = _make_pod("api-new-bbb", ns, labels={"app": "api"},
-                         owner_kind="ReplicaSet", owner_name="api-new")
+        pod1 = _make_pod(
+            "api-new-aaa",
+            ns,
+            labels={"app": "api"},
+            owner_kind="ReplicaSet",
+            owner_name="api-new",
+        )
+        pod2 = _make_pod(
+            "api-new-bbb",
+            ns,
+            labels={"app": "api"},
+            owner_kind="ReplicaSet",
+            owner_name="api-new",
+        )
 
         topo._apps.read_namespaced_deployment.return_value = dep
-        topo._apps.list_namespaced_replica_set.return_value = _list_wrapper([rs_old, rs_new])
+        topo._apps.list_namespaced_replica_set.return_value = _list_wrapper(
+            [rs_old, rs_new]
+        )
         topo._core.list_namespaced_pod.return_value = _list_wrapper([pod1, pod2])
 
         result = await topo.get_workload_diagram(ns, "Deployment", "api")
@@ -295,8 +365,13 @@ class TestWorkloadTraversal:
         ns = "default"
         dep = _make_deployment("api", ns, labels={"app": "api"})
         rs = _make_replica_set("api-rs", ns, "api", replicas=1, revision="1")
-        pod = _make_pod("api-rs-x", ns, labels={"app": "api"},
-                        owner_kind="ReplicaSet", owner_name="api-rs")
+        pod = _make_pod(
+            "api-rs-x",
+            ns,
+            labels={"app": "api"},
+            owner_kind="ReplicaSet",
+            owner_name="api-rs",
+        )
         svc_match = _make_service("api-svc", ns, selector={"app": "api"})
         svc_nomatch = _make_service("other-svc", ns, selector={"app": "other"})
 
@@ -322,8 +397,13 @@ class TestWorkloadTraversal:
         ns = "default"
         dep = _make_deployment("api", ns, labels={"app": "api"})
         rs = _make_replica_set("api-rs", ns, "api", replicas=1)
-        pod = _make_pod("api-rs-x", ns, labels={"app": "api"},
-                        owner_kind="ReplicaSet", owner_name="api-rs")
+        pod = _make_pod(
+            "api-rs-x",
+            ns,
+            labels={"app": "api"},
+            owner_kind="ReplicaSet",
+            owner_name="api-rs",
+        )
         svc = _make_service("api-svc", ns, selector={"app": "api"})
         es = _make_endpoint_slice("api-svc-abc", ns, service_name="api-svc")
 
@@ -331,7 +411,9 @@ class TestWorkloadTraversal:
         topo._apps.list_namespaced_replica_set.return_value = _list_wrapper([rs])
         topo._core.list_namespaced_pod.return_value = _list_wrapper([pod])
         topo._core.list_namespaced_service.return_value = _list_wrapper([svc])
-        topo._discovery.list_namespaced_endpoint_slice.return_value = _list_wrapper([es])
+        topo._discovery.list_namespaced_endpoint_slice.return_value = _list_wrapper(
+            [es]
+        )
 
         result = await topo.get_workload_diagram(ns, "Deployment", "api")
         node_ids = {n.id for n in result.nodes}
@@ -350,8 +432,13 @@ class TestWorkloadTraversal:
         ns = "default"
         dep = _make_deployment("api", ns, labels={"app": "api"})
         rs = _make_replica_set("api-rs", ns, "api", replicas=1)
-        pod = _make_pod("api-rs-x", ns, labels={"app": "api"},
-                        owner_kind="ReplicaSet", owner_name="api-rs")
+        pod = _make_pod(
+            "api-rs-x",
+            ns,
+            labels={"app": "api"},
+            owner_kind="ReplicaSet",
+            owner_name="api-rs",
+        )
         svc = _make_service("api-svc", ns, selector={"app": "api"})
         ep = _make_endpoints("api-svc", ns)
 
@@ -413,7 +500,9 @@ class TestWorkloadTraversal:
             projected=None,
         )
         dep = _make_deployment(
-            "api", ns, labels={"app": "api"},
+            "api",
+            ns,
+            labels={"app": "api"},
             volumes=[cm_volume, pvc_volume],
         )
         cm = _make_configmap("my-config", ns)
@@ -421,7 +510,9 @@ class TestWorkloadTraversal:
 
         topo._apps.read_namespaced_deployment.return_value = dep
         topo._core.list_namespaced_config_map.return_value = _list_wrapper([cm])
-        topo._core.list_namespaced_persistent_volume_claim.return_value = _list_wrapper([pvc])
+        topo._core.list_namespaced_persistent_volume_claim.return_value = _list_wrapper(
+            [pvc]
+        )
 
         result = await topo.get_workload_diagram(ns, "Deployment", "api")
         node_ids = {n.id for n in result.nodes}
@@ -436,12 +527,16 @@ class TestWorkloadTraversal:
     @pytest.mark.asyncio
     async def test_secret_derived_from_envfrom_no_secrets_api_call(self, topo):
         ns = "default"
-        env_from = [SimpleNamespace(
-            config_map_ref=None,
-            secret_ref=SimpleNamespace(name="my-secret"),
-        )]
+        env_from = [
+            SimpleNamespace(
+                config_map_ref=None,
+                secret_ref=SimpleNamespace(name="my-secret"),
+            )
+        ]
         dep = _make_deployment(
-            "api", ns, labels={"app": "api"},
+            "api",
+            ns,
+            labels={"app": "api"},
             env_from=env_from,
         )
 
@@ -474,8 +569,13 @@ class TestWorkloadTraversal:
         ns = "default"
         dep = _make_deployment("api", ns, labels={"app": "api"})
         rs = _make_replica_set("api-rs", ns, "api", replicas=1)
-        pod = _make_pod("api-rs-x", ns, labels={"app": "api"},
-                        owner_kind="ReplicaSet", owner_name="api-rs")
+        pod = _make_pod(
+            "api-rs-x",
+            ns,
+            labels={"app": "api"},
+            owner_kind="ReplicaSet",
+            owner_name="api-rs",
+        )
         svc = _make_service("api-svc", ns, selector={"app": "api"})
         ing = _make_ingress("api-ing", ns, service_name="api-svc")
 
@@ -500,14 +600,21 @@ class TestWorkloadTraversal:
         ns = "default"
         dep = _make_deployment("api", ns, labels={"app": "api"})
         rs = _make_replica_set("api-rs", ns, "api", replicas=1)
-        pod = _make_pod("api-rs-x", ns, labels={"app": "api"},
-                        owner_kind="ReplicaSet", owner_name="api-rs")
+        pod = _make_pod(
+            "api-rs-x",
+            ns,
+            labels={"app": "api"},
+            owner_kind="ReplicaSet",
+            owner_name="api-rs",
+        )
         np = _make_netpol("api-np", ns, match_labels={"app": "api"})
 
         topo._apps.read_namespaced_deployment.return_value = dep
         topo._apps.list_namespaced_replica_set.return_value = _list_wrapper([rs])
         topo._core.list_namespaced_pod.return_value = _list_wrapper([pod])
-        topo._networking.list_namespaced_network_policy.return_value = _list_wrapper([np])
+        topo._networking.list_namespaced_network_policy.return_value = _list_wrapper(
+            [np]
+        )
 
         result = await topo.get_workload_diagram(ns, "Deployment", "api")
         policies = {(e.source, e.target) for e in result.edges if e.type == "policy"}
@@ -522,16 +629,25 @@ class TestNamespaceModeNetworkPolicy:
     async def test_netpol_count_on_workload_in_namespace_mode(self, topo):
         ns = "default"
         dep = _make_deployment("api", ns, labels={"app.kubernetes.io/name": "api"})
-        rs = _make_replica_set("api-rs", ns, "api", replicas=1, labels={"app.kubernetes.io/name": "api"})
-        pod = _make_pod("api-rs-x", ns, labels={"app.kubernetes.io/name": "api"},
-                        owner_kind="ReplicaSet", owner_name="api-rs")
+        rs = _make_replica_set(
+            "api-rs", ns, "api", replicas=1, labels={"app.kubernetes.io/name": "api"}
+        )
+        pod = _make_pod(
+            "api-rs-x",
+            ns,
+            labels={"app.kubernetes.io/name": "api"},
+            owner_kind="ReplicaSet",
+            owner_name="api-rs",
+        )
         np1 = _make_netpol("np-1", ns, match_labels={"app.kubernetes.io/name": "api"})
         np2 = _make_netpol("np-2", ns, match_labels={"app.kubernetes.io/name": "api"})
 
         topo._apps.list_namespaced_deployment.return_value = _list_wrapper([dep])
         topo._apps.list_namespaced_replica_set.return_value = _list_wrapper([rs])
         topo._core.list_namespaced_pod.return_value = _list_wrapper([pod])
-        topo._networking.list_namespaced_network_policy.return_value = _list_wrapper([np1, np2])
+        topo._networking.list_namespaced_network_policy.return_value = _list_wrapper(
+            [np1, np2]
+        )
 
         result = await topo.get_namespace_diagram(ns)
         # No 'policy' edges in namespace mode
@@ -539,7 +655,9 @@ class TestNamespaceModeNetworkPolicy:
         assert policy_edges == []
 
         # Workload node has nps_count=2
-        dep_node = next(n for n in result.nodes if n.kind == "Deployment" and n.name == "api")
+        dep_node = next(
+            n for n in result.nodes if n.kind == "Deployment" and n.name == "api"
+        )
         assert dep_node.metadata is not None
         assert dep_node.metadata.get("nps_count") == 2
 
@@ -564,6 +682,7 @@ class TestCache:
 # Manifest endpoint behaviour: tested via the route layer with a minimal app
 # (no database needed — these endpoints validate kind before any I/O).
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def diagram_client():
@@ -603,7 +722,9 @@ class TestDiagramRoutes:
     @pytest.mark.asyncio
     async def test_manifest_invalid_kind_returns_400(self, diagram_client):
         async with diagram_client as client:
-            resp = await client.get("/api/diagram/manifest/default/NotARealKind/anything")
+            resp = await client.get(
+                "/api/diagram/manifest/default/NotARealKind/anything"
+            )
         assert resp.status_code == 400
 
     @pytest.mark.asyncio
@@ -611,3 +732,323 @@ class TestDiagramRoutes:
         async with diagram_client as client:
             resp = await client.get("/api/diagram/workload/default/Pod/some-pod")
         assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# RBAC fakes / helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_role(name, namespace, rules=None, labels=None):
+    return SimpleNamespace(
+        metadata=_meta(name, namespace, labels=labels),
+        rules=rules or [],
+    )
+
+
+def _make_cluster_role(name, rules=None, labels=None):
+    # ClusterRole has no namespace.
+    return SimpleNamespace(
+        metadata=SimpleNamespace(
+            name=name,
+            namespace=None,
+            labels=labels or {},
+            annotations={},
+            owner_references=[],
+            creation_timestamp=None,
+        ),
+        rules=rules or [],
+    )
+
+
+def _make_rule(
+    api_groups, resources, verbs, resource_names=None, non_resource_urls=None
+):
+    return SimpleNamespace(
+        api_groups=api_groups,
+        resources=resources,
+        verbs=verbs,
+        resource_names=resource_names,
+        non_resource_urls=non_resource_urls,
+    )
+
+
+def _make_subject(kind, name, namespace=None):
+    return SimpleNamespace(kind=kind, name=name, namespace=namespace)
+
+
+def _make_role_binding(name, namespace, role_kind, role_name, subjects):
+    return SimpleNamespace(
+        metadata=_meta(name, namespace),
+        role_ref=SimpleNamespace(
+            kind=role_kind, name=role_name, api_group="rbac.authorization.k8s.io"
+        ),
+        subjects=subjects,
+    )
+
+
+def _make_cluster_role_binding(name, role_kind, role_name, subjects):
+    return SimpleNamespace(
+        metadata=SimpleNamespace(
+            name=name,
+            namespace=None,
+            labels={},
+            annotations={},
+            owner_references=[],
+            creation_timestamp=None,
+        ),
+        role_ref=SimpleNamespace(
+            kind=role_kind, name=role_name, api_group="rbac.authorization.k8s.io"
+        ),
+        subjects=subjects,
+    )
+
+
+# ---------------------------------------------------------------------------
+# RBAC tests
+# ---------------------------------------------------------------------------
+
+
+class TestListRoles:
+    @pytest.mark.asyncio
+    async def test_lists_and_sorts_both_kinds(self, topo):
+        cr_view = _make_cluster_role("view")
+        cr_admin = _make_cluster_role("cluster-admin")
+        r_a = _make_role("configmap-reader", "default")
+        r_b = _make_role("alpha", "zeta-ns")
+        r_c = _make_role("alpha", "alpha-ns")
+
+        topo._rbac.list_cluster_role.return_value = _list_wrapper([cr_view, cr_admin])
+        topo._rbac.list_role_for_all_namespaces.return_value = _list_wrapper(
+            [r_a, r_b, r_c]
+        )
+
+        result = await topo.list_roles()
+        assert "cluster_roles" in result and "roles" in result
+
+        cr_names = [c["name"] for c in result["cluster_roles"]]
+        assert cr_names == ["cluster-admin", "view"]
+
+        role_keys = [(r["namespace"], r["name"]) for r in result["roles"]]
+        # Sorted by (namespace, name)
+        assert role_keys == [
+            ("alpha-ns", "alpha"),
+            ("default", "configmap-reader"),
+            ("zeta-ns", "alpha"),
+        ]
+
+
+class TestClusterRoleDiagram:
+    @pytest.mark.asyncio
+    async def test_wildcard_rule_admin_like(self, topo):
+        # cluster-admin style: one wildcard rule.
+        rule = _make_rule(api_groups=["*"], resources=["*"], verbs=["*"])
+        cr = _make_cluster_role("cluster-admin", rules=[rule])
+
+        sa = _make_subject("ServiceAccount", "default", namespace="kube-system")
+        crb = _make_cluster_role_binding(
+            "cluster-admin-bind",
+            role_kind="ClusterRole",
+            role_name="cluster-admin",
+            subjects=[sa],
+        )
+
+        topo._rbac.read_cluster_role.return_value = cr
+        topo._rbac.list_cluster_role_binding.return_value = _list_wrapper([crb])
+
+        result = await topo.get_cluster_role_diagram("cluster-admin")
+        assert result.scope == "clusterrole"
+        assert result.root_id == "ClusterRole/--/cluster-admin"
+
+        kinds = {n.kind for n in result.nodes}
+        assert "ClusterRole" in kinds
+        assert "ClusterRoleBinding" in kinds
+        assert "ServiceAccount" in kinds
+        # At least one Permission node from the wildcard rule
+        perms = [n for n in result.nodes if n.kind == "Permission"]
+        assert len(perms) >= 1
+        assert perms[0].name == "*/*"
+
+        # Edges
+        types = {e.type for e in result.edges}
+        assert {"grants", "refs", "bound"}.issubset(types)
+
+    @pytest.mark.asyncio
+    async def test_finds_role_bindings_referencing_cluster_role(self, topo):
+        rule = _make_rule(api_groups=[""], resources=["pods"], verbs=["get"])
+        cr = _make_cluster_role("view", rules=[rule])
+
+        # A namespaced RoleBinding that references our ClusterRole — common pattern.
+        user = _make_subject("User", "alice")
+        rb = _make_role_binding(
+            "alice-view",
+            "team-ns",
+            role_kind="ClusterRole",
+            role_name="view",
+            subjects=[user],
+        )
+
+        topo._rbac.read_cluster_role.return_value = cr
+        topo._rbac.list_cluster_role_binding.return_value = _list_wrapper([])
+        topo._rbac.list_role_binding_for_all_namespaces.return_value = _list_wrapper(
+            [rb]
+        )
+
+        result = await topo.get_cluster_role_diagram("view")
+        node_ids = {n.id for n in result.nodes}
+        assert "RoleBinding/team-ns/alice-view" in node_ids
+        assert "Subject:User/--/alice" in node_ids
+
+        edges = {(e.source, e.target, e.type) for e in result.edges}
+        assert (
+            "RoleBinding/team-ns/alice-view",
+            "ClusterRole/--/view",
+            "refs",
+        ) in edges
+        assert (
+            "Subject:User/--/alice",
+            "RoleBinding/team-ns/alice-view",
+            "bound",
+        ) in edges
+
+    @pytest.mark.asyncio
+    async def test_non_resource_url_rule_emits_permission(self, topo):
+        rule = _make_rule(
+            api_groups=[],
+            resources=[],
+            verbs=["get"],
+            non_resource_urls=["/healthz", "/metrics"],
+        )
+        cr = _make_cluster_role("system:public-info-viewer", rules=[rule])
+        topo._rbac.read_cluster_role.return_value = cr
+
+        result = await topo.get_cluster_role_diagram("system:public-info-viewer")
+        perms = [n for n in result.nodes if n.kind == "Permission"]
+        names = sorted(p.name for p in perms)
+        assert names == ["/healthz", "/metrics"]
+        for p in perms:
+            assert p.metadata is not None
+            assert "nonResourceURL" in p.metadata
+            assert p.metadata["verbs"] == ["get"]
+
+
+class TestRoleDiagram:
+    @pytest.mark.asyncio
+    async def test_namespaced_role_with_role_binding(self, topo):
+        rule = _make_rule(
+            api_groups=[""], resources=["configmaps"], verbs=["get", "list"]
+        )
+        role = _make_role("configmap-reader", "default", rules=[rule])
+
+        sa = _make_subject("ServiceAccount", "reader-sa", namespace="default")
+        rb = _make_role_binding(
+            "reader-bind",
+            "default",
+            role_kind="Role",
+            role_name="configmap-reader",
+            subjects=[sa],
+        )
+
+        topo._rbac.read_namespaced_role.return_value = role
+        topo._rbac.list_namespaced_role_binding.return_value = _list_wrapper([rb])
+
+        result = await topo.get_role_diagram("default", "configmap-reader")
+        assert result.scope == "role"
+        assert result.root_id == "Role/default/configmap-reader"
+
+        node_ids = {n.id for n in result.nodes}
+        assert "Role/default/configmap-reader" in node_ids
+        assert "RoleBinding/default/reader-bind" in node_ids
+        assert "ServiceAccount/default/reader-sa" in node_ids
+
+        # Permission node carries verbs / apiGroup / resource
+        perm_node = next((n for n in result.nodes if n.kind == "Permission"), None)
+        assert perm_node is not None
+        assert perm_node.name == "core/configmaps"
+        assert perm_node.metadata is not None
+        assert perm_node.metadata["apiGroup"] == ""
+        assert perm_node.metadata["resource"] == "configmaps"
+        assert perm_node.metadata["verbs"] == ["get", "list"]
+
+        edges = {(e.source, e.target, e.type) for e in result.edges}
+        assert (
+            "RoleBinding/default/reader-bind",
+            "Role/default/configmap-reader",
+            "refs",
+        ) in edges
+        assert (
+            "ServiceAccount/default/reader-sa",
+            "RoleBinding/default/reader-bind",
+            "bound",
+        ) in edges
+        # And one grants edge from role to permission
+        assert any(e.type == "grants" for e in result.edges)
+
+    @pytest.mark.asyncio
+    async def test_subject_dedup_same_user_two_bindings(self, topo):
+        rule = _make_rule(api_groups=[""], resources=["pods"], verbs=["get"])
+        role = _make_role("pod-reader", "default", rules=[rule])
+
+        alice = _make_subject("User", "alice")
+        rb1 = _make_role_binding("bind-1", "default", "Role", "pod-reader", [alice])
+        rb2 = _make_role_binding("bind-2", "default", "Role", "pod-reader", [alice])
+
+        topo._rbac.read_namespaced_role.return_value = role
+        topo._rbac.list_namespaced_role_binding.return_value = _list_wrapper([rb1, rb2])
+
+        result = await topo.get_role_diagram("default", "pod-reader")
+
+        alice_nodes = [
+            n for n in result.nodes if n.kind == "Subject:User" and n.name == "alice"
+        ]
+        assert len(alice_nodes) == 1, "Alice should only appear once"
+
+        bound_edges = [
+            e
+            for e in result.edges
+            if e.type == "bound" and e.source == "Subject:User/--/alice"
+        ]
+        assert len(bound_edges) == 2
+
+    @pytest.mark.asyncio
+    async def test_role_not_found_propagates(self, topo):
+        # Simulate the kubernetes ApiException — but tests don't depend on the
+        # client lib, so use a generic exception. The route layer maps 404.
+        topo._rbac.read_namespaced_role.side_effect = RuntimeError("not found")
+        with pytest.raises(RuntimeError):
+            await topo.get_role_diagram("default", "missing")
+
+    @pytest.mark.asyncio
+    async def test_cluster_role_not_found_propagates(self, topo):
+        topo._rbac.read_cluster_role.side_effect = RuntimeError("not found")
+        with pytest.raises(RuntimeError):
+            await topo.get_cluster_role_diagram("missing")
+
+
+class TestRbacRoutes:
+    """Route-level smoke tests for the RBAC endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_roles_endpoint_503_when_k8s_unavailable(
+        self, diagram_client, monkeypatch
+    ):
+        # Force the K8S_AVAILABLE flag in the routes module to False
+        import api.routes_diagram as rd
+
+        monkeypatch.setattr(rd, "K8S_AVAILABLE", False)
+
+        async with diagram_client as client:
+            resp = await client.get("/api/diagram/roles")
+        assert resp.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_clusterrole_endpoint_503_when_k8s_unavailable(
+        self, diagram_client, monkeypatch
+    ):
+        import api.routes_diagram as rd
+
+        monkeypatch.setattr(rd, "K8S_AVAILABLE", False)
+
+        async with diagram_client as client:
+            resp = await client.get("/api/diagram/clusterrole/anything")
+        assert resp.status_code == 503

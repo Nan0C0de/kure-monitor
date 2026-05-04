@@ -12,7 +12,10 @@ import dagre from '@dagrejs/dagre';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { nodeTypes } from './nodeTypes';
 import ManifestModal from '../ManifestModal';
+import RbacSummaryModal from './RbacSummaryModal';
 import { api } from '../../services/api';
+
+const SYNTHESIZED_KINDS = new Set(['Permission', 'Subject:User', 'Subject:Group']);
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 70;
@@ -58,6 +61,27 @@ const EDGE_STYLE = {
     strokeWidth: 1.5,
     strokeDasharray: '6 4',
     markerEnd: { type: MarkerType.ArrowClosed, color: '#ea580c' },
+    animated: false,
+  },
+  bound: {
+    stroke: '#1d4ed8',
+    strokeWidth: 1.75,
+    strokeDasharray: undefined,
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#1d4ed8' },
+    animated: false,
+  },
+  refs: {
+    stroke: '#d97706',
+    strokeWidth: 1.75,
+    strokeDasharray: '6 4',
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#d97706' },
+    animated: false,
+  },
+  grants: {
+    stroke: '#059669',
+    strokeWidth: 1.75,
+    strokeDasharray: undefined,
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#059669' },
     animated: false,
   },
 };
@@ -176,6 +200,9 @@ const Legend = ({ isDark, groups, collapsedGroups, onToggleGroup }) => {
     { type: 'mounts', label: 'mounts', color: '#6b7280', dotted: true },
     { type: 'scales', label: 'scales', color: '#16a34a', dashed: false },
     { type: 'policy', label: 'policy', color: '#ea580c', dashed: true },
+    { type: 'bound', label: 'bound', color: '#1d4ed8', dashed: false },
+    { type: 'refs', label: 'refs', color: '#d97706', dashed: true },
+    { type: 'grants', label: 'grants', color: '#059669', dashed: false },
   ];
   return (
     <div
@@ -296,6 +323,13 @@ const Inner = ({ data, isDark }) => {
     loading: false,
     infoMessage: '',
   });
+  const [rbacModalState, setRbacModalState] = useState({
+    isOpen: false,
+    kind: '',
+    name: '',
+    namespace: '',
+    metadata: null,
+  });
   const { fitView } = useReactFlow();
 
   const { nodes: baseNodes, edges: baseEdges } = useMemo(
@@ -369,6 +403,19 @@ const Inner = ({ data, isDark }) => {
       return;
     }
     const { kind, name, namespace, metadata } = node.data;
+
+    // Synthesized RBAC nodes have no real K8s manifest; show a summary instead.
+    if (SYNTHESIZED_KINDS.has(kind)) {
+      setRbacModalState({
+        isOpen: true,
+        kind,
+        name,
+        namespace: namespace || '',
+        metadata: metadata || {},
+      });
+      return;
+    }
+
     const isDerivedSecret = kind === 'Secret' && metadata?.derived === true;
 
     setModalState({
@@ -407,6 +454,10 @@ const Inner = ({ data, isDark }) => {
 
   const closeModal = useCallback(() => {
     setModalState((s) => ({ ...s, isOpen: false }));
+  }, []);
+
+  const closeRbacModal = useCallback(() => {
+    setRbacModalState((s) => ({ ...s, isOpen: false }));
   }, []);
 
   const handleEdgeClick = useCallback((_evt, edge) => {
@@ -458,6 +509,15 @@ const Inner = ({ data, isDark }) => {
         subtitle={modalState.namespace ? `${modalState.namespace}/${modalState.name}` : modalState.name}
         infoMessage={modalState.infoMessage}
         loading={modalState.loading}
+      />
+      <RbacSummaryModal
+        isOpen={rbacModalState.isOpen}
+        onClose={closeRbacModal}
+        kind={rbacModalState.kind}
+        name={rbacModalState.name}
+        namespace={rbacModalState.namespace}
+        metadata={rbacModalState.metadata}
+        isDark={isDark}
       />
     </>
   );

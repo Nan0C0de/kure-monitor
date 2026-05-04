@@ -32,7 +32,9 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
     @router.get("/diagram/namespaces")
     async def list_diagram_namespaces():
         if not K8S_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Kubernetes client not available")
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
         try:
             namespaces = await service.list_namespaces()
         except RuntimeError as e:
@@ -45,7 +47,9 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
     @router.get("/diagram/namespace/{ns}", response_model=DiagramResponse)
     async def get_namespace_diagram(ns: str):
         if not K8S_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Kubernetes client not available")
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
         try:
             return await service.get_namespace_diagram(ns)
         except RuntimeError as e:
@@ -57,7 +61,9 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
     @router.get("/diagram/workload/{ns}/{kind}/{name}", response_model=DiagramResponse)
     async def get_workload_diagram(ns: str, kind: str, name: str):
         if not K8S_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Kubernetes client not available")
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
         normalised = normalise_kind(kind)
         if normalised not in WORKLOAD_ROOT_KINDS:
             raise HTTPException(
@@ -77,6 +83,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             # The kubernetes client raises ApiException; map 404 from K8s through.
             try:
                 from kubernetes.client import ApiException  # type: ignore
+
                 if isinstance(e, ApiException) and e.status == 404:
                     raise HTTPException(
                         status_code=404,
@@ -84,13 +91,17 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
                     )
             except ImportError:
                 pass
-            logger.error(f"Failed to build workload diagram for {ns}/{kind}/{name}: {e}")
+            logger.error(
+                f"Failed to build workload diagram for {ns}/{kind}/{name}: {e}"
+            )
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/diagram/manifest/{ns}/{kind}/{name}")
     async def get_diagram_manifest(ns: str, kind: str, name: str):
         if not K8S_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Kubernetes client not available")
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
 
         normalised = normalise_kind(kind)
         if normalised is None or normalised not in ALL_DIAGRAM_KINDS:
@@ -116,6 +127,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
         except Exception as e:
             try:
                 from kubernetes.client import ApiException  # type: ignore
+
                 if isinstance(e, ApiException):
                     if e.status == 404:
                         raise HTTPException(
@@ -134,5 +146,69 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             "name": name,
             "namespace": ns,
         }
+
+    # -- RBAC ---------------------------------------------------------------
+
+    @router.get("/diagram/roles")
+    async def list_diagram_roles():
+        if not K8S_AVAILABLE:
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
+        try:
+            return await service.list_roles()
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            logger.error(f"Failed to list roles/clusterroles: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/diagram/role/{namespace}/{name}", response_model=DiagramResponse)
+    async def get_role_diagram(namespace: str, name: str):
+        if not K8S_AVAILABLE:
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
+        try:
+            return await service.get_role_diagram(namespace, name)
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            try:
+                from kubernetes.client import ApiException  # type: ignore
+
+                if isinstance(e, ApiException) and e.status == 404:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Role '{name}' not found in namespace '{namespace}'",
+                    )
+            except ImportError:
+                pass
+            logger.error(f"Failed to build role diagram for {namespace}/{name}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/diagram/clusterrole/{name}", response_model=DiagramResponse)
+    async def get_cluster_role_diagram(name: str):
+        if not K8S_AVAILABLE:
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
+        try:
+            return await service.get_cluster_role_diagram(name)
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            try:
+                from kubernetes.client import ApiException  # type: ignore
+
+                if isinstance(e, ApiException) and e.status == 404:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"ClusterRole '{name}' not found",
+                    )
+            except ImportError:
+                pass
+            logger.error(f"Failed to build clusterrole diagram for {name}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     return router

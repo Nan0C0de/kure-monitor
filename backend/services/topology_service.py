@@ -19,12 +19,12 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 try:
     from kubernetes import client, config
+
     K8S_AVAILABLE = True
 except ImportError:
     K8S_AVAILABLE = False
 
 from models.models import DiagramEdge, DiagramGroup, DiagramNode, DiagramResponse
-
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +35,32 @@ WORKLOAD_ROOT_KINDS = {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob
 
 # All kinds the diagram can reference. Used by the manifest endpoint.
 ALL_DIAGRAM_KINDS = {
-    "Deployment", "ReplicaSet", "Pod", "Service", "Endpoints", "EndpointSlice",
-    "Ingress", "ConfigMap", "Secret", "PersistentVolumeClaim", "ServiceAccount",
-    "HorizontalPodAutoscaler", "NetworkPolicy",
-    "StatefulSet", "DaemonSet", "Job", "CronJob",
+    "Deployment",
+    "ReplicaSet",
+    "Pod",
+    "Service",
+    "Endpoints",
+    "EndpointSlice",
+    "Ingress",
+    "ConfigMap",
+    "Secret",
+    "PersistentVolumeClaim",
+    "ServiceAccount",
+    "HorizontalPodAutoscaler",
+    "NetworkPolicy",
+    "StatefulSet",
+    "DaemonSet",
+    "Job",
+    "CronJob",
+    # RBAC
+    "Role",
+    "ClusterRole",
+    "RoleBinding",
+    "ClusterRoleBinding",
 }
+
+# Cluster-scoped sentinel namespace for node IDs (matches frontend convention).
+CLUSTER_NS = "--"
 
 # Case-insensitive normalisation map.
 _KIND_NORMALISE = {k.lower(): k for k in ALL_DIAGRAM_KINDS}
@@ -82,7 +103,9 @@ def _group_value(labels: Optional[Dict[str, str]]) -> Optional[str]:
     return labels.get("app.kubernetes.io/name") or labels.get("app")
 
 
-def _selector_matches(selector: Optional[Dict[str, str]], labels: Optional[Dict[str, str]]) -> bool:
+def _selector_matches(
+    selector: Optional[Dict[str, str]], labels: Optional[Dict[str, str]]
+) -> bool:
     """Return True if the given equality selector matches the labels.
 
     We deliberately only support equality selectors on Services because the
@@ -98,7 +121,9 @@ def _selector_matches(selector: Optional[Dict[str, str]], labels: Optional[Dict[
     return True
 
 
-def _np_pod_selector_matches(pod_selector: Any, labels: Optional[Dict[str, str]]) -> bool:
+def _np_pod_selector_matches(
+    pod_selector: Any, labels: Optional[Dict[str, str]]
+) -> bool:
     """NetworkPolicy podSelector matcher.
 
     ``pod_selector`` can be a kubernetes client object or a plain dict. We
@@ -207,7 +232,9 @@ def _workload_status_short(obj: Any, kind: str) -> str:
         return f"{ready}/{desired} Ready"
     if kind == "DaemonSet":
         ready = _attr(status, "number_ready", "numberReady") or 0
-        desired = _attr(status, "desired_number_scheduled", "desiredNumberScheduled") or 0
+        desired = (
+            _attr(status, "desired_number_scheduled", "desiredNumberScheduled") or 0
+        )
         return f"{ready}/{desired} Ready"
     if kind == "Job":
         succeeded = _attr(status, "succeeded") or 0
@@ -238,6 +265,7 @@ def _replica_count(obj: Any) -> Optional[int]:
 
 # --- Cache -------------------------------------------------------------------
 
+
 class _TTLCache:
     def __init__(self, ttl: float):
         self._ttl = ttl
@@ -262,6 +290,7 @@ class _TTLCache:
 
 # --- Service -----------------------------------------------------------------
 
+
 class TopologyService:
     """Builds diagram graphs from the live K8s API."""
 
@@ -273,6 +302,7 @@ class TopologyService:
         self._networking: Any = None
         self._discovery: Any = None
         self._autoscaling: Any = None
+        self._rbac: Any = None
         self._cache = _TTLCache(CACHE_TTL_SECONDS)
 
     # -- K8s client init ----------------------------------------------------
@@ -299,6 +329,7 @@ class TopologyService:
         self._networking = client.NetworkingV1Api()
         self._discovery = client.DiscoveryV1Api()
         self._autoscaling = client.AutoscalingV1Api()
+        self._rbac = client.RbacAuthorizationV1Api()
         self._initialised = True
 
     async def _run(self, fn, *args, **kwargs):
@@ -326,11 +357,19 @@ class TopologyService:
         self._init_k8s()
 
         # Gather all top-level workloads
-        deployments = _items(await self._safe(self._apps.list_namespaced_deployment, namespace))
-        statefulsets = _items(await self._safe(self._apps.list_namespaced_stateful_set, namespace))
-        daemonsets = _items(await self._safe(self._apps.list_namespaced_daemon_set, namespace))
+        deployments = _items(
+            await self._safe(self._apps.list_namespaced_deployment, namespace)
+        )
+        statefulsets = _items(
+            await self._safe(self._apps.list_namespaced_stateful_set, namespace)
+        )
+        daemonsets = _items(
+            await self._safe(self._apps.list_namespaced_daemon_set, namespace)
+        )
         jobs = _items(await self._safe(self._batch.list_namespaced_job, namespace))
-        cronjobs = _items(await self._safe(self._batch.list_namespaced_cron_job, namespace))
+        cronjobs = _items(
+            await self._safe(self._batch.list_namespaced_cron_job, namespace)
+        )
 
         # Filter out Jobs that are owned by a CronJob — those will be picked up
         # via the CronJob workload traversal.
@@ -392,7 +431,9 @@ class TopologyService:
         self._cache.set(cache_key, response)
         return response
 
-    async def get_workload_diagram(self, namespace: str, kind: str, name: str) -> DiagramResponse:
+    async def get_workload_diagram(
+        self, namespace: str, kind: str, name: str
+    ) -> DiagramResponse:
         norm_kind = normalise_kind(kind)
         if norm_kind not in WORKLOAD_ROOT_KINDS:
             raise ValueError(
@@ -464,8 +505,12 @@ class TopologyService:
             sanitised.pop("status", None)
             md = sanitised.get("metadata") or {}
             for f in (
-                "managedFields", "resourceVersion", "uid",
-                "selfLink", "creationTimestamp", "generation",
+                "managedFields",
+                "resourceVersion",
+                "uid",
+                "selfLink",
+                "creationTimestamp",
+                "generation",
             ):
                 md.pop(f, None)
             sanitised["metadata"] = md
@@ -477,26 +522,48 @@ class TopologyService:
         try:
             return await self._run(fn, namespace)
         except Exception as e:
-            logger.warning(f"Topology: list call {fn.__name__} for ns={namespace} failed: {e}")
+            logger.warning(
+                f"Topology: list call {fn.__name__} for ns={namespace} failed: {e}"
+            )
             return None
 
     async def _fetch_namespace_context(self, namespace: str) -> Dict[str, Any]:
         """Fetch all the supporting lists once per request."""
         pods = _items(await self._safe(self._core.list_namespaced_pod, namespace))
-        replicasets = _items(await self._safe(self._apps.list_namespaced_replica_set, namespace))
-        services = _items(await self._safe(self._core.list_namespaced_service, namespace))
-        ingresses = _items(await self._safe(self._networking.list_namespaced_ingress, namespace))
-        hpas = _items(await self._safe(self._autoscaling.list_namespaced_horizontal_pod_autoscaler, namespace))
-        netpols = _items(await self._safe(self._networking.list_namespaced_network_policy, namespace))
+        replicasets = _items(
+            await self._safe(self._apps.list_namespaced_replica_set, namespace)
+        )
+        services = _items(
+            await self._safe(self._core.list_namespaced_service, namespace)
+        )
+        ingresses = _items(
+            await self._safe(self._networking.list_namespaced_ingress, namespace)
+        )
+        hpas = _items(
+            await self._safe(
+                self._autoscaling.list_namespaced_horizontal_pod_autoscaler, namespace
+            )
+        )
+        netpols = _items(
+            await self._safe(self._networking.list_namespaced_network_policy, namespace)
+        )
         jobs = _items(await self._safe(self._batch.list_namespaced_job, namespace))
-        pvcs = _items(await self._safe(self._core.list_namespaced_persistent_volume_claim, namespace))
-        configmaps = _items(await self._safe(self._core.list_namespaced_config_map, namespace))
+        pvcs = _items(
+            await self._safe(
+                self._core.list_namespaced_persistent_volume_claim, namespace
+            )
+        )
+        configmaps = _items(
+            await self._safe(self._core.list_namespaced_config_map, namespace)
+        )
 
         # EndpointSlice with fallback to Endpoints
         endpoint_slices: List[Any] = []
         endpoints: List[Any] = []
         try:
-            slice_list = await self._run(self._discovery.list_namespaced_endpoint_slice, namespace)
+            slice_list = await self._run(
+                self._discovery.list_namespaced_endpoint_slice, namespace
+            )
             endpoint_slices = _items(slice_list)
             if not endpoint_slices:
                 raise RuntimeError("empty slice list, fall back")
@@ -505,7 +572,9 @@ class TopologyService:
                 f"Topology: EndpointSlice unavailable or empty for ns={namespace} ({e}), "
                 f"falling back to Endpoints"
             )
-            endpoints = _items(await self._safe(self._core.list_namespaced_endpoints, namespace))
+            endpoints = _items(
+                await self._safe(self._core.list_namespaced_endpoints, namespace)
+            )
 
         return {
             "namespace": namespace,
@@ -548,7 +617,8 @@ class TopologyService:
         if kind == "Deployment":
             # Find owned ReplicaSets and figure out which is current.
             owned_rses = [
-                rs for rs in ctx["replicasets"]
+                rs
+                for rs in ctx["replicasets"]
                 if _has_owner_kind_name(rs, "Deployment", wname)
             ]
             current_rs = _current_replica_set(owned_rses)
@@ -557,7 +627,8 @@ class TopologyService:
                 add_edge(wid, rs_id, "owns")
                 if current_rs is not None and _meta_name(rs) == _meta_name(current_rs):
                     rs_pods = [
-                        p for p in ctx["pods"]
+                        p
+                        for p in ctx["pods"]
                         if _has_owner_kind_name(p, "ReplicaSet", _meta_name(rs))
                     ]
                     for pod in rs_pods:
@@ -566,20 +637,14 @@ class TopologyService:
                         related_pods.append(pod)
 
         elif kind in ("StatefulSet", "DaemonSet"):
-            sset_pods = [
-                p for p in ctx["pods"]
-                if _has_owner_kind_name(p, kind, wname)
-            ]
+            sset_pods = [p for p in ctx["pods"] if _has_owner_kind_name(p, kind, wname)]
             for pod in sset_pods:
                 pod_id = self._add_pod_node(pod, namespace, add_node)
                 add_edge(wid, pod_id, "owns")
                 related_pods.append(pod)
 
         elif kind == "Job":
-            job_pods = [
-                p for p in ctx["pods"]
-                if _has_owner_kind_name(p, "Job", wname)
-            ]
+            job_pods = [p for p in ctx["pods"] if _has_owner_kind_name(p, "Job", wname)]
             for pod in job_pods:
                 pod_id = self._add_pod_node(pod, namespace, add_node)
                 add_edge(wid, pod_id, "owns")
@@ -587,25 +652,25 @@ class TopologyService:
 
         elif kind == "CronJob":
             owned_jobs = [
-                j for j in ctx["jobs"]
-                if _has_owner_kind_name(j, "CronJob", wname)
+                j for j in ctx["jobs"] if _has_owner_kind_name(j, "CronJob", wname)
             ]
             for job in owned_jobs:
                 job_name = _meta_name(job)
                 job_id = make_node_id("Job", namespace, job_name)
-                add_node(DiagramNode(
-                    id=job_id,
-                    kind="Job",
-                    name=job_name,
-                    namespace=namespace,
-                    group=_group_value(_meta_labels(job)),
-                    status=_workload_status_short(job, "Job"),
-                    metadata={"labels": _trim_labels(_meta_labels(job))},
-                ))
+                add_node(
+                    DiagramNode(
+                        id=job_id,
+                        kind="Job",
+                        name=job_name,
+                        namespace=namespace,
+                        group=_group_value(_meta_labels(job)),
+                        status=_workload_status_short(job, "Job"),
+                        metadata={"labels": _trim_labels(_meta_labels(job))},
+                    )
+                )
                 add_edge(wid, job_id, "owns")
                 job_pods = [
-                    p for p in ctx["pods"]
-                    if _has_owner_kind_name(p, "Job", job_name)
+                    p for p in ctx["pods"] if _has_owner_kind_name(p, "Job", job_name)
                 ]
                 for pod in job_pods:
                     pod_id = self._add_pod_node(pod, namespace, add_node)
@@ -613,19 +678,21 @@ class TopologyService:
                     related_pods.append(pod)
 
         # Add the workload node itself (after pods so we have status info if needed).
-        add_node(DiagramNode(
-            id=wid,
-            kind=kind,
-            name=wname,
-            namespace=namespace,
-            group=_group_value(wlabels),
-            status=_workload_status_short(workload, kind),
-            metadata={
-                "labels": _trim_labels(wlabels),
-                "replicas": _replica_count(workload),
-                "image": _container_image(workload),
-            },
-        ))
+        add_node(
+            DiagramNode(
+                id=wid,
+                kind=kind,
+                name=wname,
+                namespace=namespace,
+                group=_group_value(wlabels),
+                status=_workload_status_short(workload, kind),
+                metadata={
+                    "labels": _trim_labels(wlabels),
+                    "replicas": _replica_count(workload),
+                    "image": _container_image(workload),
+                },
+            )
+        )
 
         # Services that select these pods
         related_services: List[Any] = []
@@ -633,7 +700,9 @@ class TopologyService:
             sel = _attr(_attr(svc, "spec"), "selector") or {}
             if not sel:
                 continue
-            sel_pods = [p for p in related_pods if _selector_matches(sel, _meta_labels(p))]
+            sel_pods = [
+                p for p in related_pods if _selector_matches(sel, _meta_labels(p))
+            ]
             if not sel_pods:
                 continue
             svc_id = self._add_service_node(svc, namespace, add_node)
@@ -648,37 +717,42 @@ class TopologyService:
             svc_id = make_node_id("Service", namespace, svc_name)
 
             slice_match = [
-                es for es in ctx["endpoint_slices"]
+                es
+                for es in ctx["endpoint_slices"]
                 if (_meta_labels(es).get("kubernetes.io/service-name") == svc_name)
             ]
             if slice_match:
                 for es in slice_match:
                     es_name = _meta_name(es)
                     es_id = make_node_id("EndpointSlice", namespace, es_name)
-                    add_node(DiagramNode(
-                        id=es_id,
-                        kind="EndpointSlice",
-                        name=es_name,
-                        namespace=namespace,
-                        group=_group_value(_meta_labels(es)),
-                        status=None,
-                        metadata={"labels": _trim_labels(_meta_labels(es))},
-                    ))
+                    add_node(
+                        DiagramNode(
+                            id=es_id,
+                            kind="EndpointSlice",
+                            name=es_name,
+                            namespace=namespace,
+                            group=_group_value(_meta_labels(es)),
+                            status=None,
+                            metadata={"labels": _trim_labels(_meta_labels(es))},
+                        )
+                    )
                     add_edge(svc_id, es_id, "routes")
             else:
                 # Endpoints fallback: match by name (Endpoints share name with Service)
                 ep_match = [e for e in ctx["endpoints"] if _meta_name(e) == svc_name]
                 for ep in ep_match:
                     ep_id = make_node_id("Endpoints", namespace, svc_name)
-                    add_node(DiagramNode(
-                        id=ep_id,
-                        kind="Endpoints",
-                        name=svc_name,
-                        namespace=namespace,
-                        group=_group_value(_meta_labels(ep)),
-                        status=None,
-                        metadata={"labels": _trim_labels(_meta_labels(ep))},
-                    ))
+                    add_node(
+                        DiagramNode(
+                            id=ep_id,
+                            kind="Endpoints",
+                            name=svc_name,
+                            namespace=namespace,
+                            group=_group_value(_meta_labels(ep)),
+                            status=None,
+                            metadata={"labels": _trim_labels(_meta_labels(ep))},
+                        )
+                    )
                     add_edge(svc_id, ep_id, "routes")
 
         # Ingresses that route to those services
@@ -690,15 +764,17 @@ class TopologyService:
                 continue
             ing_name = _meta_name(ing)
             ing_id = make_node_id("Ingress", namespace, ing_name)
-            add_node(DiagramNode(
-                id=ing_id,
-                kind="Ingress",
-                name=ing_name,
-                namespace=namespace,
-                group=_group_value(_meta_labels(ing)),
-                status=None,
-                metadata={"labels": _trim_labels(_meta_labels(ing))},
-            ))
+            add_node(
+                DiagramNode(
+                    id=ing_id,
+                    kind="Ingress",
+                    name=ing_name,
+                    namespace=namespace,
+                    group=_group_value(_meta_labels(ing)),
+                    status=None,
+                    metadata={"labels": _trim_labels(_meta_labels(ing))},
+                )
+            )
             for svc_name in hits:
                 svc_id = make_node_id("Service", namespace, svc_name)
                 add_edge(ing_id, svc_id, "routes")
@@ -713,15 +789,17 @@ class TopologyService:
             if t_kind == kind and t_name == wname:
                 hpa_name = _meta_name(hpa)
                 hpa_id = make_node_id("HorizontalPodAutoscaler", namespace, hpa_name)
-                add_node(DiagramNode(
-                    id=hpa_id,
-                    kind="HorizontalPodAutoscaler",
-                    name=hpa_name,
-                    namespace=namespace,
-                    group=_group_value(_meta_labels(hpa)),
-                    status=None,
-                    metadata={"labels": _trim_labels(_meta_labels(hpa))},
-                ))
+                add_node(
+                    DiagramNode(
+                        id=hpa_id,
+                        kind="HorizontalPodAutoscaler",
+                        name=hpa_name,
+                        namespace=namespace,
+                        group=_group_value(_meta_labels(hpa)),
+                        status=None,
+                        metadata={"labels": _trim_labels(_meta_labels(hpa))},
+                    )
+                )
                 add_edge(hpa_id, wid, "scales")
 
         # NetworkPolicies whose podSelector matches the workload pods
@@ -739,15 +817,17 @@ class TopologyService:
             for np in matching_nps:
                 np_name = _meta_name(np)
                 np_id = make_node_id("NetworkPolicy", namespace, np_name)
-                add_node(DiagramNode(
-                    id=np_id,
-                    kind="NetworkPolicy",
-                    name=np_name,
-                    namespace=namespace,
-                    group=_group_value(_meta_labels(np)),
-                    status=None,
-                    metadata={"labels": _trim_labels(_meta_labels(np))},
-                ))
+                add_node(
+                    DiagramNode(
+                        id=np_id,
+                        kind="NetworkPolicy",
+                        name=np_name,
+                        namespace=namespace,
+                        group=_group_value(_meta_labels(np)),
+                        status=None,
+                        metadata={"labels": _trim_labels(_meta_labels(np))},
+                    )
+                )
                 ps = _attr(_attr(np, "spec"), "pod_selector", "podSelector")
                 for pod in related_pods:
                     if _np_pod_selector_matches(ps, _meta_labels(pod)):
@@ -756,30 +836,36 @@ class TopologyService:
         elif nps_count:
             # Stamp the count on the workload node metadata for namespace mode.
             # `add_node` will merge metadata into the existing workload node.
-            add_node(DiagramNode(
-                id=wid,
-                kind=kind,
-                name=wname,
-                namespace=namespace,
-                metadata={"nps_count": nps_count},
-            ))
+            add_node(
+                DiagramNode(
+                    id=wid,
+                    kind=kind,
+                    name=wname,
+                    namespace=namespace,
+                    metadata={"nps_count": nps_count},
+                )
+            )
 
         # Mounts — ConfigMap / Secret / PVC nodes derived from the workload pod-spec
         cm_refs, secret_refs, pvc_refs = _collect_volume_refs(workload)
 
         # ServiceAccount
-        sa_name = _attr(_pod_spec_of(workload), "service_account_name", "serviceAccountName")
+        sa_name = _attr(
+            _pod_spec_of(workload), "service_account_name", "serviceAccountName"
+        )
         if sa_name:
             sa_id = make_node_id("ServiceAccount", namespace, sa_name)
-            add_node(DiagramNode(
-                id=sa_id,
-                kind="ServiceAccount",
-                name=sa_name,
-                namespace=namespace,
-                group=None,
-                status=None,
-                metadata={"derived": True},
-            ))
+            add_node(
+                DiagramNode(
+                    id=sa_id,
+                    kind="ServiceAccount",
+                    name=sa_name,
+                    namespace=namespace,
+                    group=None,
+                    status=None,
+                    metadata={"derived": True},
+                )
+            )
             add_edge(wid, sa_id, "mounts")
 
         # ConfigMaps — emit nodes; if it exists in ctx, we have full info, else mark derived
@@ -788,35 +874,41 @@ class TopologyService:
             cm_id = make_node_id("ConfigMap", namespace, cm_name)
             cm_obj = cm_by_name.get(cm_name)
             if cm_obj is not None:
-                add_node(DiagramNode(
-                    id=cm_id,
-                    kind="ConfigMap",
-                    name=cm_name,
-                    namespace=namespace,
-                    group=_group_value(_meta_labels(cm_obj)),
-                    status=None,
-                    metadata={"labels": _trim_labels(_meta_labels(cm_obj))},
-                ))
+                add_node(
+                    DiagramNode(
+                        id=cm_id,
+                        kind="ConfigMap",
+                        name=cm_name,
+                        namespace=namespace,
+                        group=_group_value(_meta_labels(cm_obj)),
+                        status=None,
+                        metadata={"labels": _trim_labels(_meta_labels(cm_obj))},
+                    )
+                )
             else:
-                add_node(DiagramNode(
-                    id=cm_id,
-                    kind="ConfigMap",
-                    name=cm_name,
-                    namespace=namespace,
-                    metadata={"derived": True},
-                ))
+                add_node(
+                    DiagramNode(
+                        id=cm_id,
+                        kind="ConfigMap",
+                        name=cm_name,
+                        namespace=namespace,
+                        metadata={"derived": True},
+                    )
+                )
             add_edge(wid, cm_id, "mounts")
 
         # Secrets — always derived (no RBAC); never call the API.
         for secret_name in secret_refs:
             sec_id = make_node_id("Secret", namespace, secret_name)
-            add_node(DiagramNode(
-                id=sec_id,
-                kind="Secret",
-                name=secret_name,
-                namespace=namespace,
-                metadata={"derived": True},
-            ))
+            add_node(
+                DiagramNode(
+                    id=sec_id,
+                    kind="Secret",
+                    name=secret_name,
+                    namespace=namespace,
+                    metadata={"derived": True},
+                )
+            )
             add_edge(wid, sec_id, "mounts")
 
         # PVCs
@@ -825,23 +917,27 @@ class TopologyService:
             pvc_id = make_node_id("PersistentVolumeClaim", namespace, pvc_name)
             pvc_obj = pvc_by_name.get(pvc_name)
             if pvc_obj is not None:
-                add_node(DiagramNode(
-                    id=pvc_id,
-                    kind="PersistentVolumeClaim",
-                    name=pvc_name,
-                    namespace=namespace,
-                    group=_group_value(_meta_labels(pvc_obj)),
-                    status=_attr(_attr(pvc_obj, "status"), "phase") or "Unknown",
-                    metadata={"labels": _trim_labels(_meta_labels(pvc_obj))},
-                ))
+                add_node(
+                    DiagramNode(
+                        id=pvc_id,
+                        kind="PersistentVolumeClaim",
+                        name=pvc_name,
+                        namespace=namespace,
+                        group=_group_value(_meta_labels(pvc_obj)),
+                        status=_attr(_attr(pvc_obj, "status"), "phase") or "Unknown",
+                        metadata={"labels": _trim_labels(_meta_labels(pvc_obj))},
+                    )
+                )
             else:
-                add_node(DiagramNode(
-                    id=pvc_id,
-                    kind="PersistentVolumeClaim",
-                    name=pvc_name,
-                    namespace=namespace,
-                    metadata={"derived": True},
-                ))
+                add_node(
+                    DiagramNode(
+                        id=pvc_id,
+                        kind="PersistentVolumeClaim",
+                        name=pvc_name,
+                        namespace=namespace,
+                        metadata={"derived": True},
+                    )
+                )
             add_edge(wid, pvc_id, "mounts")
 
     # -- Helpers ------------------------------------------------------------
@@ -849,35 +945,39 @@ class TopologyService:
     def _add_replica_set_node(self, rs: Any, namespace: str, add_node) -> str:
         rs_name = _meta_name(rs)
         rs_id = make_node_id("ReplicaSet", namespace, rs_name)
-        add_node(DiagramNode(
-            id=rs_id,
-            kind="ReplicaSet",
-            name=rs_name,
-            namespace=namespace,
-            group=_group_value(_meta_labels(rs)),
-            status=_workload_status_short(rs, "ReplicaSet"),
-            metadata={
-                "labels": _trim_labels(_meta_labels(rs)),
-                "replicas": _replica_count(rs),
-            },
-        ))
+        add_node(
+            DiagramNode(
+                id=rs_id,
+                kind="ReplicaSet",
+                name=rs_name,
+                namespace=namespace,
+                group=_group_value(_meta_labels(rs)),
+                status=_workload_status_short(rs, "ReplicaSet"),
+                metadata={
+                    "labels": _trim_labels(_meta_labels(rs)),
+                    "replicas": _replica_count(rs),
+                },
+            )
+        )
         return rs_id
 
     def _add_pod_node(self, pod: Any, namespace: str, add_node) -> str:
         pod_name = _meta_name(pod)
         pod_id = make_node_id("Pod", namespace, pod_name)
-        add_node(DiagramNode(
-            id=pod_id,
-            kind="Pod",
-            name=pod_name,
-            namespace=namespace,
-            group=_group_value(_meta_labels(pod)),
-            status=_pod_status_short(pod),
-            metadata={
-                "labels": _trim_labels(_meta_labels(pod)),
-                "image": _container_image(pod),
-            },
-        ))
+        add_node(
+            DiagramNode(
+                id=pod_id,
+                kind="Pod",
+                name=pod_name,
+                namespace=namespace,
+                group=_group_value(_meta_labels(pod)),
+                status=_pod_status_short(pod),
+                metadata={
+                    "labels": _trim_labels(_meta_labels(pod)),
+                    "image": _container_image(pod),
+                },
+            )
+        )
         return pod_id
 
     def _add_service_node(self, svc: Any, namespace: str, add_node) -> str:
@@ -885,18 +985,22 @@ class TopologyService:
         svc_id = make_node_id("Service", namespace, svc_name)
         spec = _attr(svc, "spec")
         svc_type = _attr(spec, "type") or "ClusterIP"
-        add_node(DiagramNode(
-            id=svc_id,
-            kind="Service",
-            name=svc_name,
-            namespace=namespace,
-            group=_group_value(_meta_labels(svc)),
-            status=svc_type,
-            metadata={"labels": _trim_labels(_meta_labels(svc))},
-        ))
+        add_node(
+            DiagramNode(
+                id=svc_id,
+                kind="Service",
+                name=svc_name,
+                namespace=namespace,
+                group=_group_value(_meta_labels(svc)),
+                status=svc_type,
+                metadata={"labels": _trim_labels(_meta_labels(svc))},
+            )
+        )
         return svc_id
 
-    def _build_groups(self, nodes: Dict[str, DiagramNode], roots: List[Tuple[str, Any]]) -> List[DiagramGroup]:
+    def _build_groups(
+        self, nodes: Dict[str, DiagramNode], roots: List[Tuple[str, Any]]
+    ) -> List[DiagramGroup]:
         """Assign every node to a group based on the workload it belongs to."""
         groups: Dict[str, List[str]] = {}
 
@@ -906,67 +1010,408 @@ class TopologyService:
 
         out: List[DiagramGroup] = []
         for label, node_ids in sorted(groups.items()):
-            out.append(DiagramGroup(
-                id=f"group:{label}",
-                label=label,
-                node_ids=sorted(node_ids),
-            ))
+            out.append(
+                DiagramGroup(
+                    id=f"group:{label}",
+                    label=label,
+                    node_ids=sorted(node_ids),
+                )
+            )
         return out
+
+    # -- RBAC ---------------------------------------------------------------
+
+    async def list_roles(self) -> Dict[str, List[Dict[str, str]]]:
+        """List all Roles and ClusterRoles across the cluster."""
+        cache_key = ("roles_list", "--", "--")
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            # We cache via a DiagramResponse normally; for the list we stash a
+            # response-shaped dict in metadata. Simpler: skip cache for the list.
+            pass
+
+        self._init_k8s()
+
+        try:
+            cr_list = await self._run(self._rbac.list_cluster_role)
+        except Exception as e:
+            logger.warning(f"Failed to list ClusterRoles: {e}")
+            cr_list = None
+        try:
+            r_list = await self._run(self._rbac.list_role_for_all_namespaces)
+        except Exception as e:
+            logger.warning(f"Failed to list Roles: {e}")
+            r_list = None
+
+        cluster_roles = [
+            {"name": _meta_name(cr)} for cr in _items(cr_list) if _meta_name(cr)
+        ]
+        roles = [
+            {"namespace": _meta_namespace(r), "name": _meta_name(r)}
+            for r in _items(r_list)
+            if _meta_name(r) and _meta_namespace(r)
+        ]
+        cluster_roles.sort(key=lambda x: x["name"])
+        roles.sort(key=lambda x: (x["namespace"], x["name"]))
+        return {"cluster_roles": cluster_roles, "roles": roles}
+
+    async def get_role_diagram(self, namespace: str, name: str) -> DiagramResponse:
+        """Build a graph for a namespaced Role: bindings, subjects, permissions."""
+        cache_key = ("role", namespace, name)
+        cached = self._cache.get(cache_key)
+        if cached:
+            return cached
+
+        self._init_k8s()
+        role = await self._run(self._rbac.read_namespaced_role, name, namespace)
+
+        # Find RoleBindings in the same namespace that reference this Role.
+        rb_list = await self._safe(self._rbac.list_namespaced_role_binding, namespace)
+        bindings: List[Tuple[str, Any]] = []  # (binding_kind, binding_obj)
+        for rb in _items(rb_list):
+            if _binding_refs(rb, "Role", name):
+                bindings.append(("RoleBinding", rb))
+
+        response = self._build_role_graph(
+            root_kind="Role",
+            root_namespace=namespace,
+            root_name=name,
+            role_obj=role,
+            bindings=bindings,
+        )
+        self._cache.set(cache_key, response)
+        return response
+
+    async def get_cluster_role_diagram(self, name: str) -> DiagramResponse:
+        """Build a graph for a ClusterRole: bindings (cluster + namespaced),
+        subjects, permissions."""
+        cache_key = ("clusterrole", CLUSTER_NS, name)
+        cached = self._cache.get(cache_key)
+        if cached:
+            return cached
+
+        self._init_k8s()
+        cr = await self._run(self._rbac.read_cluster_role, name)
+
+        bindings: List[Tuple[str, Any]] = []
+
+        # ClusterRoleBindings that reference this ClusterRole.
+        try:
+            crb_list = await self._run(self._rbac.list_cluster_role_binding)
+        except Exception as e:
+            logger.warning(f"Failed to list ClusterRoleBindings for {name}: {e}")
+            crb_list = None
+        for crb in _items(crb_list):
+            if _binding_refs(crb, "ClusterRole", name):
+                bindings.append(("ClusterRoleBinding", crb))
+
+        # RoleBindings (cluster-wide) that reference this ClusterRole.
+        try:
+            rb_list = await self._run(self._rbac.list_role_binding_for_all_namespaces)
+        except Exception as e:
+            logger.warning(f"Failed to list RoleBindings for ClusterRole {name}: {e}")
+            rb_list = None
+        for rb in _items(rb_list):
+            if _binding_refs(rb, "ClusterRole", name):
+                bindings.append(("RoleBinding", rb))
+
+        response = self._build_role_graph(
+            root_kind="ClusterRole",
+            root_namespace=CLUSTER_NS,
+            root_name=name,
+            role_obj=cr,
+            bindings=bindings,
+        )
+        self._cache.set(cache_key, response)
+        return response
+
+    def _build_role_graph(
+        self,
+        root_kind: str,
+        root_namespace: str,
+        root_name: str,
+        role_obj: Any,
+        bindings: List[Tuple[str, Any]],
+    ) -> DiagramResponse:
+        """Compose a DiagramResponse around a Role/ClusterRole root."""
+        nodes: Dict[str, DiagramNode] = {}
+        edges_set: set = set()
+        edges: List[DiagramEdge] = []
+
+        def _add_node(node: DiagramNode) -> None:
+            existing = nodes.get(node.id)
+            if existing is None:
+                nodes[node.id] = node
+                return
+            if node.metadata:
+                merged = dict(existing.metadata or {})
+                merged.update(node.metadata)
+                existing.metadata = merged
+
+        def _add_edge(source: str, target: str, etype: str) -> None:
+            key = (source, target, etype)
+            if key in edges_set:
+                return
+            edges_set.add(key)
+            edges.append(DiagramEdge(source=source, target=target, type=etype))
+
+        # Root Role / ClusterRole node
+        root_id = make_node_id(root_kind, root_namespace, root_name)
+        _add_node(
+            DiagramNode(
+                id=root_id,
+                kind=root_kind,
+                name=root_name,
+                namespace=root_namespace,
+                group=None,
+                status=None,
+                metadata={"labels": _trim_labels(_meta_labels(role_obj))},
+            )
+        )
+
+        # Permission nodes — one per (apiGroup, resource) tuple, plus one per
+        # nonResourceURL.
+        rules = _attr(role_obj, "rules") or []
+        for rule in rules:
+            api_groups = _attr(rule, "api_groups", "apiGroups") or [""]
+            resources = _attr(rule, "resources") or []
+            verbs = list(_attr(rule, "verbs") or [])
+            resource_names = _attr(rule, "resource_names", "resourceNames") or None
+            non_resource_urls = (
+                _attr(rule, "non_resource_urls", "nonResourceURLs") or None
+            )
+
+            # Standard resource rules
+            for grp in api_groups:
+                for res in resources:
+                    grp_label = grp if grp else "core"
+                    perm_id = (
+                        f"Permission/{root_namespace}/{root_name}/" f"{grp_label}/{res}"
+                    )
+                    perm_meta: Dict[str, Any] = {
+                        "apiGroup": grp,
+                        "resource": res,
+                        "verbs": verbs,
+                    }
+                    if resource_names:
+                        perm_meta["resourceNames"] = list(resource_names)
+                    _add_node(
+                        DiagramNode(
+                            id=perm_id,
+                            kind="Permission",
+                            name=f"{grp_label}/{res}",
+                            namespace=root_namespace,
+                            group=None,
+                            status=None,
+                            metadata=perm_meta,
+                        )
+                    )
+                    _add_edge(root_id, perm_id, "grants")
+
+            # Non-resource URL rules (cluster-roles only, but no harm checking).
+            if non_resource_urls:
+                for url in non_resource_urls:
+                    perm_id = (
+                        f"Permission/{root_namespace}/{root_name}/"
+                        f"nonResourceURL{url}"
+                    )
+                    _add_node(
+                        DiagramNode(
+                            id=perm_id,
+                            kind="Permission",
+                            name=url,
+                            namespace=root_namespace,
+                            group=None,
+                            status=None,
+                            metadata={
+                                "nonResourceURL": url,
+                                "verbs": verbs,
+                            },
+                        )
+                    )
+                    _add_edge(root_id, perm_id, "grants")
+
+        # Binding + subject nodes
+        for binding_kind, binding in bindings:
+            b_name = _meta_name(binding)
+            if not b_name:
+                continue
+            b_ns = _meta_namespace(binding) or CLUSTER_NS
+            b_id = make_node_id(binding_kind, b_ns, b_name)
+            _add_node(
+                DiagramNode(
+                    id=b_id,
+                    kind=binding_kind,
+                    name=b_name,
+                    namespace=b_ns,
+                    group=None,
+                    status=None,
+                    metadata={"labels": _trim_labels(_meta_labels(binding))},
+                )
+            )
+            _add_edge(b_id, root_id, "refs")
+
+            subjects = _attr(binding, "subjects") or []
+            for subj in subjects:
+                s_kind = _attr(subj, "kind")
+                s_name = _attr(subj, "name")
+                s_ns = _attr(subj, "namespace")
+                if not s_kind or not s_name:
+                    continue
+                if s_kind == "ServiceAccount":
+                    s_namespace = s_ns or CLUSTER_NS
+                    s_id = make_node_id("ServiceAccount", s_namespace, s_name)
+                    _add_node(
+                        DiagramNode(
+                            id=s_id,
+                            kind="ServiceAccount",
+                            name=s_name,
+                            namespace=s_namespace,
+                            group=None,
+                            status=None,
+                            metadata={"derived": True},
+                        )
+                    )
+                elif s_kind in ("User", "Group"):
+                    node_kind = f"Subject:{s_kind}"
+                    s_id = f"{node_kind}/{CLUSTER_NS}/{s_name}"
+                    _add_node(
+                        DiagramNode(
+                            id=s_id,
+                            kind=node_kind,
+                            name=s_name,
+                            namespace=CLUSTER_NS,
+                            group=None,
+                            status=None,
+                            metadata=None,
+                        )
+                    )
+                else:
+                    # Unknown subject kind — skip.
+                    continue
+                _add_edge(s_id, b_id, "bound")
+
+        scope = "role" if root_kind == "Role" else "clusterrole"
+        return DiagramResponse(
+            scope=scope,
+            root_id=root_id,
+            nodes=list(nodes.values()),
+            edges=edges,
+            groups=[],
+        )
 
     async def _read_workload(self, kind: str, namespace: str, name: str) -> Any:
         if kind == "Deployment":
-            return await self._run(self._apps.read_namespaced_deployment, name, namespace)
+            return await self._run(
+                self._apps.read_namespaced_deployment, name, namespace
+            )
         if kind == "StatefulSet":
-            return await self._run(self._apps.read_namespaced_stateful_set, name, namespace)
+            return await self._run(
+                self._apps.read_namespaced_stateful_set, name, namespace
+            )
         if kind == "DaemonSet":
-            return await self._run(self._apps.read_namespaced_daemon_set, name, namespace)
+            return await self._run(
+                self._apps.read_namespaced_daemon_set, name, namespace
+            )
         if kind == "Job":
             return await self._run(self._batch.read_namespaced_job, name, namespace)
         if kind == "CronJob":
-            return await self._run(self._batch.read_namespaced_cron_job, name, namespace)
+            return await self._run(
+                self._batch.read_namespaced_cron_job, name, namespace
+            )
         raise ValueError(f"Unsupported workload kind: {kind}")
 
     async def _read_resource(self, kind: str, namespace: str, name: str) -> Any:
         """Read any DiagramNode.kind for the manifest endpoint."""
         if kind == "Deployment":
-            return await self._run(self._apps.read_namespaced_deployment, name, namespace)
+            return await self._run(
+                self._apps.read_namespaced_deployment, name, namespace
+            )
         if kind == "StatefulSet":
-            return await self._run(self._apps.read_namespaced_stateful_set, name, namespace)
+            return await self._run(
+                self._apps.read_namespaced_stateful_set, name, namespace
+            )
         if kind == "DaemonSet":
-            return await self._run(self._apps.read_namespaced_daemon_set, name, namespace)
+            return await self._run(
+                self._apps.read_namespaced_daemon_set, name, namespace
+            )
         if kind == "ReplicaSet":
-            return await self._run(self._apps.read_namespaced_replica_set, name, namespace)
+            return await self._run(
+                self._apps.read_namespaced_replica_set, name, namespace
+            )
         if kind == "Pod":
             return await self._run(self._core.read_namespaced_pod, name, namespace)
         if kind == "Service":
             return await self._run(self._core.read_namespaced_service, name, namespace)
         if kind == "Endpoints":
-            return await self._run(self._core.read_namespaced_endpoints, name, namespace)
+            return await self._run(
+                self._core.read_namespaced_endpoints, name, namespace
+            )
         if kind == "EndpointSlice":
-            return await self._run(self._discovery.read_namespaced_endpoint_slice, name, namespace)
+            return await self._run(
+                self._discovery.read_namespaced_endpoint_slice, name, namespace
+            )
         if kind == "Ingress":
-            return await self._run(self._networking.read_namespaced_ingress, name, namespace)
+            return await self._run(
+                self._networking.read_namespaced_ingress, name, namespace
+            )
         if kind == "ConfigMap":
-            return await self._run(self._core.read_namespaced_config_map, name, namespace)
+            return await self._run(
+                self._core.read_namespaced_config_map, name, namespace
+            )
         if kind == "PersistentVolumeClaim":
-            return await self._run(self._core.read_namespaced_persistent_volume_claim, name, namespace)
+            return await self._run(
+                self._core.read_namespaced_persistent_volume_claim, name, namespace
+            )
         if kind == "ServiceAccount":
-            return await self._run(self._core.read_namespaced_service_account, name, namespace)
+            return await self._run(
+                self._core.read_namespaced_service_account, name, namespace
+            )
         if kind == "HorizontalPodAutoscaler":
-            return await self._run(self._autoscaling.read_namespaced_horizontal_pod_autoscaler, name, namespace)
+            return await self._run(
+                self._autoscaling.read_namespaced_horizontal_pod_autoscaler,
+                name,
+                namespace,
+            )
         if kind == "NetworkPolicy":
-            return await self._run(self._networking.read_namespaced_network_policy, name, namespace)
+            return await self._run(
+                self._networking.read_namespaced_network_policy, name, namespace
+            )
         if kind == "Job":
             return await self._run(self._batch.read_namespaced_job, name, namespace)
         if kind == "CronJob":
-            return await self._run(self._batch.read_namespaced_cron_job, name, namespace)
+            return await self._run(
+                self._batch.read_namespaced_cron_job, name, namespace
+            )
+        if kind == "Role":
+            return await self._run(self._rbac.read_namespaced_role, name, namespace)
+        if kind == "RoleBinding":
+            return await self._run(
+                self._rbac.read_namespaced_role_binding, name, namespace
+            )
+        if kind == "ClusterRole":
+            return await self._run(self._rbac.read_cluster_role, name)
+        if kind == "ClusterRoleBinding":
+            return await self._run(self._rbac.read_cluster_role_binding, name)
         raise ValueError(f"Cannot fetch manifest for kind '{kind}'")
 
 
 # --- Module-level helpers ----------------------------------------------------
 
+
 def _has_owner_kind(obj: Any, owner_kind: str) -> bool:
     return any(_attr(o, "kind") == owner_kind for o in _owner_refs(obj))
+
+
+def _binding_refs(binding: Any, role_kind: str, role_name: str) -> bool:
+    """True if a (Cluster)RoleBinding's roleRef points at the given role.
+
+    ``role_kind`` is either ``Role`` or ``ClusterRole``.
+    """
+    role_ref = _attr(binding, "role_ref", "roleRef")
+    if role_ref is None:
+        return False
+    return _attr(role_ref, "kind") == role_kind and _attr(role_ref, "name") == role_name
 
 
 def _has_owner_kind_name(obj: Any, owner_kind: str, owner_name: str) -> bool:
@@ -1074,7 +1519,7 @@ def _collect_volume_refs(workload: Any) -> Tuple[List[str], List[str], List[str]
             seen.add(name)
             lst.append(name)
 
-    for vol in (_attr(pod_spec, "volumes") or []):
+    for vol in _attr(pod_spec, "volumes") or []:
         cm = _attr(vol, "config_map", "configMap")
         if cm is not None:
             _add(cm_names, seen_cm, _attr(cm, "name"))
@@ -1086,7 +1531,7 @@ def _collect_volume_refs(workload: Any) -> Tuple[List[str], List[str], List[str]
             _add(pvc_names, seen_pvc, _attr(pvc, "claim_name", "claimName"))
         projected = _attr(vol, "projected")
         if projected is not None:
-            for src in (_attr(projected, "sources") or []):
+            for src in _attr(projected, "sources") or []:
                 cm2 = _attr(src, "config_map", "configMap")
                 if cm2 is not None:
                     _add(cm_names, seen_cm, _attr(cm2, "name"))
@@ -1097,14 +1542,14 @@ def _collect_volume_refs(workload: Any) -> Tuple[List[str], List[str], List[str]
     containers = list(_attr(pod_spec, "containers") or [])
     init_containers = list(_attr(pod_spec, "init_containers", "initContainers") or [])
     for c in containers + init_containers:
-        for envFrom in (_attr(c, "env_from", "envFrom") or []):
+        for envFrom in _attr(c, "env_from", "envFrom") or []:
             cmref = _attr(envFrom, "config_map_ref", "configMapRef")
             if cmref is not None:
                 _add(cm_names, seen_cm, _attr(cmref, "name"))
             secref = _attr(envFrom, "secret_ref", "secretRef")
             if secref is not None:
                 _add(secret_names, seen_sec, _attr(secref, "name"))
-        for env in (_attr(c, "env") or []):
+        for env in _attr(c, "env") or []:
             value_from = _attr(env, "value_from", "valueFrom")
             if value_from is None:
                 continue
