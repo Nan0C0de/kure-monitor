@@ -1,0 +1,35 @@
+:root {
+	--sl-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	--sl-font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+}
+
+:root[data-theme='dark'] {
+	--sl-color-accent-low: #0f1f3a;
+	--sl-color-accent: #3b82f6;
+	--sl-color-accent-high: #93c5fd;
+	--sl-color-bg-nav: #0a0e1a;
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: #dbeafe;
+	--sl-color-accent: #2563eb;
+	--sl-color-accent-high: #1e40af;
+}
+
+/* Landing page hero polish */
+.hero h1 {
+	background: linear-gradient(135deg, var(--sl-color-accent-high), var(--sl-color-accent));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+
+/* Tighter table styling */
+.sl-markdown-content table {
+	font-size: 0.9rem;
+}
+
+/* Code block contrast in light mode */
+:root[data-theme='light'] .expressive-code {
+	--ec-frm-edBg: #f8fafc;
+}

@@ -1,0 +1,52 @@
+---
+import Default from '@astrojs/starlight/components/Footer.astro';
+---
+
+<Default><slot /></Default>
+
+<footer class="kure-footer">
+	<div class="kure-footer-inner">
+		<div>
+			<strong>Kure Monitor</strong>
+			<span class="muted">— Apache 2.0 licensed, open source on GitHub.</span>
+		</div>
+		<div class="links">
+			<a href="https://github.com/Nan0C0de/kure-monitor">GitHub</a>
+			<a href="https://artifacthub.io/packages/helm/kure-monitor/kure">Artifact Hub</a>
+			<a href="https://github.com/Nan0C0de/kure-monitor/blob/main/CHANGELOG.md">Changelog</a>
+			<a href="https://github.com/Nan0C0de/kure-monitor/issues">Report an issue</a>
+		</div>
+	</div>
+</footer>
+
+<style>
+	.kure-footer {
+		border-top: 1px solid var(--sl-color-hairline);
+		margin-top: 2rem;
+		padding: 1.5rem 0 0.5rem;
+	}
+	.kure-footer-inner {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+		font-size: 0.85rem;
+		color: var(--sl-color-text-accent);
+	}
+	.muted {
+		color: var(--sl-color-gray-3);
+	}
+	.links {
+		display: flex;
+		gap: 1.25rem;
+		flex-wrap: wrap;
+	}
+	.links a {
+		color: var(--sl-color-text);
+		text-decoration: none;
+	}
+	.links a:hover {
+		color: var(--sl-color-accent);
+		text-decoration: underline;
+	}
+</style>

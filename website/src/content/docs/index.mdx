@@ -1,0 +1,107 @@
+---
+title: Kure Monitor
+description: Real-time Kubernetes failure detection and security scanning with AI-powered troubleshooting. Apache 2.0, runs in your cluster, ships with Ollama support for fully local LLMs.
+template: splash
+hero:
+  tagline: |
+    Stop debugging Kubernetes failures manually. Kure detects pod crashes, image-pull errors, and scheduling issues in seconds — and uses AI to tell you why.
+  actions:
+    - text: Get started
+      link: /kure-monitor/getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/Nan0C0de/kure-monitor
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Why Kure Monitor
+
+Most Kubernetes monitoring tools tell you *that* something broke. Kure tells you *why*, with context pulled from pod events, logs, and the manifest — analyzed by an LLM of your choice (OpenAI, Anthropic, Groq, Gemini, GitHub Copilot, or fully local with Ollama).
+
+It also continuously audits your cluster for security misconfigurations and renders a live topology graph, all from a single dashboard.
+
+<CardGrid>
+	<Card title="AI-powered diagnosis" icon="rocket">
+		Contextual fixes generated from events, logs, and manifest. Bring your own key (OpenAI, Anthropic, Groq, Gemini, GitHub Copilot) or run fully local with Ollama.
+	</Card>
+	<Card title="Real-time failure detection" icon="warning">
+		Catch CrashLoopBackOff, ImagePullBackOff, OOMKilled, FailedScheduling, FailedMount, and stuck Pending pods the moment they happen.
+	</Card>
+	<Card title="50+ security checks" icon="approve-check">
+		Privileged containers, host namespaces, missing seccomp/AppArmor, root containers, untrusted registries, missing limits, RBAC misconfigs.
+	</Card>
+	<Card title="Topology diagram" icon="puzzle">
+		Interactive graph of every workload, service, ingress, HPA, and NetworkPolicy. Click a node for the manifest, click an edge to focus that path.
+	</Card>
+	<Card title="Mirror pod testing" icon="setting">
+		Deploy a temporary copy of a failing pod with the AI fix applied. Verify before committing to git.
+	</Card>
+	<Card title="Air-gapped friendly" icon="seti:lock">
+		Pair with Ollama and your cluster data never leaves your network. No telemetry, no SaaS dependency.
+	</Card>
+</CardGrid>
+
+## Install in two commands
+
+```bash
+helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+helm install kure-monitor kure-monitor/kure \
+  --namespace kure-system --create-namespace
+```
+
+Then port-forward and create the initial admin account:
+
+```bash
+kubectl port-forward svc/kure-monitor-frontend 8080:8080 -n kure-system
+# open http://localhost:8080
+```
+
+Configure your LLM provider from the Admin panel after the first sign-in.
+
+<LinkCard
+	title="Full installation guide"
+	description="Helm, raw manifests, EKS / GKE / AKS, Ingress, LoadBalancer, and post-install checks."
+	href="/kure-monitor/getting-started/installation/"
+/>
+
+## Where Kure fits
+
+Kure is focused on **failure diagnosis and security posture**, not general observability. It complements Prometheus / Grafana / Datadog — it doesn't replace them.
+
+| Kure does | Kure does not |
+|-----------|---------------|
+| Real-time pod failure detection with AI fixes | Time-series metrics or alerting rules |
+| 50+ security misconfiguration checks | Log aggregation or indexing |
+| Live topology graph + mirror pod testing | Multi-cluster monitoring |
+| Slack / Teams notifications on failure | Replace Prometheus or Datadog |
+
+## Open source, runs in your cluster
+
+Apache 2.0 licensed. Ships as a Helm chart. Stores nothing outside your cluster except whatever LLM provider you choose to call. The backend ServiceAccount is **intentionally not granted read access to Secrets** — secret values are never read.
+
+<CardGrid>
+	<LinkCard
+		title="Read the docs"
+		href="/kure-monitor/getting-started/introduction/"
+		description="Architecture, configuration, API reference, and troubleshooting."
+	/>
+	<LinkCard
+		title="Source on GitHub"
+		href="https://github.com/Nan0C0de/kure-monitor"
+		description="Star the repo, file an issue, or contribute."
+	/>
+	<LinkCard
+		title="Helm chart on Artifact Hub"
+		href="https://artifacthub.io/packages/helm/kure-monitor/kure"
+		description="Browse versions and chart values."
+	/>
+	<LinkCard
+		title="Latest release notes"
+		href="/kure-monitor/release-notes/2-3-2/"
+		description="What changed in 2.3.2 — the Diagram tab and expanded RBAC."
+	/>
+</CardGrid>

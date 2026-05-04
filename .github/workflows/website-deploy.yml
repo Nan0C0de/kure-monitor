@@ -1,16 +1,16 @@
-name: Release Helm Charts
+name: Deploy Website
 
 on:
   workflow_dispatch:
-    inputs:
-      chart_version:
-        description: 'Chart version to release'
-        required: true
-        default: '2.3.0'
-        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - 'website/**'
+      - '.github/workflows/website-deploy.yml'
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  deploy:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -27,13 +27,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-
-    - name: Configure Git
-      run: |
-        git config user.name "$GITHUB_ACTOR"
-        git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
     - name: Install Helm
       uses: azure/setup-helm@v4
@@ -47,24 +40,6 @@ jobs:
         cache: 'npm'
         cache-dependency-path: website/package-lock.json
 
-    - name: Add dependency repos
-      run: |
-        helm repo add stable https://charts.helm.sh/stable
-
-    - name: Update Chart version
-      run: |
-        sed -i "s/^version: .*/version: ${{ github.event.inputs.chart_version }}/" helm/Chart.yaml
-        git add helm/Chart.yaml
-        git commit -m "Update chart version to ${{ github.event.inputs.chart_version }}" || echo "No changes to commit"
-
-    - name: Run chart-releaser
-      uses: helm/chart-releaser-action@v1.6.0
-      env:
-        CR_TOKEN: "${{ secrets.CR_TOKEN }}"
-      with:
-        charts_dir: helm
-        config: cr.yaml
-
     - name: Setup Pages
       uses: actions/configure-pages@v5
 
@@ -74,37 +49,29 @@ jobs:
         npm ci
         npm run build
 
-    - name: Package chart and merge with website
+    - name: Package current chart version and merge with website
       run: |
         mkdir -p .cr-release-packages
 
-        # Package the chart
+        # Re-package the chart at its CURRENT version (no bump, no GH release).
+        # This keeps the Pages-hosted helm repo (index.yaml + .tgz) intact so
+        # `helm repo add ...` continues to work after a website-only deploy.
         helm package helm/ --destination .cr-release-packages/
-
-        # Create the chart repo index pointing at the Pages URL
         helm repo index .cr-release-packages --url https://nan0c0de.github.io/kure-monitor/
-
-        # Cache-busting comment
         echo "# Generated at $(date)" >> .cr-release-packages/index.yaml
 
-        # Merge helm chart artifacts into the Astro build output so existing
-        # `helm repo add` URLs keep working alongside the new website.
         cp .cr-release-packages/index.yaml      website/dist/
         cp .cr-release-packages/*.tgz           website/dist/
         cp helm/artifacthub-repo.yml            website/dist/
 
         echo "Final website/dist contents:"
         ls -la website/dist/
-        echo "--- index.yaml ---"
-        cat website/dist/index.yaml
 
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v4
-      if: success()
       with:
         path: website/dist
 
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4
-      if: success()
