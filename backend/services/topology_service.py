@@ -30,6 +30,27 @@ logger = logging.getLogger(__name__)
 
 CACHE_TTL_SECONDS = 15.0
 
+# Kubernetes built-in namespaces hidden from diagram dropdowns.
+KUBE_DEFAULT_NAMESPACES = {
+    "kube-system",
+    "kube-public",
+    "kube-node-lease",
+    "default",
+}
+
+# Kubernetes built-in ClusterRoles hidden from the roles dropdown.
+KUBE_DEFAULT_CLUSTER_ROLES = {
+    "cluster-admin",
+    "admin",
+    "edit",
+    "view",
+}
+
+
+def _is_kube_default_cluster_role(name: str) -> bool:
+    return name in KUBE_DEFAULT_CLUSTER_ROLES or name.startswith("system:")
+
+
 # Workload kinds accepted as the root of a workload-scope diagram
 WORKLOAD_ROOT_KINDS = {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
 
@@ -346,7 +367,11 @@ class TopologyService:
         except Exception as e:
             logger.error(f"Failed to list namespaces: {e}")
             raise
-        return sorted(_meta_name(n) for n in _items(ns_list) if _meta_name(n))
+        return sorted(
+            _meta_name(n)
+            for n in _items(ns_list)
+            if _meta_name(n) and _meta_name(n) not in KUBE_DEFAULT_NAMESPACES
+        )
 
     async def get_namespace_diagram(self, namespace: str) -> DiagramResponse:
         cache_key = ("namespace", namespace, None)
@@ -1044,12 +1069,16 @@ class TopologyService:
             r_list = None
 
         cluster_roles = [
-            {"name": _meta_name(cr)} for cr in _items(cr_list) if _meta_name(cr)
+            {"name": _meta_name(cr)}
+            for cr in _items(cr_list)
+            if _meta_name(cr) and not _is_kube_default_cluster_role(_meta_name(cr))
         ]
         roles = [
             {"namespace": _meta_namespace(r), "name": _meta_name(r)}
             for r in _items(r_list)
-            if _meta_name(r) and _meta_namespace(r)
+            if _meta_name(r)
+            and _meta_namespace(r)
+            and _meta_namespace(r) not in KUBE_DEFAULT_NAMESPACES
         ]
         cluster_roles.sort(key=lambda x: x["name"])
         roles.sort(key=lambda x: (x["namespace"], x["name"]))

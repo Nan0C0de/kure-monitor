@@ -812,13 +812,16 @@ def _make_cluster_role_binding(name, role_kind, role_name, subjects):
 class TestListRoles:
     @pytest.mark.asyncio
     async def test_lists_and_sorts_both_kinds(self, topo):
-        cr_view = _make_cluster_role("view")
-        cr_admin = _make_cluster_role("cluster-admin")
-        r_a = _make_role("configmap-reader", "default")
+        # Use custom (non-built-in) names so they survive the default filter.
+        cr_custom1 = _make_cluster_role("my-app-reader")
+        cr_custom2 = _make_cluster_role("billing-operator")
+        r_a = _make_role("configmap-reader", "team-ns")
         r_b = _make_role("alpha", "zeta-ns")
         r_c = _make_role("alpha", "alpha-ns")
 
-        topo._rbac.list_cluster_role.return_value = _list_wrapper([cr_view, cr_admin])
+        topo._rbac.list_cluster_role.return_value = _list_wrapper(
+            [cr_custom1, cr_custom2]
+        )
         topo._rbac.list_role_for_all_namespaces.return_value = _list_wrapper(
             [r_a, r_b, r_c]
         )
@@ -827,13 +830,13 @@ class TestListRoles:
         assert "cluster_roles" in result and "roles" in result
 
         cr_names = [c["name"] for c in result["cluster_roles"]]
-        assert cr_names == ["cluster-admin", "view"]
+        assert cr_names == ["billing-operator", "my-app-reader"]
 
         role_keys = [(r["namespace"], r["name"]) for r in result["roles"]]
         # Sorted by (namespace, name)
         assert role_keys == [
             ("alpha-ns", "alpha"),
-            ("default", "configmap-reader"),
+            ("team-ns", "configmap-reader"),
             ("zeta-ns", "alpha"),
         ]
 
