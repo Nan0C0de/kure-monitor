@@ -360,8 +360,35 @@ class TopologyService:
 
     # -- Public API ---------------------------------------------------------
 
-    async def list_namespaces(self) -> List[str]:
+    async def list_namespaces(self, kind: Optional[str] = None) -> List[str]:
         self._init_k8s()
+
+        if kind is not None:
+            norm_kind = normalise_kind(kind)
+            if norm_kind not in WORKLOAD_ROOT_KINDS:
+                raise ValueError(
+                    f"Workload kind must be one of {sorted(WORKLOAD_ROOT_KINDS)}, got '{kind}'"
+                )
+            list_fn = {
+                "Deployment": self._apps.list_deployment_for_all_namespaces,
+                "StatefulSet": self._apps.list_stateful_set_for_all_namespaces,
+                "DaemonSet": self._apps.list_daemon_set_for_all_namespaces,
+                "Job": self._batch.list_job_for_all_namespaces,
+                "CronJob": self._batch.list_cron_job_for_all_namespaces,
+            }[norm_kind]
+            try:
+                result = await self._run(list_fn)
+            except Exception as e:
+                logger.error(f"Failed to list {norm_kind} cluster-wide: {e}")
+                raise
+            namespaces = {
+                _meta_namespace(w)
+                for w in _items(result)
+                if _meta_namespace(w)
+                and _meta_namespace(w) not in KUBE_DEFAULT_NAMESPACES
+            }
+            return sorted(namespaces)
+
         try:
             ns_list = await self._run(self._core.list_namespace)
         except Exception as e:

@@ -28,16 +28,15 @@ const DiagramTab = ({ isDark = false }) => {
 
   useEffect(() => {
     let cancelled = false;
+    const filterKind = mode === 'workload' ? kind : undefined;
     (async () => {
       try {
         setNsLoading(true);
-        const res = await api.getDiagramNamespaces();
+        const res = await api.getDiagramNamespaces(filterKind);
         if (cancelled) return;
         const list = res?.namespaces || [];
         setNamespaces(list);
-        if (list.length > 0) {
-          setNamespace((prev) => prev || list[0]);
-        }
+        setNamespace((prev) => (list.includes(prev) ? prev : list[0] || ''));
       } catch (err) {
         if (!cancelled) setError(`Failed to load namespaces: ${err.message || 'unknown error'}`);
       } finally {
@@ -47,7 +46,7 @@ const DiagramTab = ({ isDark = false }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mode, kind]);
 
   // Load workload names when in workload mode and ns/kind change.
   useEffect(() => {

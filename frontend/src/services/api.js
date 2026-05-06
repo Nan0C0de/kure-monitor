@@ -678,8 +678,11 @@ export const api = {
   },
 
   // Diagram API
-  getDiagramNamespaces: async () => {
-    const response = await authFetch(`${API_BASE}/api/diagram/namespaces`);
+  getDiagramNamespaces: async (kind) => {
+    const url = kind
+      ? `${API_BASE}/api/diagram/namespaces?kind=${encodeURIComponent(kind)}`
+      : `${API_BASE}/api/diagram/namespaces`;
+    const response = await authFetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },

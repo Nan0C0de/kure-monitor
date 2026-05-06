@@ -7,7 +7,7 @@ involvement here.
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from models.models import DiagramResponse
 from services.topology_service import (
@@ -30,13 +30,15 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
     service = TopologyService()
 
     @router.get("/diagram/namespaces")
-    async def list_diagram_namespaces():
+    async def list_diagram_namespaces(kind: str | None = Query(None)):
         if not K8S_AVAILABLE:
             raise HTTPException(
                 status_code=503, detail="Kubernetes client not available"
             )
         try:
-            namespaces = await service.list_namespaces()
+            namespaces = await service.list_namespaces(kind=kind)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
