@@ -34,6 +34,36 @@ def create_admin_shared_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error getting excluded namespaces: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.get("/admin/excluded-pods")
+    async def get_excluded_pods():
+        """Get all excluded pods from pod monitoring"""
+        try:
+            return await db.get_excluded_pods()
+        except Exception as e:
+            logger.error(f"Error getting excluded pods: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/admin/excluded-rules")
+    async def get_excluded_rules():
+        """Get all excluded security rules"""
+        try:
+            return await db.get_excluded_rules()
+        except Exception as e:
+            logger.error(f"Error getting excluded rules: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/admin/trusted-registries")
+    async def get_trusted_registries():
+        """Get all admin-added trusted container registries"""
+        try:
+            registries = await db.get_trusted_registries()
+            return [
+                r.model_dump() if hasattr(r, "model_dump") else r for r in registries
+            ]
+        except Exception as e:
+            logger.error(f"Error getting trusted registries: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     return router
 
 
@@ -114,15 +144,6 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
 
     # --- Excluded pods ---
 
-    @router.get("/admin/excluded-pods")
-    async def get_excluded_pods():
-        """Get all excluded pods from pod monitoring"""
-        try:
-            return await db.get_excluded_pods()
-        except Exception as e:
-            logger.error(f"Error getting excluded pods: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
     @router.get("/admin/monitored-pods")
     async def get_monitored_pods():
         """Get all pods that are currently being monitored (for suggestions)"""
@@ -182,15 +203,6 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     # --- Excluded rules ---
-
-    @router.get("/admin/excluded-rules")
-    async def get_excluded_rules():
-        """Get all excluded security rules"""
-        try:
-            return await db.get_excluded_rules()
-        except Exception as e:
-            logger.error(f"Error getting excluded rules: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/admin/rule-titles")
     async def get_all_rule_titles(namespace: str = Query(None)):
@@ -265,18 +277,6 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     # --- Trusted registries ---
-
-    @router.get("/admin/trusted-registries")
-    async def get_trusted_registries():
-        """Get all admin-added trusted container registries"""
-        try:
-            registries = await db.get_trusted_registries()
-            return [
-                r.model_dump() if hasattr(r, "model_dump") else r for r in registries
-            ]
-        except Exception as e:
-            logger.error(f"Error getting trusted registries: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
 
     @router.post("/admin/trusted-registries")
     async def add_trusted_registry(data: TrustedRegistry):
