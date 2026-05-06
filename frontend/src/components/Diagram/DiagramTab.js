@@ -177,7 +177,10 @@ const DiagramTab = ({ isDark = false }) => {
       // Auto-fetch when the role selection is complete.
       if (
         (roleScope === 'cluster' && clusterRoleName) ||
-        (roleScope === 'namespace' && roleNamespace && roleName)
+        (roleScope === 'namespace' &&
+          roleNamespace &&
+          roleName &&
+          rolesInNamespace.includes(roleName))
       ) {
         fetchDiagram();
       } else {
@@ -188,7 +191,7 @@ const DiagramTab = ({ isDark = false }) => {
       setDiagram(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, namespace, roleScope, roleNamespace, roleName, clusterRoleName]);
+  }, [mode, namespace, roleScope, roleNamespace, roleName, clusterRoleName, rolesInNamespace]);
 
   const counts = useMemo(() => {
     if (!diagram) return null;
