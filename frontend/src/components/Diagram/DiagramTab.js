@@ -11,6 +11,8 @@ const DiagramTab = ({ isDark = false }) => {
   const [namespace, setNamespace] = useState('');
   const [kind, setKind] = useState('Deployment');
   const [workloadName, setWorkloadName] = useState('');
+  const [workloadNames, setWorkloadNames] = useState([]);
+  const [workloadsLoading, setWorkloadsLoading] = useState(false);
   const [diagram, setDiagram] = useState(null);
   const [loading, setLoading] = useState(false);
   const [nsLoading, setNsLoading] = useState(false);
@@ -46,6 +48,36 @@ const DiagramTab = ({ isDark = false }) => {
       cancelled = true;
     };
   }, []);
+
+  // Load workload names when in workload mode and ns/kind change.
+  useEffect(() => {
+    if (mode !== 'workload' || !namespace) {
+      setWorkloadNames([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setWorkloadsLoading(true);
+        const res = await api.getDiagramWorkloads(namespace, kind);
+        if (cancelled) return;
+        const list = res?.workloads || [];
+        setWorkloadNames(list);
+        setWorkloadName((prev) => (list.includes(prev) ? prev : list[0] || ''));
+      } catch (err) {
+        if (!cancelled) {
+          setWorkloadNames([]);
+          setWorkloadName('');
+          setError(`Failed to load workloads: ${err.message || 'unknown error'}`);
+        }
+      } finally {
+        if (!cancelled) setWorkloadsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, namespace, kind]);
 
   // Lazy-load the roles list the first time the user enters Roles mode.
   // Tracked via a ref so we don't restart the in-flight request when our own
@@ -344,17 +376,24 @@ const DiagramTab = ({ isDark = false }) => {
                 <label htmlFor="diagram-name" className={labelClass}>
                   Name
                 </label>
-                <input
+                <select
                   id="diagram-name"
-                  type="text"
                   value={workloadName}
                   onChange={(e) => setWorkloadName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') fetchDiagram();
-                  }}
-                  placeholder="workload name"
-                  className={`w-56 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBase}`}
-                />
+                  disabled={workloadsLoading || workloadNames.length === 0}
+                  className={selectClass}
+                >
+                  {workloadNames.length === 0 && (
+                    <option value="">
+                      {workloadsLoading ? 'Loading…' : `No ${kind}s in namespace`}
+                    </option>
+                  )}
+                  {workloadNames.map((wn) => (
+                    <option key={wn} value={wn}>
+                      {wn}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button
                 type="button"

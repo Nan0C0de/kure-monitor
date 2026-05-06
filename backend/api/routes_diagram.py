@@ -58,6 +58,32 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Failed to build namespace diagram for {ns}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.get("/diagram/workloads/{ns}/{kind}")
+    async def list_workloads(ns: str, kind: str):
+        if not K8S_AVAILABLE:
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
+        normalised = normalise_kind(kind)
+        if normalised not in WORKLOAD_ROOT_KINDS:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Workload kind must be one of "
+                    f"{sorted(WORKLOAD_ROOT_KINDS)}; got '{kind}'"
+                ),
+            )
+        try:
+            names = await service.list_workloads(ns, normalised)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            logger.error(f"Failed to list {normalised} in {ns}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        return {"workloads": names}
+
     @router.get("/diagram/workload/{ns}/{kind}/{name}", response_model=DiagramResponse)
     async def get_workload_diagram(ns: str, kind: str, name: str):
         if not K8S_AVAILABLE:

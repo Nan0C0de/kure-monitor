@@ -373,6 +373,32 @@ class TopologyService:
             if _meta_name(n) and _meta_name(n) not in KUBE_DEFAULT_NAMESPACES
         )
 
+    async def list_workloads(self, namespace: str, kind: str) -> List[str]:
+        """List workload names of a given kind within a namespace."""
+        norm_kind = normalise_kind(kind)
+        if norm_kind not in WORKLOAD_ROOT_KINDS:
+            raise ValueError(
+                f"Workload kind must be one of {sorted(WORKLOAD_ROOT_KINDS)}, got '{kind}'"
+            )
+
+        self._init_k8s()
+
+        list_fn = {
+            "Deployment": self._apps.list_namespaced_deployment,
+            "StatefulSet": self._apps.list_namespaced_stateful_set,
+            "DaemonSet": self._apps.list_namespaced_daemon_set,
+            "Job": self._batch.list_namespaced_job,
+            "CronJob": self._batch.list_namespaced_cron_job,
+        }[norm_kind]
+
+        try:
+            result = await self._run(list_fn, namespace)
+        except Exception as e:
+            logger.warning(f"Failed to list {norm_kind} in {namespace}: {e}")
+            raise
+
+        return sorted(_meta_name(w) for w in _items(result) if _meta_name(w))
+
     async def get_namespace_diagram(self, namespace: str) -> DiagramResponse:
         cache_key = ("namespace", namespace, None)
         cached = self._cache.get(cache_key)
