@@ -218,12 +218,27 @@ const DiagramTab = ({ isDark = false }) => {
       } else {
         setDiagram(null);
       }
-    } else {
-      // In workload mode we don't auto-fetch on every keystroke; user clicks Render.
-      setDiagram(null);
+    } else if (mode === 'workload') {
+      // Auto-fetch when the workload selection is complete and consistent.
+      if (namespace && workloadName && workloadNames.includes(workloadName)) {
+        fetchDiagram();
+      } else {
+        setDiagram(null);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, namespace, roleScope, roleNamespace, roleName, clusterRoleName, rolesInNamespace]);
+  }, [
+    mode,
+    namespace,
+    kind,
+    workloadName,
+    workloadNames,
+    roleScope,
+    roleNamespace,
+    roleName,
+    clusterRoleName,
+    rolesInNamespace,
+  ]);
 
   const counts = useMemo(() => {
     if (!diagram) return null;
