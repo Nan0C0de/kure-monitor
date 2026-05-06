@@ -30,8 +30,6 @@ def _make_scanner():
     scanner.policy_v1 = Mock()
     scanner.backend_client = AsyncMock()
 
-    # Trusted-registries refresh hits the backend; no-op it and seed an
-    # empty admin list so untrusted-registry checks behave deterministically.
     scanner.exclusion_mgr.refresh_trusted_registries = AsyncMock(return_value=True)
     scanner.exclusion_mgr.admin_trusted_registries = []
 

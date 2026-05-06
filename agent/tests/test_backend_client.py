@@ -8,7 +8,6 @@ class TestBackendClient:
     
     @pytest.fixture
     def backend_client(self):
-        """Create BackendClient instance"""
         return BackendClient("http://test-backend:8000")
 
     @pytest.fixture

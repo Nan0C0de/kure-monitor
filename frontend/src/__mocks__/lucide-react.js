@@ -15,8 +15,6 @@ const EXPLICIT = {
 const iconFor = (testId) => (props) =>
   React.createElement('div', { ...props, 'data-testid': testId });
 
-// A Proxy returns a generic stub for any icon name we don't explicitly list,
-// which avoids "Element type is invalid" when components use uncommon icons.
 const handler = {
   get(_target, prop) {
     if (prop === '__esModule') return true;

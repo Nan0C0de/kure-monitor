@@ -15,7 +15,6 @@ async def test_get_failed_pods_empty(client: AsyncClient):
     """Test getting failed pods when none exist"""
     response = await client.get("/api/pods/failed")
     assert response.status_code == 200
-    # Response is a list (may or may not be empty depending on test order)
     assert isinstance(response.json(), list)
 
 

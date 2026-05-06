@@ -18,15 +18,6 @@ data:
   POSTGRES_DB: "kure"
   POSTGRES_USER: "kure_user"
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kure-postgresql
-  namespace: kure-system
-  labels:
-    app: postgresql
-automountServiceAccountToken: false
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
