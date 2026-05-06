@@ -3,16 +3,38 @@ import asyncio
 import logging
 
 from models.models import (
-    ExcludedNamespace, ExcludedNamespaceResponse,
+    ExcludedNamespace,
+    ExcludedNamespaceResponse,
     ExcludedPod,
     ExcludedRule,
     TrustedRegistry,
-    NotificationSettingCreate, NotificationSettingResponse,
+    NotificationSettingCreate,
+    NotificationSettingResponse,
 )
-from .auth import require_write
+from .auth import require_user_or_service, require_write
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
+
+
+def create_admin_shared_router(deps: RouterDeps) -> APIRouter:
+    """Admin endpoints accessible to both authenticated users and the
+    service token (used by the security-scanner)."""
+    router = APIRouter(dependencies=[Depends(require_user_or_service)])
+    db = deps.db
+
+    @router.get(
+        "/admin/excluded-namespaces", response_model=list[ExcludedNamespaceResponse]
+    )
+    async def get_excluded_namespaces():
+        """Get all excluded namespaces"""
+        try:
+            return await db.get_excluded_namespaces()
+        except Exception as e:
+            logger.error(f"Error getting excluded namespaces: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return router
 
 
 def create_admin_router(deps: RouterDeps) -> APIRouter:
@@ -23,15 +45,6 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
     notification_service = deps.notification_service
 
     # --- Excluded namespaces ---
-
-    @router.get("/admin/excluded-namespaces", response_model=list[ExcludedNamespaceResponse])
-    async def get_excluded_namespaces():
-        """Get all excluded namespaces"""
-        try:
-            return await db.get_excluded_namespaces()
-        except Exception as e:
-            logger.error(f"Error getting excluded namespaces: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/admin/namespaces")
     async def get_all_namespaces():
@@ -47,18 +60,26 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
         """Add a namespace to the security scan exclusion list and remove all its findings"""
         try:
             if not request.namespace or not request.namespace.strip():
-                raise HTTPException(status_code=400, detail="Namespace name is required")
+                raise HTTPException(
+                    status_code=400, detail="Namespace name is required"
+                )
 
             namespace = request.namespace.strip()
             result = await db.add_excluded_namespace(namespace)
             logger.info(f"Added excluded namespace for security scan: {namespace}")
 
-            findings_count, deleted_findings = await db.delete_findings_by_namespace(namespace)
+            findings_count, deleted_findings = await db.delete_findings_by_namespace(
+                namespace
+            )
             for finding in deleted_findings:
                 await websocket_manager.broadcast_security_finding_deleted(finding)
-            logger.info(f"Deleted {findings_count} security findings for excluded namespace: {namespace}")
+            logger.info(
+                f"Deleted {findings_count} security findings for excluded namespace: {namespace}"
+            )
 
-            await websocket_manager.broadcast_namespace_exclusion_change(namespace, "excluded")
+            await websocket_manager.broadcast_namespace_exclusion_change(
+                namespace, "excluded"
+            )
 
             return result
         except HTTPException:
@@ -74,10 +95,17 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             removed = await db.remove_excluded_namespace(namespace)
             if removed:
                 logger.info(f"Removed excluded namespace: {namespace}")
-                await websocket_manager.broadcast_namespace_exclusion_change(namespace, "included")
-                return {"message": f"Namespace '{namespace}' removed from exclusion list"}
+                await websocket_manager.broadcast_namespace_exclusion_change(
+                    namespace, "included"
+                )
+                return {
+                    "message": f"Namespace '{namespace}' removed from exclusion list"
+                }
             else:
-                raise HTTPException(status_code=404, detail=f"Namespace '{namespace}' not found in exclusion list")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Namespace '{namespace}' not found in exclusion list",
+                )
         except HTTPException:
             raise
         except Exception as e:
@@ -117,7 +145,9 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
 
             count, deleted_pods = await db.delete_pod_failure_by_pod(pod_name)
             for pod in deleted_pods:
-                await websocket_manager.broadcast_pod_deleted(pod['namespace'], pod['pod_name'])
+                await websocket_manager.broadcast_pod_deleted(
+                    pod["namespace"], pod["pod_name"]
+                )
             logger.info(f"Deleted {count} pod failures for excluded pod: {pod_name}")
 
             await websocket_manager.broadcast_pod_exclusion_change(pod_name, "excluded")
@@ -136,10 +166,15 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             removed = await db.remove_excluded_pod(pod_name)
             if removed:
                 logger.info(f"Removed excluded pod: {pod_name}")
-                await websocket_manager.broadcast_pod_exclusion_change(pod_name, "included")
+                await websocket_manager.broadcast_pod_exclusion_change(
+                    pod_name, "included"
+                )
                 return {"message": f"Pod '{pod_name}' removed from exclusion list"}
             else:
-                raise HTTPException(status_code=404, detail=f"Pod '{pod_name}' not found in exclusion list")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Pod '{pod_name}' not found in exclusion list",
+                )
         except HTTPException:
             raise
         except Exception as e:
@@ -174,19 +209,27 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
                 raise HTTPException(status_code=400, detail="Rule title is required")
 
             rule_title = request.rule_title.strip()
-            namespace_db = request.namespace.strip() if request.namespace else ''
+            namespace_db = request.namespace.strip() if request.namespace else ""
 
             result = await db.add_excluded_rule(rule_title, namespace_db)
-            scope = f"namespace '{request.namespace}'" if request.namespace else "global"
+            scope = (
+                f"namespace '{request.namespace}'" if request.namespace else "global"
+            )
             logger.info(f"Added excluded security rule: {rule_title} ({scope})")
 
             delete_namespace = request.namespace.strip() if request.namespace else None
-            findings_count, deleted_findings = await db.delete_findings_by_rule_title(rule_title, delete_namespace)
+            findings_count, deleted_findings = await db.delete_findings_by_rule_title(
+                rule_title, delete_namespace
+            )
             for finding in deleted_findings:
                 await websocket_manager.broadcast_security_finding_deleted(finding)
-            logger.info(f"Deleted {findings_count} security findings for excluded rule: {rule_title}")
+            logger.info(
+                f"Deleted {findings_count} security findings for excluded rule: {rule_title}"
+            )
 
-            await websocket_manager.broadcast_rule_exclusion_change(rule_title, "excluded", request.namespace)
+            await websocket_manager.broadcast_rule_exclusion_change(
+                rule_title, "excluded", request.namespace
+            )
 
             return result
         except HTTPException:
@@ -199,15 +242,22 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
     async def remove_excluded_rule(rule_title: str, namespace: str = Query(None)):
         """Remove a rule from the exclusion list (query param namespace for per-namespace)"""
         try:
-            namespace_db = namespace.strip() if namespace else ''
+            namespace_db = namespace.strip() if namespace else ""
             removed = await db.remove_excluded_rule(rule_title, namespace_db)
             if removed:
                 scope = f"namespace '{namespace}'" if namespace else "global"
                 logger.info(f"Removed excluded rule: {rule_title} ({scope})")
-                await websocket_manager.broadcast_rule_exclusion_change(rule_title, "included", namespace)
-                return {"message": f"Rule '{rule_title}' removed from exclusion list ({scope})"}
+                await websocket_manager.broadcast_rule_exclusion_change(
+                    rule_title, "included", namespace
+                )
+                return {
+                    "message": f"Rule '{rule_title}' removed from exclusion list ({scope})"
+                }
             else:
-                raise HTTPException(status_code=404, detail=f"Rule '{rule_title}' not found in exclusion list")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Rule '{rule_title}' not found in exclusion list",
+                )
         except HTTPException:
             raise
         except Exception as e:
@@ -221,7 +271,9 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
         """Get all admin-added trusted container registries"""
         try:
             registries = await db.get_trusted_registries()
-            return [r.model_dump() if hasattr(r, 'model_dump') else r for r in registries]
+            return [
+                r.model_dump() if hasattr(r, "model_dump") else r for r in registries
+            ]
         except Exception as e:
             logger.error(f"Error getting trusted registries: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -239,21 +291,29 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
 
             # Delete matching findings from DB (fast) and schedule broadcasts
             # in the background so the HTTP response returns immediately.
-            findings_count, deleted_findings = await db.delete_findings_by_registry(registry)
+            findings_count, deleted_findings = await db.delete_findings_by_registry(
+                registry
+            )
             if findings_count > 0:
-                logger.info(f"Deleted {findings_count} untrusted-registry findings for: {registry}")
+                logger.info(
+                    f"Deleted {findings_count} untrusted-registry findings for: {registry}"
+                )
 
             async def _broadcast_changes():
                 try:
                     for finding in deleted_findings:
-                        await websocket_manager.broadcast_security_finding_deleted(finding)
-                    await websocket_manager.broadcast_trusted_registry_change(registry, "added")
+                        await websocket_manager.broadcast_security_finding_deleted(
+                            finding
+                        )
+                    await websocket_manager.broadcast_trusted_registry_change(
+                        registry, "added"
+                    )
                 except Exception as e:
                     logger.error(f"Error broadcasting trusted registry changes: {e}")
 
             asyncio.create_task(_broadcast_changes())
 
-            return result.model_dump() if hasattr(result, 'model_dump') else result
+            return result.model_dump() if hasattr(result, "model_dump") else result
         except HTTPException:
             raise
         except Exception as e:
@@ -267,10 +327,15 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             removed = await db.remove_trusted_registry(registry)
             if removed:
                 logger.info(f"Removed trusted registry: {registry}")
-                await websocket_manager.broadcast_trusted_registry_change(registry, "removed")
+                await websocket_manager.broadcast_trusted_registry_change(
+                    registry, "removed"
+                )
                 return {"message": f"Registry '{registry}' removed from trusted list"}
             else:
-                raise HTTPException(status_code=404, detail=f"Registry '{registry}' not found in trusted list")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Registry '{registry}' not found in trusted list",
+                )
         except HTTPException:
             raise
         except Exception as e:
@@ -279,7 +344,9 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
 
     # --- Notifications ---
 
-    @router.get("/admin/notifications", response_model=list[NotificationSettingResponse])
+    @router.get(
+        "/admin/notifications", response_model=list[NotificationSettingResponse]
+    )
     async def get_notification_settings():
         """Get all notification settings"""
         try:
@@ -299,8 +366,12 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error saving notification setting: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.put("/admin/notifications/{provider}", response_model=NotificationSettingResponse)
-    async def update_notification_setting(provider: str, setting: NotificationSettingCreate):
+    @router.put(
+        "/admin/notifications/{provider}", response_model=NotificationSettingResponse
+    )
+    async def update_notification_setting(
+        provider: str, setting: NotificationSettingCreate
+    ):
         """Update a notification setting"""
         try:
             result = await db.update_notification_setting(provider, setting)
@@ -308,7 +379,10 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
                 logger.info(f"Updated notification setting for provider: {provider}")
                 return result
             else:
-                raise HTTPException(status_code=404, detail=f"Notification setting for '{provider}' not found")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Notification setting for '{provider}' not found",
+                )
         except HTTPException:
             raise
         except Exception as e:
@@ -324,7 +398,10 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
                 logger.info(f"Deleted notification setting for provider: {provider}")
                 return {"message": f"Notification setting for '{provider}' deleted"}
             else:
-                raise HTTPException(status_code=404, detail=f"Notification setting for '{provider}' not found")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Notification setting for '{provider}' not found",
+                )
         except HTTPException:
             raise
         except Exception as e:
@@ -336,11 +413,16 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
         """Send a test notification"""
         try:
             if not notification_service:
-                raise HTTPException(status_code=500, detail="Notification service not configured")
+                raise HTTPException(
+                    status_code=500, detail="Notification service not configured"
+                )
 
             setting = await db.get_notification_setting(provider)
             if not setting:
-                raise HTTPException(status_code=404, detail=f"Notification setting for '{provider}' not found")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Notification setting for '{provider}' not found",
+                )
 
             await notification_service.test_notification(provider, setting.config)
             logger.info(f"Test notification sent for provider: {provider}")

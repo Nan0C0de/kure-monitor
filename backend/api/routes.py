@@ -10,7 +10,7 @@ from .routes_auth import create_auth_router
 from .routes_users import create_users_router
 from .routes_pods import create_pod_router, create_pod_ingest_router
 from .routes_security import create_security_router, create_security_ingest_router
-from .routes_admin import create_admin_router
+from .routes_admin import create_admin_router, create_admin_shared_router
 from .routes_metrics import create_metrics_ingest_router
 from .routes_logs import create_logs_router
 from .routes_llm import create_llm_router
@@ -20,7 +20,13 @@ from .routes_diagram import create_diagram_router
 logger = logging.getLogger(__name__)
 
 
-def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager, notification_service=None, mirror_service=None) -> APIRouter:
+def create_api_router(
+    db: Database,
+    solution_engine: SolutionEngine,
+    websocket_manager: WebSocketManager,
+    notification_service=None,
+    mirror_service=None,
+) -> APIRouter:
     """Create and configure the API router.
 
     The router is structured as follows:
@@ -30,7 +36,9 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
       - Admin endpoints (require admin role).
     """
     router = APIRouter(prefix="/api")
-    deps = RouterDeps(db, solution_engine, websocket_manager, notification_service, mirror_service)
+    deps = RouterDeps(
+        db, solution_engine, websocket_manager, notification_service, mirror_service
+    )
 
     # Public (no auth) auth endpoints
     router.include_router(create_auth_router(deps))
@@ -40,6 +48,9 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
     router.include_router(create_security_ingest_router(deps))
     router.include_router(create_metrics_ingest_router(deps))
 
+    # Admin reads also reachable by service token (e.g. scanner reading exclusions)
+    router.include_router(create_admin_shared_router(deps))
+
     # Authenticated user endpoints (require any valid session)
     authed = APIRouter(dependencies=[Depends(require_read)])
 
@@ -48,7 +59,11 @@ def create_api_router(db: Database, solution_engine: SolutionEngine, websocket_m
         """Get application configuration status"""
         return {
             "ai_enabled": solution_engine.llm_provider is not None,
-            "ai_provider": solution_engine.llm_provider.provider_name if solution_engine.llm_provider else None
+            "ai_provider": (
+                solution_engine.llm_provider.provider_name
+                if solution_engine.llm_provider
+                else None
+            ),
         }
 
     authed.include_router(create_pod_router(deps))
