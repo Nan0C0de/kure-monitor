@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
@@ -8,9 +8,10 @@ COPY . .
 RUN npm run build
 
 # Runtime stage - minimal nginx image
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 
-RUN addgroup -g 1001 -S kure && \
+RUN apk upgrade --no-cache && \
+    addgroup -g 1001 -S kure && \
     adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G kure kure
 
 COPY --from=build /app/build /usr/share/nginx/html

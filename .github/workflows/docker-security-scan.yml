@@ -107,7 +107,7 @@ jobs:
         docker pull ${{ matrix.image }}:${{ matrix.version }}
     
     - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       with:
         image-ref: ${{ matrix.image }}:${{ matrix.version }}
         format: 'sarif'
@@ -116,7 +116,7 @@ jobs:
         exit-code: '0'  # Don't fail the build on vulnerabilities
     
     - name: Run Trivy vulnerability scanner (table format)
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       with:
         image-ref: ${{ matrix.image }}:${{ matrix.version }}
         format: 'table'
@@ -124,7 +124,7 @@ jobs:
         exit-code: '0'
     
     - name: Run Trivy vulnerability scanner (detailed table format)
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       with:
         image-ref: ${{ matrix.image }}:${{ matrix.version }}
         format: 'table'

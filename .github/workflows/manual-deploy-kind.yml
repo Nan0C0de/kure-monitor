@@ -38,6 +38,8 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: nan0c0de/kure-monitor
 
+permissions: {}
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -85,7 +87,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -99,6 +101,8 @@ jobs:
     needs: [validate, build-backend]
     if: always() && inputs.deploy_backend && needs.validate.result == 'success' && (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped')
     runs-on: kind
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -129,7 +133,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -143,6 +147,8 @@ jobs:
     needs: [validate, build-frontend]
     if: always() && inputs.deploy_frontend && needs.validate.result == 'success' && (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped')
     runs-on: kind
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -173,7 +179,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push agent image
         uses: docker/build-push-action@v6
@@ -187,6 +193,8 @@ jobs:
     needs: [validate, build-agent]
     if: always() && inputs.deploy_agent && needs.validate.result == 'success' && (needs.build-agent.result == 'success' || needs.build-agent.result == 'skipped')
     runs-on: kind
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -217,7 +225,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push security-scanner image
         uses: docker/build-push-action@v6
@@ -231,6 +239,8 @@ jobs:
     needs: [validate, build-security-scanner]
     if: always() && inputs.deploy_security_scanner && needs.validate.result == 'success' && (needs.build-security-scanner.result == 'success' || needs.build-security-scanner.result == 'skipped')
     runs-on: kind
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 

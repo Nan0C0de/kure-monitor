@@ -13,6 +13,8 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: nan0c0de/kure-monitor/frontend
 
+permissions: {}
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -29,7 +31,7 @@ jobs:
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
-        password: ${{ secrets.GH_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Extract metadata (tags, labels) for Docker
       id: meta

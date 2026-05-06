@@ -1,4 +1,5 @@
-kubernetes==28.1.0
+kubernetes>=33.1.0
+urllib3>=2.6.3
 aiohttp>=3.9.4
 asyncio==4.0.0
 setuptools>=78.1.1

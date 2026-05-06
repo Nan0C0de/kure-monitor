@@ -20,6 +20,9 @@ on:
         default: '80'
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   backend-tests:
     runs-on: ubuntu-latest

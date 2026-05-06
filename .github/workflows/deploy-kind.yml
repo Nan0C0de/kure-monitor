@@ -15,9 +15,13 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: nan0c0de/kure-monitor
 
+permissions: {}
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       agent: ${{ steps.changes.outputs.agent }}
       backend: ${{ steps.changes.outputs.backend }}
@@ -89,7 +93,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push agent image
         uses: docker/build-push-action@v6
@@ -102,6 +106,8 @@ jobs:
   deploy-agent:
     needs: [detect-changes, build-agent]
     runs-on: kind
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -131,7 +137,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -144,6 +150,8 @@ jobs:
   deploy-backend:
     needs: [detect-changes, build-backend]
     runs-on: kind
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -173,7 +181,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -186,6 +194,8 @@ jobs:
   deploy-frontend:
     needs: [detect-changes, build-frontend]
     runs-on: kind
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -215,7 +225,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push security-scanner image
         uses: docker/build-push-action@v6
@@ -228,6 +238,8 @@ jobs:
   deploy-security-scanner:
     needs: [detect-changes, build-security-scanner]
     runs-on: kind
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
