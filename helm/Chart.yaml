@@ -19,7 +19,7 @@ sources:
   - https://github.com/Nan0C0de/kure-monitor
 maintainers:
   - name: Nan0C0de
-    email: nano.code@outlook.com
+    email: igor.koricanac@gmail.com
 annotations:
   artifacthub.io/containsSecurityUpdates: "true"
   artifacthub.io/changes: |
@@ -41,7 +41,7 @@ annotations:
       url: https://github.com/Nan0C0de/kure-monitor#readme
   artifacthub.io/maintainers: |
     - name: Nan0C0de
-      email: nano.code@outlook.com
+      email: igor.koricanac@gmail.com
   artifacthub.io/operator: false
   artifacthub.io/prerelease: false
   artifacthub.io/install: |

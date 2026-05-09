@@ -6,7 +6,7 @@ target-branch: gh-pages
 package-path: .cr-release-packages
 index-path: .cr-index
 commit-username: "Nan0C0de"
-commit-email: "nano.code@outlook.com"
+commit-email: "igor.koricanac@gmail.com"
 push: true
 pr: false
 release-name-template: "{{ .Name }}-{{ .Version }}"
