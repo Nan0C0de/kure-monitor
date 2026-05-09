@@ -14,7 +14,7 @@ The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API 
 | `agent.enabled` | Enable the pod monitoring agent | `true` |
 | `agent.pendingGracePeriod` | Seconds before pending pods are flagged | `120` |
 | `agent.image.repository` | Agent image repository | `ghcr.io/nan0c0de/kure-monitor/agent` |
-| `agent.image.tag` | Agent image tag | `2.3.2` |
+| `agent.image.tag` | Agent image tag | `2.3.3` |
 | `agent.resources.requests.cpu` | CPU request | `100m` |
 | `agent.resources.requests.memory` | Memory request | `128Mi` |
 | `agent.resources.limits.cpu` | CPU limit | `500m` |
@@ -25,7 +25,7 @@ The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `securityScanner.enabled` | Enable security scanning | `true` |
-| `securityScanner.image.tag` | Scanner image tag | `2.3.2` |
+| `securityScanner.image.tag` | Scanner image tag | `2.3.3` |
 | `securityScanner.resources.requests.cpu` | CPU request | `100m` |
 | `securityScanner.resources.requests.memory` | Memory request | `128Mi` |
 
@@ -34,7 +34,7 @@ The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `backend.replicaCount` | Number of replicas | `1` |
-| `backend.image.tag` | Backend image tag | `2.3.2` |
+| `backend.image.tag` | Backend image tag | `2.3.3` |
 | `backend.service.type` | Service type | `ClusterIP` |
 | `backend.service.port` | Service port | `8000` |
 | `backend.resources.requests.cpu` | CPU request | `200m` |
@@ -47,7 +47,7 @@ The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `frontend.replicaCount` | Number of replicas | `1` |
-| `frontend.image.tag` | Frontend image tag | `2.3.2` |
+| `frontend.image.tag` | Frontend image tag | `2.3.3` |
 | `frontend.service.type` | Service type | `ClusterIP` |
 | `frontend.service.port` | Service port | `8080` |
 | `frontend.service.nodePort` | NodePort (if `type=NodePort`) | `""` |

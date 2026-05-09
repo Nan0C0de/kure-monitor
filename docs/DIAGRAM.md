@@ -7,11 +7,13 @@ rest of the namespace -- which Service routes to it, which Ingress backs it,
 which HPA scales it, which ConfigMaps / Secrets / PVCs / ServiceAccounts it
 depends on, which NetworkPolicies select it.
 
-The Diagram tab was introduced in **2.3.2**.
+The Diagram tab was introduced in **2.3.2**. **2.3.3** added a third
+mode for RBAC visualization (Roles / ClusterRoles, their bindings, and
+the subjects they grant access to).
 
 ## Modes
 
-There are two view modes, switched via the toolbar at the top of the tab.
+There are three view modes, switched via the toolbar at the top of the tab.
 
 ### Per-namespace
 
@@ -26,6 +28,24 @@ Pick a namespace + workload (Deployment, StatefulSet, DaemonSet, Job, or
 CronJob). The graph is scoped to that workload plus its ancestors (e.g.
 Service -> Ingress) and descendants (e.g. Pod -> ReplicaSet -> Deployment).
 
+### Roles (added in 2.3.3)
+
+RBAC-focused mode. Two scopes:
+
+- **Namespace** -- pick a namespace + Role; the graph shows the Role,
+  its RoleBindings, the synthesized Permission nodes, and the Subjects
+  (`User`, `Group`, `ServiceAccount`) the Role is bound to.
+- **Cluster** -- pick a ClusterRole; same shape but for ClusterRoles +
+  ClusterRoleBindings.
+
+Permission nodes are synthesized one per `(apiGroup, resource)` tuple
+(plus one per `nonResourceURLs` group). The verbs and any
+`resourceNames` are carried in `node.metadata` and rendered in the
+summary panel. Subject nodes are derived from binding `subjects[]`
+entries; for `ServiceAccount` subjects the node still opens the live
+manifest, but `User` and `Group` subjects have no underlying object so
+they get the synthesized summary panel instead.
+
 ## Interactions
 
 - **Click a node** -> a side panel opens with the live manifest fetched
@@ -35,6 +55,11 @@ Service -> Ingress) and descendants (e.g. Pod -> ReplicaSet -> Deployment).
     is intentionally not granted read access to Secrets and the manifest
     endpoint hard-rejects `kind=Secret` with HTTP 403 -- see
     [Security model](#security-model) below.
+  - For synthesized RBAC nodes (`Permission`, `Subject:User`,
+    `Subject:Group`) the panel renders an `RbacSummaryModal` built from
+    the data already on the node (verbs, resource names, kind,
+    namespace). No fetch is performed because these nodes have no
+    underlying Kubernetes manifest.
 - **Click an edge** -> focus that path. Ancestors and descendants of the
   edge stay highlighted; everything else dims. Click the same edge again
   or click the background to clear the focus.
@@ -87,8 +112,8 @@ Secret values, Kure Monitor is not it.
 ## RBAC required
 
 The Diagram feature relies on the backend ServiceAccount being able to
-list / get the resources it graphs. As of **2.3.2** the chart and raw
-manifests both grant:
+list / get the resources it graphs. As of **2.3.3** the chart and raw
+manifests grant:
 
 - `core` (`""`): `namespaces` (list); `services / endpoints /
   configmaps / persistentvolumeclaims` (get, list); `serviceaccounts`
@@ -99,11 +124,15 @@ manifests both grant:
 - `networking.k8s.io`: `ingresses / networkpolicies` (get, list).
 - `discovery.k8s.io`: `endpointslices` (get, list).
 - `autoscaling`: `horizontalpodautoscalers` (get, list).
+- `rbac.authorization.k8s.io`: `roles / clusterroles / rolebindings /
+  clusterrolebindings` (get, list). **Added in 2.3.3** for the Roles
+  mode.
 
-If you upgrade an existing 2.3.0 install in-place **without** running
-`helm upgrade` (or `kubectl apply -f k8s/rbac.yaml`), the backend will
-get HTTP 403 from the API server when the Diagram tab is opened. Reapply
-RBAC after upgrade.
+If you upgrade an existing 2.3.0 or 2.3.2 install in-place **without**
+running `helm upgrade` (or `kubectl apply -f k8s/rbac.yaml`), the backend
+will get HTTP 403 from the API server when the Diagram tab is opened
+(or, for a 2.3.2 -> 2.3.3 upgrade, only the Roles mode will fail with
+403 -- the existing modes keep working). Reapply RBAC after upgrade.
 
 ## API reference
 
@@ -114,10 +143,16 @@ can call them).
 |--------|---------------------------------------------------|--------------------------------------|
 | GET    | `/api/diagram/namespaces`                         | List namespaces                      |
 | GET    | `/api/diagram/namespace/{ns}`                     | Per-namespace graph                  |
+| GET    | `/api/diagram/workloads/{ns}/{kind}`              | Workload names for a kind in a ns    |
 | GET    | `/api/diagram/workload/{ns}/{kind}/{name}`        | Per-workload graph                   |
 | GET    | `/api/diagram/manifest/{ns}/{kind}/{name}`        | Live manifest for a node             |
+| GET    | `/api/diagram/roles`                              | List Roles + ClusterRoles (2.3.3+)   |
+| GET    | `/api/diagram/role/{ns}/{name}`                   | Per-Role graph (2.3.3+)              |
+| GET    | `/api/diagram/clusterrole/{name}`                 | Per-ClusterRole graph (2.3.3+)       |
 
 The manifest endpoint returns HTTP 403 for `kind=Secret` by design.
+Synthesized kinds (`Permission`, `Subject:User`, `Subject:Group`) return
+HTTP 400 because they have no underlying manifest.
 
 ## Limitations
 

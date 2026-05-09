@@ -34,7 +34,7 @@ kubectl get pvc -n kure-system
 ### Image pull errors
 
 ```bash
-docker pull ghcr.io/nan0c0de/kure-monitor/backend:2.3.2
+docker pull ghcr.io/nan0c0de/kure-monitor/backend:2.3.3
 
 # Private registry
 kubectl create secret docker-registry regcred \

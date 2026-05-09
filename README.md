@@ -45,6 +45,12 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
+## What's New in v2.3.3
+
+- **New: Roles mode in the Diagram tab** - RBAC-focused topology graph. Pick a Role (in a namespace) or a ClusterRole and the diagram renders the Role/ClusterRole, its bindings, the synthesized Permission nodes (one per `(apiGroup, resource)` tuple, with verbs and `resourceNames` in the node), and the Subjects (`User`, `Group`, `ServiceAccount`) the Role is bound to. Click a real RBAC object to see its live manifest; click a synthesized Permission or Subject to see a summary panel built from the data already on the node.
+- **Backend: RBAC topology endpoints** - Three new `/api/diagram/*` endpoints (`/diagram/roles`, `/diagram/role/{ns}/{name}`, `/diagram/clusterrole/{name}`) gated by `require_read`. The diagram manifest endpoint now also serves `Role`, `ClusterRole`, `RoleBinding`, `ClusterRoleBinding`, and `ServiceAccount` (synthesized `Permission` / `Subject:*` kinds are rejected with HTTP 400 as they have no underlying manifest).
+- **OPERATOR ACTION REQUIRED: Reapply RBAC** - The backend ClusterRole now needs `get` / `list` on `roles`, `clusterroles`, `rolebindings`, and `clusterrolebindings` in `rbac.authorization.k8s.io`. Run `kubectl apply -f k8s/rbac.yaml` (raw manifests) or `helm upgrade` (Helm) after upgrading. Without it the Roles mode returns HTTP 403; the rest of the dashboard is unaffected.
+
 ## What's New in v2.3.2
 
 - **New: Diagram tab** - Interactive Kubernetes topology graph with two view modes (per-namespace and per-workload). The graph is built from owner refs, label selectors, service-to-endpoints relationships, ingress backends, HPA targets, NetworkPolicy selectors, and volume / envFrom references. Click any node to view its manifest in a side panel; click any edge to focus on that path -- ancestors and descendants stay highlighted while everything else dims. Click again or click the background to clear. Nodes are grouped by `app.kubernetes.io/name` (or `app`) label and groups can be collapsed.

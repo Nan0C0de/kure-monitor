@@ -3,8 +3,8 @@ name: kure
 description: Kubernetes failure diagnosis tool with AI-powered troubleshooting
 type: application
 kubeVersion: ">=1.20.0-0"
-version: 2.3.2
-appVersion: "2.3.2"
+version: 2.3.3
+appVersion: "2.3.3"
 keywords:
   - kubernetes
   - monitoring
@@ -24,13 +24,11 @@ annotations:
   artifacthub.io/containsSecurityUpdates: "true"
   artifacthub.io/changes: |
     - kind: added
-      description: "New Diagram tab - interactive Kubernetes topology graph with per-namespace and per-workload modes. Click any node to view its manifest; click any edge to focus on that path (highlights ancestors + descendants, dims the rest)."
+      description: "Diagram tab: RBAC visualization. New Roles mode renders Roles / ClusterRoles together with their RoleBindings / ClusterRoleBindings, synthesized Permission nodes (one per apiGroup+resource tuple), and Subject nodes (User / Group / ServiceAccount). Three new endpoints: `/api/diagram/roles`, `/api/diagram/role/{ns}/{name}`, `/api/diagram/clusterrole/{name}`."
     - kind: added
-      description: "Backend topology service builds a deterministic graph from owner refs, label selectors, service->endpoints, ingress backends, HPA targets, NetworkPolicy selectors, and volume / envFrom references. EndpointSlice with Endpoints fallback. 15s in-memory cache. New endpoints under `/api/diagram/*` gated by `require_read`."
+      description: "Frontend: RbacSummaryModal shows synthesized Permission and Subject details (verbs, resourceNames, kind, namespace) when those nodes are clicked; real Role / ClusterRole / RoleBinding / ClusterRoleBinding nodes still open the live-manifest panel."
     - kind: changed
-      description: "BREAKING for cluster operators: backend ClusterRole expanded for the topology graph. New permissions for the `kure-backend` ServiceAccount on namespaces, services, endpoints, configmaps, persistentvolumeclaims, serviceaccounts, replicasets / statefulsets / daemonsets (apps), jobs / cronjobs (batch), ingresses / networkpolicies (networking.k8s.io), endpointslices (discovery.k8s.io), and horizontalpodautoscalers (autoscaling). Reapply RBAC after upgrade: `kubectl apply -f k8s/rbac.yaml` (raw manifests) or `helm upgrade` (Helm)."
-    - kind: added
-      description: "Security: `secrets` is intentionally NOT granted to the backend. Secret nodes in the diagram are derived purely from workload spec references; the manifest endpoint hard-rejects `kind=Secret` with HTTP 403 by design and the UI shows a 'no read access by design' info banner."
+      description: "OPERATOR ACTION REQUIRED: backend ClusterRole expanded with `rbac.authorization.k8s.io` read permissions on `roles`, `clusterroles`, `rolebindings`, and `clusterrolebindings` (get, list). Reapply RBAC after upgrade: `kubectl apply -f k8s/rbac.yaml` (raw manifests) or `helm upgrade` (Helm). Without this the Roles mode of the Diagram tab returns HTTP 403."
   artifacthub.io/category: monitoring-logging
   artifacthub.io/displayName: Kure - Kubernetes Failure Diagnosis
   artifacthub.io/license: Apache-2.0
@@ -50,7 +48,7 @@ annotations:
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
     # Install Kure Monitor
-    helm install kure-monitor kure-monitor/kure --version 2.3.2 \
+    helm install kure-monitor kure-monitor/kure --version 2.3.3 \
       --create-namespace --namespace kure-system
 
     # After installation, configure LLM provider via the Admin panel

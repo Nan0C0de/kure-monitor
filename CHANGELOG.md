@@ -5,6 +5,94 @@ All notable changes to Kure Monitor are documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.3] - 2026-05-09
+
+This release extends the **Diagram tab** with **RBAC visualization**: a new
+Roles mode that graphs Roles / ClusterRoles together with their bindings,
+synthesized Permission nodes, and the Users / Groups / ServiceAccounts they
+grant access to. The backend ClusterRole gains read permissions on RBAC
+resources; cluster operators must reapply RBAC after the upgrade.
+
+### Added
+
+- **Diagram tab: Roles mode.** New top-level mode in the Diagram tab that
+  renders an RBAC-focused graph.
+  - **Namespace scope** -- pick a namespace + Role; the graph shows the Role,
+    its RoleBindings, the synthesized Permission nodes (one per
+    `(apiGroup, resource)` tuple, plus `nonResourceURLs`), and the Subjects
+    (`User`, `Group`, `ServiceAccount`) the Role is bound to.
+  - **Cluster scope** -- pick a ClusterRole; the graph shows the ClusterRole,
+    its ClusterRoleBindings, the synthesized Permission nodes, and the
+    Subjects the ClusterRole is bound to.
+  - **Click a synthesized node** (Permission, Subject:User, Subject:Group)
+    -> a new `RbacSummaryModal` opens with the data already present on the
+    node (verbs, resource names, kind, namespace) -- no fetch is performed
+    because these nodes have no underlying Kubernetes manifest.
+  - **Click a real RBAC node** (Role / ClusterRole / RoleBinding /
+    ClusterRoleBinding / ServiceAccount) -> the existing manifest side
+    panel opens with the live manifest.
+- **Backend RBAC topology endpoints** in
+  `backend/api/routes_diagram.py`, all gated by `require_read`:
+  - `GET /api/diagram/roles` -- lists Roles (per namespace) and ClusterRoles.
+  - `GET /api/diagram/role/{namespace}/{name}` -- per-Role graph.
+  - `GET /api/diagram/clusterrole/{name}` -- per-ClusterRole graph.
+- **Topology service: RBAC graph builder**
+  (`backend/services/topology_service.py`). Builds a deterministic graph
+  from `Role` / `ClusterRole` rules and `RoleBinding` /
+  `ClusterRoleBinding` subjects:
+  - `Permission` nodes synthesized one-per-`(apiGroup, resource)` tuple, with
+    verbs and `resourceNames` carried in the node metadata.
+  - `Subject:User`, `Subject:Group`, and `Subject:ServiceAccount` nodes
+    derived from binding subjects.
+  - Edges: Role/ClusterRole -> Permission; Role/ClusterRole -> Binding ->
+    Subject.
+  - Manifest endpoint accepts `Role`, `ClusterRole`, `RoleBinding`,
+    `ClusterRoleBinding`, and `ServiceAccount` (in addition to the existing
+    workload kinds); rejects synthesized kinds (`Permission`,
+    `Subject:User`, `Subject:Group`) with HTTP 400.
+- **Frontend.**
+  - New `RbacSummaryModal` component for synthesized Permission / Subject
+    nodes (no fetch, renders `node.metadata` directly).
+  - New `DiagramTab.test.js` and `RbacSummaryModal.test.js` tests; existing
+    `TopologyGraph.test.js` extended for the RBAC node types.
+  - New node-type styling in `nodeTypes.js` for `Role`, `ClusterRole`,
+    `RoleBinding`, `ClusterRoleBinding`, `Permission`, and `Subject:*`.
+
+### Changed
+
+- **OPERATOR ACTION REQUIRED: backend ClusterRole expanded.** The
+  `kure-backend` ServiceAccount now needs read access to RBAC resources to
+  power the Roles mode:
+  - `rbac.authorization.k8s.io`: `roles`, `clusterroles`, `rolebindings`,
+    `clusterrolebindings` (get, list).
+
+  After upgrading, reapply RBAC:
+
+  ```bash
+  # Helm
+  helm upgrade kure-monitor kure-monitor/kure -n kure-system --version 2.3.3
+
+  # Raw manifests
+  kubectl apply -f k8s/rbac.yaml
+  ```
+
+  Without this step, the new Roles mode of the Diagram tab will return
+  HTTP 403. The rest of the dashboard is unaffected. No data migration is
+  needed.
+
+- **Image tags** for `agent`, `security-scanner`, `backend`, and
+  `frontend` move from `2.3.2` to `2.3.3`. Helm values default to the
+  matching chart version.
+
+- **Agent and security-scanner are unchanged** in this release.
+
+### Notes
+
+- This release does **not** grant the backend access to Secret values --
+  the Diagram tab's existing "no read access by design" stance for
+  Secrets is preserved. The new RBAC permissions only cover the four
+  RBAC resources listed above.
+
 ## [2.3.2] - 2026-04-27
 
 This release adds the **Diagram tab** -- an interactive Kubernetes topology
@@ -175,6 +263,7 @@ the upgrade guide.
 - **BREAKING**: removed `auth.apiKey` in favor of the bootstrap Secret model
   (fully overhauled in 2.3.0)
 
+[2.3.3]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.3
 [2.3.2]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.2
 [2.3.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.0
 [2.2.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.2.0

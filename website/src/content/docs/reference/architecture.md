@@ -97,7 +97,7 @@ React 18 + Tailwind dashboard. Real-time updates via WebSocket.
 | `/login` | Sign-in / initial admin setup |
 | `/` | Pod failures dashboard |
 | `/security` | Security findings |
-| `/diagram` | Topology graph (2.3.2+) |
+| `/diagram` | Topology graph (2.3.2+; RBAC mode added in 2.3.3) |
 | `/admin` | Admin panel |
 
 ### Security Scanner (Deployment)

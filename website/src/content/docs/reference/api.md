@@ -341,7 +341,42 @@ Valid `kind` values: `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, `CronJob`.
 GET /api/diagram/manifest/{namespace}/{kind}/{name}
 ```
 
-Returns the live manifest as YAML. **Rejects `kind=Secret` with HTTP 403** by design — the backend ServiceAccount has no read access to Secrets.
+Returns the live manifest as YAML. **Rejects `kind=Secret` with HTTP 403** by design — the backend ServiceAccount has no read access to Secrets. Synthesized kinds (`Permission`, `Subject:User`, `Subject:Group`) are rejected with HTTP 400 because they have no underlying manifest.
+
+### List Roles + ClusterRoles
+
+> Added in **2.3.3**.
+
+```http
+GET /api/diagram/roles
+```
+
+```json
+{
+  "cluster_roles": [{ "name": "..." }],
+  "roles": [{ "namespace": "...", "name": "..." }]
+}
+```
+
+### Per-Role graph
+
+> Added in **2.3.3**.
+
+```http
+GET /api/diagram/role/{namespace}/{name}
+```
+
+Same response shape as the namespace graph. Nodes include the `Role`, its `RoleBinding`s, synthesized `Permission` nodes (one per `(apiGroup, resource)` tuple, with verbs and `resourceNames` in `metadata`), and `Subject:User` / `Subject:Group` / `Subject:ServiceAccount` nodes.
+
+### Per-ClusterRole graph
+
+> Added in **2.3.3**.
+
+```http
+GET /api/diagram/clusterrole/{name}
+```
+
+Same shape as the per-Role graph but for ClusterRoles + ClusterRoleBindings.
 
 ## Admin — LLM
 
