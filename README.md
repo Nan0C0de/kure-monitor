@@ -52,7 +52,7 @@ Kure complements your existing observability stack (Prometheus, Grafana, Datadog
   - **OpenAI**: `gpt-5.5`, `gpt-5.5-mini` (default), `gpt-5.4-mini`
   - **Anthropic**: `claude-opus-4-7`, `claude-sonnet-4-6` (default), `claude-haiku-4-5`
   - **Google Gemini**: `gemini-3.1-pro`, `gemini-3-flash` (default), `gemini-3.1-flash-lite`
-  - **Groq**: `meta-llama/llama-4-maverick-17b-128e-instruct`, `meta-llama/llama-4-scout-17b-16e-instruct` (default), `openai/gpt-oss-120b`, `moonshotai/kimi-k2-instruct`
+  - **Groq**: `openai/gpt-oss-120b`, `meta-llama/llama-4-scout-17b-16e-instruct` (default), `llama-3.3-70b-versatile`, `openai/gpt-oss-20b`
   - **Ollama**: `llama4:scout` (default), `llama3.3`, `qwen3`
   - **GitHub Copilot (GitHub Models)**: `openai/gpt-5.5`, `openai/gpt-5.5-mini` (default), `anthropic/claude-sonnet-4-6`
 - **No RBAC or breaking changes.** Drop-in upgrade; no operator action required.

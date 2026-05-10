@@ -25,7 +25,7 @@ Kure Monitor uses an LLM to generate contextual fixes for pod failures and secur
 | OpenAI | `gpt-5.5`, **`gpt-5.5-mini`**, `gpt-5.4-mini` |
 | Anthropic | `claude-opus-4-7`, **`claude-sonnet-4-6`**, `claude-haiku-4-5` |
 | Google Gemini | `gemini-3.1-pro`, **`gemini-3-flash`**, `gemini-3.1-flash-lite` |
-| Groq | `meta-llama/llama-4-maverick-17b-128e-instruct`, **`meta-llama/llama-4-scout-17b-16e-instruct`**, `openai/gpt-oss-120b`, `moonshotai/kimi-k2-instruct` |
+| Groq | `openai/gpt-oss-120b`, **`meta-llama/llama-4-scout-17b-16e-instruct`**, `llama-3.3-70b-versatile`, `openai/gpt-oss-20b` |
 | Ollama | **`llama4:scout`**, `llama3.3`, `qwen3` |
 | GitHub Copilot | `openai/gpt-5.5`, **`openai/gpt-5.5-mini`**, `anthropic/claude-sonnet-4-6` |
 

@@ -27,10 +27,10 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       needsBaseUrl: false,
       defaultModel: 'meta-llama/llama-4-scout-17b-16e-instruct',
       models: [
-        { value: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick (Best)' },
+        { value: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B (Best)' },
         { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Recommended)' },
-        { value: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B' },
-        { value: 'moonshotai/kimi-k2-instruct-0905', label: 'Kimi K2' }
+        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
+        { value: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B (Fast)' }
       ]
     },
     {
