@@ -50,7 +50,8 @@ It also continuously audits your cluster for security misconfigurations and rend
 ```bash
 helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 helm install kure-monitor kure-monitor/kure \
-  --namespace kure-system --create-namespace
+  --namespace kure-system --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)"
 ```
 
 Then port-forward and create the initial admin account:

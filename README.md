@@ -138,19 +138,11 @@ helm repo update
 # Install Kure Monitor
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
-  --create-namespace
-```
-
-After installation, configure your LLM provider (OpenAI, Anthropic, Groq, Google Gemini, GitHub Copilot, or Ollama) via the Admin panel in the web dashboard to enable AI-powered solutions.
-
-### Production Install
-
-```bash
-helm install kure-monitor kure-monitor/kure \
-  --namespace kure-system \
   --create-namespace \
   --set postgresql.password="$(openssl rand -hex 24)"
 ```
+
+After installation, configure your LLM provider (OpenAI, Anthropic, Groq, Google Gemini, GitHub Copilot, or Ollama) via the Admin panel in the web dashboard to enable AI-powered solutions.
 
 On first visit, the dashboard will prompt you to create the initial admin
 account (username + password). Invite additional users from the Admin panel

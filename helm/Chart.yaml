@@ -49,7 +49,8 @@ annotations:
 
     # Install Kure Monitor
     helm install kure-monitor kure-monitor/kure --version 2.3.3 \
-      --create-namespace --namespace kure-system
+      --create-namespace --namespace kure-system \
+      --set postgresql.password="$(openssl rand -hex 24)"
 
     # After installation, configure LLM provider via the Admin panel
     # to enable AI-powered troubleshooting suggestions

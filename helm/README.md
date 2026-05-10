@@ -12,19 +12,11 @@ helm repo update
 # Install Kure Monitor
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
-  --create-namespace
-```
-
-After installation, the dashboard will prompt you to create the initial admin account on first visit, and you can configure your LLM provider via the Admin panel.
-
-## Production Install
-
-```bash
-helm install kure-monitor kure-monitor/kure \
-  --namespace kure-system \
   --create-namespace \
   --set postgresql.password="$(openssl rand -hex 24)"
 ```
+
+After installation, the dashboard will prompt you to create the initial admin account on first visit, and you can configure your LLM provider via the Admin panel.
 
 The chart auto-generates a Secret named `<release>-bootstrap` on first install
 containing a `service-token` (used by the agent and security scanner to
@@ -199,24 +191,18 @@ Then open http://localhost:8080. On first visit you'll be prompted to create the
 
 ```bash
 helm install kure-monitor kure-monitor/kure \
-  --namespace kure-system --create-namespace
-```
-
-The dashboard will prompt you to create the initial admin account on first visit.
-
-### Production install (custom DB password)
-
-```bash
-helm install kure-monitor kure-monitor/kure \
   --namespace kure-system --create-namespace \
   --set postgresql.password="$(openssl rand -hex 24)"
 ```
+
+The dashboard will prompt you to create the initial admin account on first visit.
 
 ### With Prometheus monitoring
 
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)" \
   --set prometheus.enabled=true \
   --set prometheus.serviceMonitor.enabled=true
 ```
@@ -226,6 +212,7 @@ helm install kure-monitor kure-monitor/kure \
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)" \
   --set ingress.enabled=true \
   --set ingress.className=nginx \
   --set "ingress.hosts[0].host=kure.example.com"

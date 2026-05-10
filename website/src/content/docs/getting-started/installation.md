@@ -26,7 +26,8 @@ helm repo update
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
-  --create-namespace
+  --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)"
 ```
 
 ### Install with custom values
@@ -46,7 +47,8 @@ git clone https://github.com/Nan0C0de/kure-monitor.git
 cd kure-monitor
 helm install kure-monitor ./helm \
   --namespace kure-system \
-  --create-namespace
+  --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)"
 ```
 
 ## Method 2: kubectl manifests
@@ -153,6 +155,7 @@ kubectl delete namespace kure-system   # removes all data
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
   --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)" \
   --set frontend.service.type=LoadBalancer \
   --set frontend.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"=nlb
 ```
@@ -165,6 +168,7 @@ Requires the AWS Load Balancer Controller for `LoadBalancer` services.
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
   --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)" \
   --set frontend.service.type=LoadBalancer
 ```
 
@@ -174,6 +178,7 @@ helm install kure-monitor kure-monitor/kure \
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
   --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)" \
   --set frontend.service.type=LoadBalancer
 ```
 
@@ -182,7 +187,8 @@ helm install kure-monitor kure-monitor/kure \
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
-  --create-namespace
+  --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)"
 minikube service kure-monitor-frontend -n kure-system
 ```
 
@@ -191,7 +197,8 @@ minikube service kure-monitor-frontend -n kure-system
 ```bash
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
-  --create-namespace
+  --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)"
 kubectl port-forward svc/kure-monitor-frontend 8080:8080 -n kure-system
 ```
 

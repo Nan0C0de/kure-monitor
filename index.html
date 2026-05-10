@@ -239,11 +239,7 @@ helm repo update</code></pre>
                 <div class="section-icon">🚀</div>
                 Install Chart
             </h2>
-            <pre><code># Basic install (configure LLM via Admin panel)
-helm install kure-monitor kure-monitor/kure --version 2.3.3 \
-    --create-namespace --namespace kure-system
-
-# Production install with custom DB password
+            <pre><code># Install with a generated DB password
 helm install kure-monitor kure-monitor/kure --version 2.3.3 \
     --create-namespace --namespace kure-system \
     --set postgresql.password="$(openssl rand -hex 24)"

@@ -13,7 +13,8 @@ helm repo update
 
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system \
-  --create-namespace
+  --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)"
 ```
 
 ## 2. Open the dashboard

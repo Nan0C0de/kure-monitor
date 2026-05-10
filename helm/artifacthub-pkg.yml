@@ -53,7 +53,8 @@ install: |
 
   # Install Kure Monitor
   helm install kure-monitor kure-monitor/kure --version 2.3.3 \
-    --create-namespace --namespace kure-system
+    --create-namespace --namespace kure-system \
+    --set postgresql.password="$(openssl rand -hex 24)"
 
   # On first visit, the dashboard prompts you to create the initial admin account.
   # After installation, configure LLM provider via the Admin panel
