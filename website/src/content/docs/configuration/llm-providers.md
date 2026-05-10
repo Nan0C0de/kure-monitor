@@ -5,16 +5,29 @@ description: Supported LLM providers, default models, and recommendations for Ku
 
 Kure Monitor uses an LLM to generate contextual fixes for pod failures and security findings. The provider is configured **after install** from the **Admin Panel → AI Configuration** — no API keys at install time.
 
+> **2.3.4** — the AI Configuration panel now defaults to **Groq** for new installations (was Ollama). Existing installs are unaffected; this only changes the initial pre-selection. Model catalogs across all six providers were also refreshed to current (May 2026) latest models.
+
 ## Supported providers
 
 | Provider | Alias | Default Model | Pricing |
 |----------|-------|---------------|---------|
-| **Ollama** (local) | `ollama` | `llama3.2` | Free / self-hosted |
-| **OpenAI** | `openai` | `gpt-5-mini` | [openai.com/pricing](https://openai.com/pricing) |
-| **Anthropic** | `anthropic`, `claude` | `claude-sonnet-4-5` | [anthropic.com/pricing](https://www.anthropic.com/pricing) |
-| **Groq** | `groq`, `groq_cloud` | `meta-llama/llama-4-scout-17b-16e-instruct` | [groq.com/pricing](https://groq.com/pricing/) |
-| **Google Gemini** | `gemini`, `google` | `gemini-2.5-flash` | [ai.google.dev/pricing](https://ai.google.dev/pricing) |
-| **GitHub Copilot** (GitHub Models) | `copilot`, `github`, `github_models` | `openai/gpt-5-mini` | [GitHub Models](https://github.com/marketplace/models) |
+| **Groq** (default) | `groq`, `groq_cloud` | `meta-llama/llama-4-scout-17b-16e-instruct` | [groq.com/pricing](https://groq.com/pricing/) |
+| **OpenAI** | `openai` | `gpt-5.5-mini` | [openai.com/pricing](https://openai.com/pricing) |
+| **Anthropic** | `anthropic`, `claude` | `claude-sonnet-4-6` | [anthropic.com/pricing](https://www.anthropic.com/pricing) |
+| **Google Gemini** | `gemini`, `google` | `gemini-3-flash` | [ai.google.dev/pricing](https://ai.google.dev/pricing) |
+| **GitHub Copilot** (GitHub Models) | `copilot`, `github`, `github_models` | `openai/gpt-5.5-mini` | [GitHub Models](https://github.com/marketplace/models) |
+| **Ollama** (local) | `ollama` | `llama4:scout` | Free / self-hosted |
+
+### Model catalogs (dropdown options)
+
+| Provider | Models in the dropdown (default in **bold**) |
+|----------|----------------------------------------------|
+| OpenAI | `gpt-5.5`, **`gpt-5.5-mini`**, `gpt-5.4-mini` |
+| Anthropic | `claude-opus-4-7`, **`claude-sonnet-4-6`**, `claude-haiku-4-5` |
+| Google Gemini | `gemini-3.1-pro`, **`gemini-3-flash`**, `gemini-3.1-flash-lite` |
+| Groq | `meta-llama/llama-4-maverick-17b-128e-instruct`, **`meta-llama/llama-4-scout-17b-16e-instruct`**, `openai/gpt-oss-120b`, `moonshotai/kimi-k2-instruct` |
+| Ollama | **`llama4:scout`**, `llama3.3`, `qwen3` |
+| GitHub Copilot | `openai/gpt-5.5`, **`openai/gpt-5.5-mini`**, `anthropic/claude-sonnet-4-6` |
 
 ### GitHub Copilot (GitHub Models)
 
@@ -22,23 +35,23 @@ Kure Monitor uses an LLM to generate contextual fixes for pod failures and secur
 - **Auth**: GitHub Personal Access Token (fine-grained, with the `Models` permission)
 - **Base URL**: `https://models.github.ai/inference`
 - **API**: OpenAI-compatible
-- **Example models**: `openai/gpt-5`, `openai/gpt-5-mini`, `anthropic/claude-sonnet-4`
+- **Example models**: `openai/gpt-5.5`, `openai/gpt-5.5-mini`, `anthropic/claude-sonnet-4-6`
 
 ### Ollama
 
-For air-gapped clusters. Run Ollama in your cluster, point Kure at it, and your cluster data never leaves your network. Default model: `llama3.2`. Other models in the dropdown: `llama3.3`, `qwen2.5`.
+For air-gapped clusters. Run Ollama in your cluster, point Kure at it, and your cluster data never leaves your network. Default model: `llama4:scout`. Other models in the dropdown: `llama3.3`, `qwen3`.
 
 ## Recommendations
 
 | Use case | Provider | Model |
 |----------|----------|-------|
-| Best quality | Anthropic | `claude-sonnet-4-5` |
-| Best value | OpenAI | `gpt-5-mini` |
+| Best quality | Anthropic | `claude-opus-4-7` |
+| Best value | OpenAI | `gpt-5.5-mini` |
 | Fastest | Groq | `meta-llama/llama-4-scout-17b-16e-instruct` |
 | Free tier | Groq | `meta-llama/llama-4-scout-17b-16e-instruct` |
-| Google ecosystem | Google | `gemini-2.5-flash` |
-| GitHub ecosystem | GitHub Copilot | `openai/gpt-5-mini` |
-| Local / air-gapped | Ollama | `llama3.2` |
+| Google ecosystem | Google | `gemini-3-flash` |
+| GitHub ecosystem | GitHub Copilot | `openai/gpt-5.5-mini` |
+| Local / air-gapped | Ollama | `llama4:scout` |
 
 ## Configuring a provider
 

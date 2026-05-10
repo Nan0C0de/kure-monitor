@@ -12,56 +12,12 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [success, setSuccess] = useState(null);
 
   // Form state
-  const [provider, setProvider] = useState('ollama');
+  const [provider, setProvider] = useState('groq');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
 
   const providers = [
-    {
-      value: 'ollama',
-      label: 'Ollama (Local)',
-      trust: 'local',
-      trustLabel: 'Local - no data leaves cluster',
-      needsApiKey: false,
-      needsBaseUrl: true,
-      defaultBaseUrl: 'http://ollama:11434',
-      defaultModel: 'llama3.2',
-      baseUrlHelper: 'The URL where your Ollama instance is running',
-      models: [
-        { value: 'llama3.3', label: 'Llama 3.3 (Latest)' },
-        { value: 'llama3.2', label: 'Llama 3.2 (Recommended)' },
-        { value: 'qwen2.5', label: 'Qwen 2.5' }
-      ]
-    },
-    {
-      value: 'openai',
-      label: 'OpenAI',
-      trust: 'external',
-      trustLabel: 'External - data sent to OpenAI',
-      needsApiKey: true,
-      needsBaseUrl: false,
-      defaultModel: 'gpt-5-mini',
-      models: [
-        { value: 'gpt-5', label: 'GPT-5 (Latest)' },
-        { value: 'gpt-5-mini', label: 'GPT-5 Mini (Recommended)' },
-        { value: 'gpt-4.1', label: 'GPT-4.1' }
-      ]
-    },
-    {
-      value: 'anthropic',
-      label: 'Anthropic (Claude)',
-      trust: 'external',
-      trustLabel: 'External - data sent to Anthropic',
-      needsApiKey: true,
-      needsBaseUrl: false,
-      defaultModel: 'claude-sonnet-4-5',
-      models: [
-        { value: 'claude-opus-4-5', label: 'Claude Opus 4.5 (Best)' },
-        { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Recommended)' },
-        { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Fast)' }
-      ]
-    },
     {
       value: 'groq',
       label: 'Groq',
@@ -73,7 +29,52 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       models: [
         { value: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick (Best)' },
         { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Recommended)' },
-        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' }
+        { value: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B' },
+        { value: 'moonshotai/kimi-k2-instruct-0905', label: 'Kimi K2' }
+      ]
+    },
+    {
+      value: 'ollama',
+      label: 'Ollama (Local)',
+      trust: 'local',
+      trustLabel: 'Local - no data leaves cluster',
+      needsApiKey: false,
+      needsBaseUrl: true,
+      defaultBaseUrl: 'http://ollama:11434',
+      defaultModel: 'llama4:scout',
+      baseUrlHelper: 'The URL where your Ollama instance is running',
+      models: [
+        { value: 'llama4:scout', label: 'Llama 4 Scout (Recommended)' },
+        { value: 'llama3.3', label: 'Llama 3.3' },
+        { value: 'qwen3', label: 'Qwen 3' }
+      ]
+    },
+    {
+      value: 'openai',
+      label: 'OpenAI',
+      trust: 'external',
+      trustLabel: 'External - data sent to OpenAI',
+      needsApiKey: true,
+      needsBaseUrl: false,
+      defaultModel: 'gpt-5.5-mini',
+      models: [
+        { value: 'gpt-5.5', label: 'GPT-5.5 (Latest)' },
+        { value: 'gpt-5.5-mini', label: 'GPT-5.5 Mini (Recommended)' },
+        { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' }
+      ]
+    },
+    {
+      value: 'anthropic',
+      label: 'Anthropic (Claude)',
+      trust: 'external',
+      trustLabel: 'External - data sent to Anthropic',
+      needsApiKey: true,
+      needsBaseUrl: false,
+      defaultModel: 'claude-sonnet-4-6',
+      models: [
+        { value: 'claude-opus-4-7', label: 'Claude Opus 4.7 (Best)' },
+        { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Recommended)' },
+        { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Fast)' }
       ]
     },
     {
@@ -83,11 +84,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to Google',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'gemini-2.5-flash',
+      defaultModel: 'gemini-3-flash',
       models: [
-        { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Latest)' },
-        { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
-        { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Fast)' }
+        { value: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro (Latest)' },
+        { value: 'gemini-3-flash', label: 'Gemini 3 Flash (Recommended)' },
+        { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (Fast)' }
       ]
     },
     {
@@ -98,13 +99,13 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       needsApiKey: true,
       needsBaseUrl: true,
       defaultBaseUrl: 'https://models.github.ai/inference',
-      defaultModel: 'openai/gpt-5-mini',
+      defaultModel: 'openai/gpt-5.5-mini',
       apiKeyHelper: 'Use a GitHub PAT with Models permission',
       baseUrlHelper: 'GitHub Models inference endpoint',
       models: [
-        { value: 'openai/gpt-5', label: 'GPT-5 (Latest)' },
-        { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (Recommended)' },
-        { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4' }
+        { value: 'openai/gpt-5.5', label: 'GPT-5.5 (Latest)' },
+        { value: 'openai/gpt-5.5-mini', label: 'GPT-5.5 Mini (Recommended)' },
+        { value: 'anthropic/claude-sonnet-4-6', label: 'Claude Sonnet 4.6' }
       ]
     }
   ];
@@ -113,10 +114,9 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
 
   useEffect(() => {
     loadStatus();
-    // Set default model for initial provider (ollama)
+    // Set default model for initial provider (groq)
     if (!model) {
-      setModel('llama3.2');
-      setBaseUrl('http://ollama:11434');
+      setModel('meta-llama/llama-4-scout-17b-16e-instruct');
     }
   }, []);
 
@@ -126,7 +126,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       const data = await api.getLLMStatus();
       setStatus(data);
       if (data.configured) {
-        setProvider(data.provider || 'ollama');
+        setProvider(data.provider || 'groq');
         setModel(data.model || '');
       }
     } catch (err) {

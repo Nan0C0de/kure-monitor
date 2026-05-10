@@ -18,52 +18,49 @@ class OpenAIProvider(LLMProvider):
 
     @property
     def default_model(self) -> str:
-        return "gpt-5-mini"
-    
+        return "gpt-5.5-mini"
+
     async def generate_solution(
         self,
         failure_reason: str,
         failure_message: Optional[str] = None,
         events: List[Dict] = None,
         container_statuses: List[Dict] = None,
-        pod_context: Dict = None
+        pod_context: Dict = None,
     ) -> LLMResponse:
         """Generate solution using OpenAI API"""
         prompt = self._build_prompt(
             failure_reason, failure_message, events, container_statuses, pod_context
         )
-        
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        
+
         payload = {
             "model": self.model,
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a Kubernetes expert providing concise, actionable solutions for pod failures."
+                    "content": "You are a Kubernetes expert providing concise, actionable solutions for pod failures.",
                 },
-                {
-                    "role": "user", 
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             "max_tokens": 1000,
-            "temperature": 0.1
+            "temperature": 0.1,
         }
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    self.API_URL,
-                    headers=headers,
-                    json=payload
+                    self.API_URL, headers=headers, json=payload
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"OpenAI API error {response.status}: {error_text}")
+                        logger.error(
+                            f"OpenAI API error {response.status}: {error_text}"
+                        )
                         raise Exception(f"OpenAI API error: {response.status}")
 
                     data = await response.json()
@@ -74,7 +71,7 @@ class OpenAIProvider(LLMProvider):
                         content=content,
                         provider=self.provider_name,
                         model=self.model,
-                        tokens_used=tokens_used
+                        tokens_used=tokens_used,
                     )
 
         except Exception as e:
@@ -86,29 +83,29 @@ class OpenAIProvider(LLMProvider):
         """Generate a raw response with custom prompts using OpenAI API"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         payload = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             "max_tokens": 2000,
-            "temperature": 0.1
+            "temperature": 0.1,
         }
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    self.API_URL,
-                    headers=headers,
-                    json=payload
+                    self.API_URL, headers=headers, json=payload
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"OpenAI API error {response.status}: {error_text}")
+                        logger.error(
+                            f"OpenAI API error {response.status}: {error_text}"
+                        )
                         raise Exception(f"OpenAI API error: {response.status}")
 
                     data = await response.json()
@@ -119,7 +116,7 @@ class OpenAIProvider(LLMProvider):
                         content=content,
                         provider=self.provider_name,
                         model=self.model,
-                        tokens_used=tokens_used
+                        tokens_used=tokens_used,
                     )
 
         except Exception as e:

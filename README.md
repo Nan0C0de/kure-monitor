@@ -45,6 +45,18 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
+## What's New in v2.3.4
+
+- **Default LLM provider is now Groq** - The AI Configuration panel now lands new users on Groq pre-selected (was Ollama). Existing installations are unaffected; provider stays whatever you have configured.
+- **Model lists refreshed across all providers** - Frontend dropdowns and backend `default_model()` updated to current (May 2026) latest models:
+  - **OpenAI**: `gpt-5.5`, `gpt-5.5-mini` (default), `gpt-5.4-mini`
+  - **Anthropic**: `claude-opus-4-7`, `claude-sonnet-4-6` (default), `claude-haiku-4-5`
+  - **Google Gemini**: `gemini-3.1-pro`, `gemini-3-flash` (default), `gemini-3.1-flash-lite`
+  - **Groq**: `meta-llama/llama-4-maverick-17b-128e-instruct`, `meta-llama/llama-4-scout-17b-16e-instruct` (default), `openai/gpt-oss-120b`, `moonshotai/kimi-k2-instruct`
+  - **Ollama**: `llama4:scout` (default), `llama3.3`, `qwen3`
+  - **GitHub Copilot (GitHub Models)**: `openai/gpt-5.5`, `openai/gpt-5.5-mini` (default), `anthropic/claude-sonnet-4-6`
+- **No RBAC or breaking changes.** Drop-in upgrade; no operator action required.
+
 ## What's New in v2.3.3
 
 - **New: Roles mode in the Diagram tab** - RBAC-focused topology graph. Pick a Role (in a namespace) or a ClusterRole and the diagram renders the Role/ClusterRole, its bindings, the synthesized Permission nodes (one per `(apiGroup, resource)` tuple, with verbs and `resourceNames` in the node), and the Subjects (`User`, `Group`, `ServiceAccount`) the Role is bound to. Click a real RBAC object to see its live manifest; click a synthesized Permission or Subject to see a summary panel built from the data already on the node.

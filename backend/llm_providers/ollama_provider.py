@@ -19,7 +19,7 @@ class OllamaProvider(LLMProvider):
 
     @property
     def default_model(self) -> str:
-        return "llama3.2"
+        return "llama4:scout"
 
     async def generate_solution(
         self,
@@ -27,31 +27,26 @@ class OllamaProvider(LLMProvider):
         failure_message: Optional[str] = None,
         events: List[Dict] = None,
         container_statuses: List[Dict] = None,
-        pod_context: Dict = None
+        pod_context: Dict = None,
     ) -> LLMResponse:
         """Generate solution using Ollama API"""
         prompt = self._build_prompt(
             failure_reason, failure_message, events, container_statuses, pod_context
         )
 
-        headers = {
-            "Content-Type": "application/json"
-        }
+        headers = {"Content-Type": "application/json"}
 
         payload = {
             "model": self.model,
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a Kubernetes expert providing concise, actionable solutions for pod failures."
+                    "content": "You are a Kubernetes expert providing concise, actionable solutions for pod failures.",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             "max_tokens": 1000,
-            "temperature": 0.1
+            "temperature": 0.1,
         }
 
         try:
@@ -59,11 +54,13 @@ class OllamaProvider(LLMProvider):
                 async with session.post(
                     f"{self.base_url}/v1/chat/completions",
                     headers=headers,
-                    json=payload
+                    json=payload,
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"Ollama API error {response.status}: {error_text}")
+                        logger.error(
+                            f"Ollama API error {response.status}: {error_text}"
+                        )
                         raise Exception(f"Ollama API error: {response.status}")
 
                     data = await response.json()
@@ -74,7 +71,7 @@ class OllamaProvider(LLMProvider):
                         content=content,
                         provider=self.provider_name,
                         model=self.model,
-                        tokens_used=tokens_used
+                        tokens_used=tokens_used,
                     )
 
         except Exception as e:
@@ -83,18 +80,16 @@ class OllamaProvider(LLMProvider):
 
     async def generate_raw(self, system_prompt: str, user_prompt: str) -> LLMResponse:
         """Generate a raw response with custom prompts using Ollama API"""
-        headers = {
-            "Content-Type": "application/json"
-        }
+        headers = {"Content-Type": "application/json"}
 
         payload = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             "max_tokens": 2000,
-            "temperature": 0.1
+            "temperature": 0.1,
         }
 
         try:
@@ -102,11 +97,13 @@ class OllamaProvider(LLMProvider):
                 async with session.post(
                     f"{self.base_url}/v1/chat/completions",
                     headers=headers,
-                    json=payload
+                    json=payload,
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"Ollama API error {response.status}: {error_text}")
+                        logger.error(
+                            f"Ollama API error {response.status}: {error_text}"
+                        )
                         raise Exception(f"Ollama API error: {response.status}")
 
                     data = await response.json()
@@ -117,7 +114,7 @@ class OllamaProvider(LLMProvider):
                         content=content,
                         provider=self.provider_name,
                         model=self.model,
-                        tokens_used=tokens_used
+                        tokens_used=tokens_used,
                     )
 
         except Exception as e:

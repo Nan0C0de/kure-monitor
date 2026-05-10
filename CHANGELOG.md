@@ -5,6 +5,44 @@ All notable changes to Kure Monitor are documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.4] - 2026-05-10
+
+This release refreshes the LLM-provider experience: the **default provider for
+new installs switches from Ollama to Groq**, and the **model catalogs for all
+six providers are bumped to current (May 2026) latest models** — both in the
+frontend AI Configuration dropdowns and the backend `default_model()` for each
+provider. No RBAC changes, no schema migrations, no operator action required.
+
+### Changed
+
+- **Default LLM provider switched from Ollama to Groq.** New installations now
+  land on Groq pre-selected in the **Admin Panel → AI Configuration** dropdown.
+  Existing installations keep whatever provider is already configured — this
+  only affects the initial pre-selection. Implemented in
+  `frontend/src/components/LLMSettings.js`.
+- **Model lists refreshed across all providers.** Both frontend dropdown
+  options and backend `default_model()` (in `backend/llm_providers/`) updated
+  to the May 2026 latest models. Backend tests
+  (`backend/tests/test_llm_factory.py`,
+  `backend/tests/test_copilot_provider.py`) updated to assert the new IDs.
+
+  | Provider | Models (default in **bold**) | Previous |
+  |----------|-------------------------------|----------|
+  | OpenAI | `gpt-5.5`, **`gpt-5.5-mini`**, `gpt-5.4-mini` | `gpt-5`, `gpt-5-mini`, `gpt-4.1` |
+  | Anthropic | `claude-opus-4-7`, **`claude-sonnet-4-6`**, `claude-haiku-4-5` | `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
+  | Google Gemini | `gemini-3.1-pro`, **`gemini-3-flash`**, `gemini-3.1-flash-lite` | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite` |
+  | Groq | `meta-llama/llama-4-maverick-17b-128e-instruct`, **`meta-llama/llama-4-scout-17b-16e-instruct`**, `openai/gpt-oss-120b`, `moonshotai/kimi-k2-instruct` | Maverick, Scout, `llama-3.3-70b-versatile` |
+  | Ollama | **`llama4:scout`**, `llama3.3`, `qwen3` | `llama3.3`, `llama3.2`, `qwen2.5` |
+  | GitHub Copilot | `openai/gpt-5.5`, **`openai/gpt-5.5-mini`**, `anthropic/claude-sonnet-4-6` | `openai/gpt-5`, `openai/gpt-5-mini`, `anthropic/claude-sonnet-4` |
+
+### Notes
+
+- **No breaking changes.** No RBAC updates, no schema migration, no Helm
+  values rename. `helm upgrade` (or rolling the new image tags into raw
+  manifests) is sufficient.
+- **Existing API keys are preserved.** Provider config stored in the database
+  is untouched by this release; only the *defaults shown in the UI* changed.
+
 ## [2.3.3] - 2026-05-09
 
 This release extends the **Diagram tab** with **RBAC visualization**: a new

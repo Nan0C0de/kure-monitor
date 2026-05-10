@@ -3,8 +3,8 @@ name: kure
 description: Kubernetes failure diagnosis tool with AI-powered troubleshooting
 type: application
 kubeVersion: ">=1.20.0-0"
-version: 2.3.3
-appVersion: "2.3.3"
+version: 2.3.4
+appVersion: "2.3.4"
 keywords:
   - kubernetes
   - monitoring
@@ -21,14 +21,12 @@ maintainers:
   - name: Nan0C0de
     email: igor.koricanac@gmail.com
 annotations:
-  artifacthub.io/containsSecurityUpdates: "true"
+  artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
-    - kind: added
-      description: "Diagram tab: RBAC visualization. New Roles mode renders Roles / ClusterRoles together with their RoleBindings / ClusterRoleBindings, synthesized Permission nodes (one per apiGroup+resource tuple), and Subject nodes (User / Group / ServiceAccount). Three new endpoints: `/api/diagram/roles`, `/api/diagram/role/{ns}/{name}`, `/api/diagram/clusterrole/{name}`."
-    - kind: added
-      description: "Frontend: RbacSummaryModal shows synthesized Permission and Subject details (verbs, resourceNames, kind, namespace) when those nodes are clicked; real Role / ClusterRole / RoleBinding / ClusterRoleBinding nodes still open the live-manifest panel."
     - kind: changed
-      description: "OPERATOR ACTION REQUIRED: backend ClusterRole expanded with `rbac.authorization.k8s.io` read permissions on `roles`, `clusterroles`, `rolebindings`, and `clusterrolebindings` (get, list). Reapply RBAC after upgrade: `kubectl apply -f k8s/rbac.yaml` (raw manifests) or `helm upgrade` (Helm). Without this the Roles mode of the Diagram tab returns HTTP 403."
+      description: "Default LLM provider switched from Ollama to Groq. New users land on Groq pre-selected in the AI Configuration panel."
+    - kind: changed
+      description: "Model lists refreshed across all providers (May 2026 latest). OpenAI: GPT-5.5 / GPT-5.5 Mini (default) / GPT-5.4 Mini. Anthropic: Claude Opus 4.7 / Sonnet 4.6 (default) / Haiku 4.5. Gemini: 3.1 Pro / 3 Flash (default) / 3.1 Flash Lite. Groq: Llama 4 Maverick / Llama 4 Scout (default) / GPT-OSS 120B / Kimi K2. Ollama: Llama 4 Scout (default) / Llama 3.3 / Qwen 3. GitHub Copilot: openai/gpt-5.5 / openai/gpt-5.5-mini (default) / anthropic/claude-sonnet-4-6."
   artifacthub.io/category: monitoring-logging
   artifacthub.io/displayName: Kure - Kubernetes Failure Diagnosis
   artifacthub.io/license: Apache-2.0
@@ -48,7 +46,7 @@ annotations:
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
     # Install Kure Monitor
-    helm install kure-monitor kure-monitor/kure --version 2.3.3 \
+    helm install kure-monitor kure-monitor/kure --version 2.3.4 \
       --create-namespace --namespace kure-system \
       --set postgresql.password="$(openssl rand -hex 24)"
 

@@ -15,7 +15,7 @@ class GeminiProvider(LLMProvider):
 
     @property
     def default_model(self) -> str:
-        return "gemini-2.5-flash"
+        return "gemini-3-flash"
 
     async def generate_solution(
         self,
@@ -23,7 +23,7 @@ class GeminiProvider(LLMProvider):
         failure_message: Optional[str] = None,
         events: List[Dict] = None,
         container_statuses: List[Dict] = None,
-        pod_context: Dict = None
+        pod_context: Dict = None,
     ) -> LLMResponse:
         """Generate solution using Google Gemini API"""
         prompt = self._build_prompt(
@@ -33,19 +33,9 @@ class GeminiProvider(LLMProvider):
         system_instruction = "You are a Kubernetes expert providing concise, actionable solutions for pod failures."
 
         payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}]
-                }
-            ],
-            "systemInstruction": {
-                "parts": [{"text": system_instruction}]
-            },
-            "generationConfig": {
-                "maxOutputTokens": 1000,
-                "temperature": 0.1
-            }
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "systemInstruction": {"parts": [{"text": system_instruction}]},
+            "generationConfig": {"maxOutputTokens": 1000, "temperature": 0.1},
         }
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
@@ -53,13 +43,13 @@ class GeminiProvider(LLMProvider):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    url,
-                    headers={"Content-Type": "application/json"},
-                    json=payload
+                    url, headers={"Content-Type": "application/json"}, json=payload
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"Gemini API error {response.status}: {error_text}")
+                        logger.error(
+                            f"Gemini API error {response.status}: {error_text}"
+                        )
                         raise Exception(f"Gemini API error: {response.status}")
 
                     data = await response.json()
@@ -70,7 +60,7 @@ class GeminiProvider(LLMProvider):
                         content=content,
                         provider=self.provider_name,
                         model=self.model,
-                        tokens_used=tokens_used
+                        tokens_used=tokens_used,
                     )
 
         except Exception as e:
@@ -80,19 +70,9 @@ class GeminiProvider(LLMProvider):
     async def generate_raw(self, system_prompt: str, user_prompt: str) -> LLMResponse:
         """Generate a raw response with custom prompts using Gemini API"""
         payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": user_prompt}]
-                }
-            ],
-            "systemInstruction": {
-                "parts": [{"text": system_prompt}]
-            },
-            "generationConfig": {
-                "maxOutputTokens": 2000,
-                "temperature": 0.1
-            }
+            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "generationConfig": {"maxOutputTokens": 2000, "temperature": 0.1},
         }
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
@@ -100,13 +80,13 @@ class GeminiProvider(LLMProvider):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    url,
-                    headers={"Content-Type": "application/json"},
-                    json=payload
+                    url, headers={"Content-Type": "application/json"}, json=payload
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"Gemini API error {response.status}: {error_text}")
+                        logger.error(
+                            f"Gemini API error {response.status}: {error_text}"
+                        )
                         raise Exception(f"Gemini API error: {response.status}")
 
                     data = await response.json()
@@ -117,7 +97,7 @@ class GeminiProvider(LLMProvider):
                         content=content,
                         provider=self.provider_name,
                         model=self.model,
-                        tokens_used=tokens_used
+                        tokens_used=tokens_used,
                     )
 
         except Exception as e:

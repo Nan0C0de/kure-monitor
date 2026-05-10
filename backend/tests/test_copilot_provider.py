@@ -4,6 +4,7 @@ CopilotProvider is a thin subclass of OpenAIProvider that targets the
 OpenAI-compatible GitHub Models inference endpoint. These tests mock the
 aiohttp layer so the real GitHub API is never hit.
 """
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,10 +20,12 @@ def _mock_chat_completion_response(
     """Build a MagicMock mimicking an aiohttp response context manager."""
     resp = MagicMock()
     resp.status = 200
-    resp.json = AsyncMock(return_value={
-        "choices": [{"message": {"content": content}}],
-        "usage": {"total_tokens": total_tokens},
-    })
+    resp.json = AsyncMock(
+        return_value={
+            "choices": [{"message": {"content": content}}],
+            "usage": {"total_tokens": total_tokens},
+        }
+    )
     resp.text = AsyncMock(return_value="")
 
     post_ctx = MagicMock()
@@ -42,7 +45,7 @@ class TestCopilotProviderBasics:
 
     def test_default_model(self):
         provider = CopilotProvider(api_key="ghp_test")
-        assert provider.model == "openai/gpt-5-mini"
+        assert provider.model == "openai/gpt-5.5-mini"
 
     def test_default_base_url(self):
         provider = CopilotProvider(api_key="ghp_test")
@@ -95,7 +98,7 @@ class TestCopilotProviderRequests:
 
         assert isinstance(result, LLMResponse)
         assert result.provider == "copilot"
-        assert result.model == "openai/gpt-5-mini"
+        assert result.model == "openai/gpt-5.5-mini"
         assert result.content == "solution body"
 
         # Verify URL and auth header.
@@ -108,7 +111,7 @@ class TestCopilotProviderRequests:
         assert headers["Authorization"] == "Bearer ghp_test-token"
         assert headers["Content-Type"] == "application/json"
         # Model slug should be passed through unchanged.
-        assert call_args.kwargs["json"]["model"] == "openai/gpt-5-mini"
+        assert call_args.kwargs["json"]["model"] == "openai/gpt-5.5-mini"
 
     @pytest.mark.asyncio
     async def test_generate_raw_hits_github_models_url(self):

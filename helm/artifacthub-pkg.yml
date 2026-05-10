@@ -1,27 +1,27 @@
 # Artifact Hub package metadata file
-version: 2.3.3
+version: 2.3.4
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
-createdAt: 2026-05-09T00:00:00Z
+createdAt: 2026-05-10T00:00:00Z
 description: |
   Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks: privileged containers, dangerous capabilities, missing seccomp/AppArmor profiles, RBAC issues, untrusted registries, and more. No Prometheus dependency required.
 license: Apache-2.0
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "2.3.3"
+appVersion: "2.3.4"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:2.3.3
+    image: ghcr.io/nan0c0de/kure-monitor/agent:2.3.4
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:2.3.3
+    image: ghcr.io/nan0c0de/kure-monitor/backend:2.3.4
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.3.3
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.3.4
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.3.3
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.3.4
 operator: false
 deprecated: false
 prerelease: false
-containsSecurityUpdates: true
+containsSecurityUpdates: false
 keywords:
   - kubernetes
   - troubleshooting
@@ -40,19 +40,17 @@ maintainers:
 provider:
   name: Nan0C0de
 changes:
-  - kind: added
-    description: "Diagram tab: RBAC visualization. New Roles mode renders Roles / ClusterRoles together with their RoleBindings / ClusterRoleBindings, synthesized Permission nodes (one per apiGroup+resource tuple), and Subject nodes (User / Group / ServiceAccount). Three new endpoints: `/api/diagram/roles`, `/api/diagram/role/{ns}/{name}`, `/api/diagram/clusterrole/{name}`."
-  - kind: added
-    description: "Frontend: RbacSummaryModal shows synthesized Permission and Subject details (verbs, resourceNames, kind, namespace) when those nodes are clicked; real Role / ClusterRole / RoleBinding / ClusterRoleBinding nodes still open the live-manifest panel."
   - kind: changed
-    description: "OPERATOR ACTION REQUIRED: backend ClusterRole expanded with `rbac.authorization.k8s.io` read permissions on `roles`, `clusterroles`, `rolebindings`, and `clusterrolebindings` (get, list). Reapply RBAC after upgrade: `kubectl apply -f k8s/rbac.yaml` (raw manifests) or `helm upgrade` (Helm)."
+    description: "Default LLM provider switched from Ollama to Groq. New users land on Groq pre-selected in the AI Configuration panel."
+  - kind: changed
+    description: "Model lists refreshed across all providers (May 2026 latest). OpenAI: GPT-5.5 / GPT-5.5 Mini (default) / GPT-5.4 Mini. Anthropic: Claude Opus 4.7 / Sonnet 4.6 (default) / Haiku 4.5. Gemini: 3.1 Pro / 3 Flash (default) / 3.1 Flash Lite. Groq: Llama 4 Maverick / Llama 4 Scout (default) / GPT-OSS 120B / Kimi K2. Ollama: Llama 4 Scout (default) / Llama 3.3 / Qwen 3. GitHub Copilot: openai/gpt-5.5 / openai/gpt-5.5-mini (default) / anthropic/claude-sonnet-4-6."
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 2.3.3 \
+  helm install kure-monitor kure-monitor/kure --version 2.3.4 \
     --create-namespace --namespace kure-system \
     --set postgresql.password="$(openssl rand -hex 24)"
 

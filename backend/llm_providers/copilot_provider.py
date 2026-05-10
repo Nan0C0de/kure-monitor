@@ -35,4 +35,4 @@ class CopilotProvider(OpenAIProvider):
 
     @property
     def default_model(self) -> str:
-        return "openai/gpt-5-mini"
+        return "openai/gpt-5.5-mini"
