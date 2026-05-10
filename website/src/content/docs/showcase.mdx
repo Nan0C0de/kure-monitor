@@ -1,0 +1,74 @@
+---
+title: Showcase
+description: Screenshots and short clips of Kure Monitor in action — AI troubleshooting, security scanning, mirror-pod testing, and the live dashboard.
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+A quick visual tour. Each item links to the relevant docs if you want to dig in.
+
+## The dashboard
+
+A single pane for every pod, with status, namespace, age, and the failure reason surfaced inline.
+
+![Kure Monitor pod list](/kure-monitor/showcase/pod_list.png)
+
+<LinkCard
+  title="Pod monitoring →"
+  href="/kure-monitor/features/pod-monitoring/"
+  description="How Kure detects failures and what each status means."
+/>
+
+## End-to-end demo
+
+Pod crashes, the dashboard highlights it, and the AI explains why — in seconds.
+
+![End-to-end demo](/kure-monitor/showcase/demo.gif)
+
+## AI troubleshooting
+
+Open a failing pod, get a contextual diagnosis built from its events, logs, and manifest. Bring your own key (OpenAI, Anthropic, Groq, Gemini, GitHub Copilot) or run fully local with Ollama.
+
+![Pod details with AI solution](/kure-monitor/showcase/pod_details.png)
+
+For `CrashLoopBackOff` and `OOMKilled`, Kure also runs a log-aware pass that pulls patterns directly out of container logs.
+
+![Log-aware troubleshoot](/kure-monitor/showcase/log-aware-troubleshoot.png)
+
+<LinkCard
+  title="LLM providers →"
+  href="/kure-monitor/configuration/llm-providers/"
+  description="Pick a provider, set a key, done. Groq is the default."
+/>
+
+## Security scanning
+
+Continuous audit of your cluster against 50+ checks — privileged containers, host namespaces, missing seccomp/AppArmor, root containers, untrusted registries, missing limits, RBAC misconfigs.
+
+![Security scan list](/kure-monitor/showcase/security_scan_list.png)
+
+Click a finding and Kure proposes a concrete manifest fix — you review the diff before applying.
+
+![AI-generated security fix](/kure-monitor/showcase/security_fix_proposal.png)
+
+<LinkCard
+  title="Security scanner →"
+  href="/kure-monitor/features/security-scanner/"
+  description="Full check list, exclusions, and how to wire it into CI."
+/>
+
+## Mirror-pod testing
+
+Deploy a temporary copy of a failing pod with the proposed fix applied. Verify it actually works before committing to git.
+
+![Mirror pod testing](/kure-monitor/showcase/mirror-pod.gif)
+
+<LinkCard
+  title="Mirror pod testing →"
+  href="/kure-monitor/features/mirror-pod/"
+  description="How the throwaway-copy workflow keeps your live workloads safe."
+/>
+
+---
+
+Want to try it in your own cluster? [Install in two commands →](/kure-monitor/getting-started/installation/)

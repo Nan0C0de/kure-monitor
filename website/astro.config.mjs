@@ -36,6 +36,10 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Showcase',
+					slug: 'showcase',
+				},
+				{
 					label: 'Configuration',
 					items: [
 						{ label: 'Overview', slug: 'configuration/overview' },
