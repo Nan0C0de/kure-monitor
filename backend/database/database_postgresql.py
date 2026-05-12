@@ -6,6 +6,7 @@ from .database_base import DatabaseInterface
 from .mixins import (
     PodFailureMixin,
     SecurityFindingMixin,
+    AdviceFindingMixin,
     ExclusionMixin,
     NotificationMixin,
     LLMConfigMixin,
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 class PostgreSQLDatabase(
     PodFailureMixin,
     SecurityFindingMixin,
+    AdviceFindingMixin,
     ExclusionMixin,
     NotificationMixin,
     LLMConfigMixin,
@@ -41,7 +43,7 @@ class PostgreSQLDatabase(
             return timestamp
         elif isinstance(timestamp, str):
             try:
-                timestamp_str = timestamp.replace('Z', '+00:00')
+                timestamp_str = timestamp.replace("Z", "+00:00")
                 dt = datetime.fromisoformat(timestamp_str)
                 return dt
             except ValueError:
@@ -49,10 +51,14 @@ class PostgreSQLDatabase(
                     dt = datetime.fromisoformat(timestamp)
                     return dt.replace(tzinfo=timezone.utc)
                 except ValueError:
-                    logger.warning(f"Could not parse timestamp '{timestamp}', using current time")
+                    logger.warning(
+                        f"Could not parse timestamp '{timestamp}', using current time"
+                    )
                     return datetime.now(timezone.utc)
         else:
-            logger.warning(f"Unknown timestamp type '{type(timestamp)}', using current time")
+            logger.warning(
+                f"Unknown timestamp type '{type(timestamp)}', using current time"
+            )
             return datetime.now(timezone.utc)
 
     def _get_connection_string(self) -> str:
@@ -71,10 +77,7 @@ class PostgreSQLDatabase(
         """Initialize the PostgreSQL connection pool and create tables"""
         try:
             self.pool = await asyncpg.create_pool(
-                self.connection_string,
-                min_size=1,
-                max_size=10,
-                command_timeout=60
+                self.connection_string, min_size=1, max_size=10, command_timeout=60
             )
 
             async with self._acquire() as conn:
@@ -111,11 +114,21 @@ class PostgreSQLDatabase(
                     )
                 """)
                 if not status_col_exists:
-                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'new'")
-                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN resolved_at TIMESTAMPTZ")
-                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN resolution_note TEXT")
-                    await conn.execute("UPDATE pod_failures SET status = CASE WHEN dismissed = TRUE THEN 'ignored' ELSE 'new' END")
-                    logger.info("Migrated pod_failures table: added status workflow columns")
+                    await conn.execute(
+                        "ALTER TABLE pod_failures ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'new'"
+                    )
+                    await conn.execute(
+                        "ALTER TABLE pod_failures ADD COLUMN resolved_at TIMESTAMPTZ"
+                    )
+                    await conn.execute(
+                        "ALTER TABLE pod_failures ADD COLUMN resolution_note TEXT"
+                    )
+                    await conn.execute(
+                        "UPDATE pod_failures SET status = CASE WHEN dismissed = TRUE THEN 'ignored' ELSE 'new' END"
+                    )
+                    logger.info(
+                        "Migrated pod_failures table: added status workflow columns"
+                    )
 
                 # Migration: add log-aware troubleshoot columns if they don't exist
                 troubleshoot_col_exists = await conn.fetchval("""
@@ -125,9 +138,15 @@ class PostgreSQLDatabase(
                     )
                 """)
                 if not troubleshoot_col_exists:
-                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN IF NOT EXISTS troubleshoot_solution TEXT")
-                    await conn.execute("ALTER TABLE pod_failures ADD COLUMN IF NOT EXISTS troubleshoot_generated_at TIMESTAMPTZ")
-                    logger.info("Migrated pod_failures table: added troubleshoot_solution columns")
+                    await conn.execute(
+                        "ALTER TABLE pod_failures ADD COLUMN IF NOT EXISTS troubleshoot_solution TEXT"
+                    )
+                    await conn.execute(
+                        "ALTER TABLE pod_failures ADD COLUMN IF NOT EXISTS troubleshoot_generated_at TIMESTAMPTZ"
+                    )
+                    logger.info(
+                        "Migrated pod_failures table: added troubleshoot_solution columns"
+                    )
 
                 # Migration: add auto_solution_mode column tracking which solution
                 # path (quick rule-based / quick LLM vs. log-aware LLM) was used
@@ -211,8 +230,51 @@ class PostgreSQLDatabase(
                     )
                 """)
                 if not manifest_col_exists:
-                    await conn.execute("ALTER TABLE security_findings ADD COLUMN manifest TEXT DEFAULT ''")
-                    logger.info("Migrated security_findings table: added manifest column")
+                    await conn.execute(
+                        "ALTER TABLE security_findings ADD COLUMN manifest TEXT DEFAULT ''"
+                    )
+                    logger.info(
+                        "Migrated security_findings table: added manifest column"
+                    )
+
+                # Create advice_findings table (AI Advice subsystem).
+                # Structured evidence is stored as JSONB so detectors can put
+                # arbitrary nested data without per-detector migrations.
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS advice_findings (
+                        id SERIAL PRIMARY KEY,
+                        detector_id TEXT NOT NULL,
+                        severity TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        summary TEXT NOT NULL,
+                        resource_kind TEXT NOT NULL,
+                        resource_name TEXT NOT NULL,
+                        namespace TEXT NOT NULL,
+                        evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        recommended_change TEXT NOT NULL,
+                        confidence REAL NOT NULL,
+                        explanation TEXT,
+                        dismissed BOOLEAN NOT NULL DEFAULT FALSE,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_advice_findings_resource
+                    ON advice_findings(namespace, resource_name)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_advice_findings_severity
+                    ON advice_findings(severity)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_advice_findings_dismissed
+                    ON advice_findings(dismissed)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_advice_findings_key
+                    ON advice_findings(detector_id, namespace, resource_kind, resource_name)
+                """)
 
                 # Create excluded_namespaces table
                 await conn.execute("""
@@ -259,9 +321,15 @@ class PostgreSQLDatabase(
                     )
                 """)
                 if not col_exists:
-                    await conn.execute("ALTER TABLE excluded_rules ADD COLUMN namespace VARCHAR(255) NOT NULL DEFAULT ''")
-                    await conn.execute("ALTER TABLE excluded_rules DROP CONSTRAINT IF EXISTS excluded_rules_rule_title_key")
-                    await conn.execute("ALTER TABLE excluded_rules ADD CONSTRAINT excluded_rules_rule_title_namespace_key UNIQUE (rule_title, namespace)")
+                    await conn.execute(
+                        "ALTER TABLE excluded_rules ADD COLUMN namespace VARCHAR(255) NOT NULL DEFAULT ''"
+                    )
+                    await conn.execute(
+                        "ALTER TABLE excluded_rules DROP CONSTRAINT IF EXISTS excluded_rules_rule_title_key"
+                    )
+                    await conn.execute(
+                        "ALTER TABLE excluded_rules ADD CONSTRAINT excluded_rules_rule_title_namespace_key UNIQUE (rule_title, namespace)"
+                    )
                     logger.info("Migrated excluded_rules table: added namespace column")
 
                 await conn.execute("""
@@ -323,7 +391,9 @@ class PostgreSQLDatabase(
                     )
                 """)
                 if not base_url_col_exists:
-                    await conn.execute("ALTER TABLE llm_config ADD COLUMN base_url VARCHAR(500)")
+                    await conn.execute(
+                        "ALTER TABLE llm_config ADD COLUMN base_url VARCHAR(500)"
+                    )
                     logger.info("Migrated llm_config table: added base_url column")
 
                 # Create app_settings table

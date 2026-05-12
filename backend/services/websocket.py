@@ -20,14 +20,20 @@ class WebSocketManager:
         await websocket.accept()
         self.active_connections.append(websocket)
         WEBSOCKET_CONNECTIONS_ACTIVE.inc()
-        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        logger.info(
+            f"WebSocket connected. Total connections: {len(self.active_connections)}"
+        )
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
         WEBSOCKET_CONNECTIONS_ACTIVE.dec()
-        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+        logger.info(
+            f"WebSocket disconnected. Total connections: {len(self.active_connections)}"
+        )
 
-    async def _broadcast(self, message_type: str, data, description: str = None, parallel: bool = False):
+    async def _broadcast(
+        self, message_type: str, data, description: str = None, parallel: bool = False
+    ):
         """Generic broadcast to all connected WebSocket clients.
 
         Args:
@@ -41,7 +47,7 @@ class WebSocketManager:
 
         desc = description or message_type
 
-        if hasattr(data, 'dict'):
+        if hasattr(data, "dict"):
             data = data.dict()
 
         if parallel:
@@ -49,7 +55,9 @@ class WebSocketManager:
 
             async def send_to_client(connection):
                 try:
-                    await asyncio.wait_for(connection.send_text(serialized), timeout=10.0)
+                    await asyncio.wait_for(
+                        connection.send_text(serialized), timeout=10.0
+                    )
                     return True, connection
                 except asyncio.TimeoutError:
                     logger.warning(f"Timeout sending {desc} to WebSocket client")
@@ -91,7 +99,9 @@ class WebSocketManager:
 
     async def broadcast_pod_deleted(self, namespace: str, pod_name: str):
         """Broadcast pod deletion to all connected clients"""
-        await self._broadcast("pod_deleted", {"namespace": namespace, "pod_name": pod_name})
+        await self._broadcast(
+            "pod_deleted", {"namespace": namespace, "pod_name": pod_name}
+        )
 
     async def broadcast_pod_solution_updated(self, pod_failure: PodFailureResponse):
         """Broadcast pod solution update to all connected clients"""
@@ -105,7 +115,9 @@ class WebSocketManager:
         """Broadcast pod status change to all connected clients"""
         await self._broadcast("pod_status_change", pod_failure)
 
-    async def broadcast_pod_troubleshoot_updated(self, pod_id: int, solution: str, generated_at: Optional[str]):
+    async def broadcast_pod_troubleshoot_updated(
+        self, pod_id: int, solution: str, generated_at: Optional[str]
+    ):
         """Broadcast log-aware troubleshoot solution update to all connected clients"""
         await self._broadcast(
             "pod_troubleshoot_updated",
@@ -128,26 +140,41 @@ class WebSocketManager:
 
     async def broadcast_security_rescan_status(self, status: str, reason: str = None):
         """Broadcast security rescan status to all connected clients (started/completed)"""
-        logger.info(f"Broadcasting security rescan status: {status} (reason: {reason}) to {len(self.active_connections)} clients")
-        await self._broadcast("security_rescan_status", {"status": status, "reason": reason})
+        logger.info(
+            f"Broadcasting security rescan status: {status} (reason: {reason}) to {len(self.active_connections)} clients"
+        )
+        await self._broadcast(
+            "security_rescan_status", {"status": status, "reason": reason}
+        )
 
     # --- Admin/exclusion broadcasts ---
 
     async def broadcast_namespace_exclusion_change(self, namespace: str, action: str):
         """Broadcast namespace exclusion change to all connected clients (including scanners)"""
-        await self._broadcast("namespace_exclusion_change", {"namespace": namespace, "action": action})
+        await self._broadcast(
+            "namespace_exclusion_change", {"namespace": namespace, "action": action}
+        )
 
     async def broadcast_pod_exclusion_change(self, pod_name: str, action: str):
         """Broadcast pod exclusion change to all connected clients (including agent)"""
-        await self._broadcast("pod_exclusion_change", {"pod_name": pod_name, "action": action})
+        await self._broadcast(
+            "pod_exclusion_change", {"pod_name": pod_name, "action": action}
+        )
 
-    async def broadcast_rule_exclusion_change(self, rule_title: str, action: str, namespace: str = None):
+    async def broadcast_rule_exclusion_change(
+        self, rule_title: str, action: str, namespace: str = None
+    ):
         """Broadcast rule exclusion change to all connected clients (including scanners)"""
-        await self._broadcast("rule_exclusion_change", {"rule_title": rule_title, "namespace": namespace, "action": action})
+        await self._broadcast(
+            "rule_exclusion_change",
+            {"rule_title": rule_title, "namespace": namespace, "action": action},
+        )
 
     async def broadcast_trusted_registry_change(self, registry: str, action: str):
         """Broadcast trusted registry change to all connected clients (including scanners)"""
-        logger.info(f"Broadcasting trusted registry change: {registry} -> {action} to {len(self.active_connections)} clients")
+        logger.info(
+            f"Broadcasting trusted registry change: {registry} -> {action} to {len(self.active_connections)} clients"
+        )
         await self._broadcast(
             "trusted_registry_change",
             {"registry": registry, "action": action},
@@ -157,14 +184,43 @@ class WebSocketManager:
 
     async def broadcast_security_rescan_request(self):
         """Broadcast a security rescan request to all connected clients (scanner picks this up)"""
-        logger.info(f"Broadcasting security rescan request to {len(self.active_connections)} clients")
+        logger.info(
+            f"Broadcasting security rescan request to {len(self.active_connections)} clients"
+        )
         await self._broadcast("security_rescan_request", {})
+
+    # --- AI Advice broadcasts ---
+
+    async def broadcast_advice_finding(self, finding):
+        """Broadcast a new (or refreshed) AI Advice finding to all clients.
+
+        ``finding`` may be an :class:`AdviceFinding` Pydantic model or a
+        plain dict (e.g. the wire-form returned by save_advice_finding).
+        """
+        await self._broadcast("advice_finding", finding)
+
+    async def broadcast_advice_finding_deleted(self, finding_data: dict):
+        """Broadcast an AI Advice finding deletion/dismissal."""
+        await self._broadcast("advice_finding_deleted", finding_data)
+
+    async def broadcast_advice_scan_status(
+        self, status: str, scope: dict, scan_id: str = None
+    ):
+        """Broadcast scan progress for the AI Advice subsystem.
+
+        ``status`` is one of ``started``/``completed``/``failed``;
+        ``scope`` echoes the request body so clients can correlate.
+        """
+        payload = {"status": status, "scope": scope, "scan_id": scan_id}
+        await self._broadcast("advice_scan_status", payload)
 
     # --- Mirror pod broadcasts ---
 
     async def broadcast_mirror_event(self, event_type: str, data: dict):
         """Broadcast mirror pod events (mirror_created, mirror_deleted, mirror_status_change)"""
-        await self._broadcast(event_type, data, description=f"mirror event: {event_type}")
+        await self._broadcast(
+            event_type, data, description=f"mirror event: {event_type}"
+        )
 
     # --- WebSocket endpoint ---
 

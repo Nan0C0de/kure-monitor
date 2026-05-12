@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, Sun, Moon, Download, Clock, EyeOff, RefreshCw, LogOut, Network } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Server, Shield, Activity, ChevronDown, Filter, Settings, Sun, Moon, Download, Clock, EyeOff, RefreshCw, LogOut, Network, Lightbulb } from 'lucide-react';
 import PodTable from './PodTable';
 import SecurityTable from './SecurityTable';
 import AdminPanel from './AdminPanel';
 import SetupBanner from './SetupBanner';
 import DiagramTab from './Diagram/DiagramTab';
+import AdvicePanel from './AdvicePanel';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -34,6 +35,10 @@ const Dashboard = () => {
   const [podSubTab, setPodSubTab] = useState('active');
   const [podHistory, setPodHistory] = useState([]);
   const [ignoredPods, setIgnoredPods] = useState([]);
+  // Advice WS event forwarding — each new advice_* WS message increments
+  // `seq` so AdvicePanel can react via useEffect even when payloads repeat.
+  const [adviceEvent, setAdviceEvent] = useState(null);
+  const adviceSeqRef = useRef(0);
   // Security scan rescan notification
   const [securityScanUpdating, setSecurityScanUpdating] = useState(false);
   const securityScanTimeoutRef = useRef(null);
@@ -200,6 +205,19 @@ const Dashboard = () => {
           }
         })();
       }
+    } else if (
+      message.type === 'advice_finding' ||
+      message.type === 'advice_finding_deleted' ||
+      message.type === 'advice_scan_status'
+    ) {
+      // Forward to AdvicePanel via a bumped sequence number so the panel's
+      // useEffect re-runs on every message even if the payload repeats.
+      adviceSeqRef.current += 1;
+      setAdviceEvent({
+        seq: adviceSeqRef.current,
+        type: message.type,
+        data: message.data,
+      });
     } else if (message.type === 'pod_solution_updated') {
       // Update pod with new solution
       setPods(prevPods => {
@@ -609,10 +627,21 @@ const Dashboard = () => {
                     activeTab === 'diagram'
                       ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
                       : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                  } mr-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                 >
                   <Network className="w-5 h-5" />
                   <span>Diagram</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('advice')}
+                  className={`${
+                    activeTab === 'advice'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                >
+                  <Lightbulb className="w-5 h-5" />
+                  <span>Advice</span>
                 </button>
               </div>
               {userRole === 'admin' && (
@@ -632,8 +661,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Filters - hide on admin and diagram tabs */}
-        {activeTab !== 'admin' && activeTab !== 'diagram' && (
+        {/* Filters - hide on admin, diagram, and advice tabs */}
+        {activeTab !== 'admin' && activeTab !== 'diagram' && activeTab !== 'advice' && (
         <div className="flex justify-end mb-4 gap-4">
           {/* Severity Filter - only show on security tab */}
           {activeTab === 'security' && (
@@ -1005,6 +1034,14 @@ const Dashboard = () => {
 
           {activeTab === 'diagram' && (
             <DiagramTab isDark={isDark} />
+          )}
+
+          {activeTab === 'advice' && (
+            <AdvicePanel
+              isDark={isDark}
+              canWrite={canWrite}
+              wsEvent={adviceEvent}
+            />
           )}
 
           {activeTab === 'admin' && userRole === 'admin' && (

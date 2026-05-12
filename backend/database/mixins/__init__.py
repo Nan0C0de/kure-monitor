@@ -1,5 +1,6 @@
 from .pod_failures import PodFailureMixin
 from .security_findings import SecurityFindingMixin
+from .advice_findings import AdviceFindingMixin
 from .exclusions import ExclusionMixin
 from .notifications import NotificationMixin
 from .llm_config import LLMConfigMixin
@@ -8,12 +9,13 @@ from .failure_logs import FailureLogsMixin
 from .users import UserMixin
 
 __all__ = [
-    'PodFailureMixin',
-    'SecurityFindingMixin',
-    'ExclusionMixin',
-    'NotificationMixin',
-    'LLMConfigMixin',
-    'ApiKeyMixin',
-    'FailureLogsMixin',
-    'UserMixin',
+    "PodFailureMixin",
+    "SecurityFindingMixin",
+    "AdviceFindingMixin",
+    "ExclusionMixin",
+    "NotificationMixin",
+    "LLMConfigMixin",
+    "ApiKeyMixin",
+    "FailureLogsMixin",
+    "UserMixin",
 ]

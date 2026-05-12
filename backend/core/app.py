@@ -12,6 +12,10 @@ from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
 from services.notification_service import NotificationService
 from services.mirror_service import MirrorService
+from services.topology_service import TopologyService
+from services.advice.advice_engine import AdviceEngine
+from services.advice.detector_settings import DetectorSettingsService
+from services.advice.hubble import StubHubbleClient
 from api.routes import create_api_router
 from api.auth import get_service_token, get_session_secret
 from api.middleware import configure_cors, configure_exception_handlers
@@ -60,6 +64,18 @@ def create_app() -> FastAPI:
     notification_service = NotificationService(db)
     mirror_service = MirrorService(
         db=db, solution_engine=solution_engine, websocket_manager=websocket_manager
+    )
+    topology_service = TopologyService()
+    hubble_client = StubHubbleClient()
+    detector_settings = DetectorSettingsService(db)
+    advice_engine = AdviceEngine(
+        db=db,
+        topology_service=topology_service,
+        # Lazy getter: re-read on every scan so provider config changes are
+        # picked up without restarting the backend.
+        llm_provider_getter=lambda: solution_engine.llm_provider,
+        hubble_client=hubble_client,
+        detector_settings=detector_settings,
     )
 
     @asynccontextmanager
@@ -119,7 +135,13 @@ def create_app() -> FastAPI:
 
     # Include routers
     api_router = create_api_router(
-        db, solution_engine, websocket_manager, notification_service, mirror_service
+        db,
+        solution_engine,
+        websocket_manager,
+        notification_service,
+        mirror_service,
+        topology_service,
+        advice_engine,
     )
     app.include_router(api_router)
     app.include_router(websocket_manager.router)

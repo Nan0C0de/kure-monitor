@@ -7,14 +7,15 @@ logger = logging.getLogger(__name__)
 def get_database() -> DatabaseInterface:
     """
     Factory function to get PostgreSQL database implementation.
-    
+
     Returns:
         - PostgreSQLDatabase (only supported database)
     """
-    
+
     logger.info("Using PostgreSQL database")
     try:
         from .database_postgresql import PostgreSQLDatabase
+
         return PostgreSQLDatabase()
     except ImportError as e:
         logger.error(f"PostgreSQL dependencies not available: {e}")
@@ -32,8 +33,12 @@ class Database:
     async def save_pod_failure(self, failure):
         return await self._db.save_pod_failure(failure)
 
-    async def get_pod_failures(self, status_filter=None, include_dismissed=False, dismissed_only=False):
-        return await self._db.get_pod_failures(status_filter, include_dismissed, dismissed_only)
+    async def get_pod_failures(
+        self, status_filter=None, include_dismissed=False, dismissed_only=False
+    ):
+        return await self._db.get_pod_failures(
+            status_filter, include_dismissed, dismissed_only
+        )
 
     async def get_pod_failure_by_id(self, failure_id):
         return await self._db.get_pod_failure_by_id(failure_id)
@@ -57,7 +62,9 @@ class Database:
     async def save_security_finding(self, finding):
         return await self._db.save_security_finding(finding)
 
-    async def get_security_findings(self, include_dismissed=False, dismissed_only=False):
+    async def get_security_findings(
+        self, include_dismissed=False, dismissed_only=False
+    ):
         return await self._db.get_security_findings(include_dismissed, dismissed_only)
 
     async def get_security_finding_by_id(self, finding_id):
@@ -72,8 +79,50 @@ class Database:
     async def clear_security_findings(self):
         return await self._db.clear_security_findings()
 
-    async def delete_findings_by_resource(self, resource_type, namespace, resource_name):
-        return await self._db.delete_findings_by_resource(resource_type, namespace, resource_name)
+    # AI Advice findings
+    async def save_advice_finding(self, finding_dict):
+        return await self._db.save_advice_finding(finding_dict)
+
+    async def get_advice_findings(
+        self,
+        include_dismissed=False,
+        dismissed_only=False,
+        namespace=None,
+        resource_kind=None,
+        resource_name=None,
+    ):
+        return await self._db.get_advice_findings(
+            include_dismissed=include_dismissed,
+            dismissed_only=dismissed_only,
+            namespace=namespace,
+            resource_kind=resource_kind,
+            resource_name=resource_name,
+        )
+
+    async def get_advice_finding_by_id(self, finding_id):
+        return await self._db.get_advice_finding_by_id(finding_id)
+
+    async def dismiss_advice_finding(self, finding_id):
+        return await self._db.dismiss_advice_finding(finding_id)
+
+    async def restore_advice_finding(self, finding_id):
+        return await self._db.restore_advice_finding(finding_id)
+
+    async def clear_advice_findings_for_scope(
+        self, namespace=None, resource_kind=None, resource_name=None
+    ):
+        return await self._db.clear_advice_findings_for_scope(
+            namespace=namespace,
+            resource_kind=resource_kind,
+            resource_name=resource_name,
+        )
+
+    async def delete_findings_by_resource(
+        self, resource_type, namespace, resource_name
+    ):
+        return await self._db.delete_findings_by_resource(
+            resource_type, namespace, resource_name
+        )
 
     async def close(self):
         return await self._db.close()
@@ -120,16 +169,16 @@ class Database:
         return await self._db.delete_pod_failure_by_pod(pod_name)
 
     # Excluded rules methods (security rule exclusions)
-    async def add_excluded_rule(self, rule_title, namespace=''):
+    async def add_excluded_rule(self, rule_title, namespace=""):
         return await self._db.add_excluded_rule(rule_title, namespace)
 
-    async def remove_excluded_rule(self, rule_title, namespace=''):
+    async def remove_excluded_rule(self, rule_title, namespace=""):
         return await self._db.remove_excluded_rule(rule_title, namespace)
 
     async def get_excluded_rules(self):
         return await self._db.get_excluded_rules()
 
-    async def is_rule_excluded(self, rule_title, namespace=''):
+    async def is_rule_excluded(self, rule_title, namespace=""):
         return await self._db.is_rule_excluded(rule_title, namespace)
 
     async def get_all_rule_titles(self, namespace=None):
@@ -250,7 +299,9 @@ class Database:
 
     # Invitations
     async def create_invitation(self, token, role, created_by, expires_in_hours=72):
-        return await self._db.create_invitation(token, role, created_by, expires_in_hours)
+        return await self._db.create_invitation(
+            token, role, created_by, expires_in_hours
+        )
 
     async def get_invitation_by_token(self, token):
         return await self._db.get_invitation_by_token(token)

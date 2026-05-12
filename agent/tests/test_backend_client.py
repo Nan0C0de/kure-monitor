@@ -24,7 +24,6 @@ class TestBackendClient:
     async def test_report_failed_pod_success(self, backend_client, mock_pod_data):
         """Test successful pod failure reporting"""
         with patch('clients.backend_client.aiohttp.ClientSession') as mock_session_class:
-            # Mock successful response
             mock_response = AsyncMock()
             mock_response.status = 200
 

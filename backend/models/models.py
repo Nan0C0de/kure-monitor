@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
+
 class ContainerStatus(BaseModel):
     name: str
     ready: bool
@@ -11,14 +12,17 @@ class ContainerStatus(BaseModel):
     message: Optional[str] = None
     exit_code: Optional[int] = None
 
+
 class PodEvent(BaseModel):
     type: str
     reason: str
     message: str
     timestamp: Optional[str] = None
 
+
 class ContainerLogEntry(BaseModel):
     """Single log capture (either previous or current instance) for a container."""
+
     data: str  # base64-encoded gzipped text
     original_size: int = 0
     lines: int = 0
@@ -27,6 +31,7 @@ class ContainerLogEntry(BaseModel):
 
 class ContainerFailureLogs(BaseModel):
     """Log captures for a single container."""
+
     previous: Optional[ContainerLogEntry] = None
     current: Optional[ContainerLogEntry] = None
     error: Optional[str] = None  # e.g. "no_previous_instance", "permission_denied"
@@ -34,6 +39,7 @@ class ContainerFailureLogs(BaseModel):
 
 class FailureLogsPayload(BaseModel):
     """Payload sent by the agent with captured container logs."""
+
     version: int = 1
     encoding: str = "gzip+base64"
     containers: Dict[str, ContainerFailureLogs] = {}
@@ -53,8 +59,10 @@ class PodFailureCreate(BaseModel):
     manifest: str = ""
     failure_logs: Optional[FailureLogsPayload] = None
 
+
 class PodFailureReport(PodFailureCreate):
     pass
+
 
 class PodFailureResponse(PodFailureReport):
     id: Optional[int] = None
@@ -78,6 +86,7 @@ class PodStatusUpdate(BaseModel):
     status: str  # investigating, resolved, ignored, new
     resolution_note: Optional[str] = None
 
+
 class SecurityFinding(BaseModel):
     resource_type: str  # e.g., "Pod", "Deployment", "Service"
     resource_name: str
@@ -90,12 +99,35 @@ class SecurityFinding(BaseModel):
     timestamp: str
     manifest: str = ""
 
+
 class SecurityFindingReport(SecurityFinding):
     pass
+
 
 class SecurityFindingResponse(SecurityFinding):
     id: Optional[int] = None
     dismissed: bool = False
+
+
+# AI Advice models
+#
+# Wire-shape for findings emitted by the proactive AI Advice subsystem
+# (see :mod:`services.advice`). The internal dataclass that detectors
+# emit is :class:`services.advice.findings.Finding`; use
+# ``Finding.to_wire()`` to obtain one of these.
+class AdviceFinding(BaseModel):
+    detector_id: str  # stable slug, e.g. "deployment-should-be-daemonset"
+    severity: str  # "info" | "low" | "medium" | "high"
+    category: str  # e.g. "workload-pattern", "scaling", "scheduling"
+    title: str
+    summary: str
+    resource_kind: str  # e.g. "Deployment", "StatefulSet"
+    resource_name: str
+    namespace: str
+    evidence: Dict[str, Any]
+    recommended_change: str
+    confidence: float
+    explanation: Optional[str] = None
 
 
 # Admin models
@@ -103,27 +135,34 @@ class ExcludedNamespace(BaseModel):
     namespace: str
     created_at: Optional[str] = None
 
+
 class ExcludedNamespaceResponse(ExcludedNamespace):
     id: Optional[int] = None
+
 
 class ExcludedPod(BaseModel):
     pod_name: str
     created_at: Optional[str] = None
 
+
 class ExcludedPodResponse(ExcludedPod):
     id: Optional[int] = None
+
 
 class ExcludedRule(BaseModel):
     rule_title: str
     namespace: Optional[str] = None  # None = global, "ns-name" = per-namespace
     created_at: Optional[str] = None
 
+
 class ExcludedRuleResponse(ExcludedRule):
     id: Optional[int] = None
+
 
 class TrustedRegistry(BaseModel):
     registry: str
     created_at: Optional[str] = None
+
 
 class TrustedRegistryResponse(TrustedRegistry):
     id: Optional[int] = None
@@ -172,7 +211,9 @@ class LLMConfigStatus(BaseModel):
 # Mirror Pod models
 class MirrorDeployRequest(BaseModel):
     ttl_seconds: Optional[int] = None  # Uses admin default if omitted
-    manifest: Optional[str] = None  # Pre-edited manifest; skips AI generation when provided
+    manifest: Optional[str] = (
+        None  # Pre-edited manifest; skips AI generation when provided
+    )
 
 
 class MirrorPreviewResponse(BaseModel):

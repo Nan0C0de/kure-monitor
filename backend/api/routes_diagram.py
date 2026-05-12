@@ -27,7 +27,10 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
     """Diagram (topology) endpoints. Authenticated via the parent router's
     ``require_read`` dependency."""
     router = APIRouter()
-    service = TopologyService()
+    # Prefer the shared TopologyService from deps so it's a singleton
+    # across the app (and shared with AdviceEngine). Fall back to a fresh
+    # instance for back-compat (older tests construct deps without it).
+    service = getattr(deps, "topology_service", None) or TopologyService()
 
     @router.get("/diagram/namespaces")
     async def list_diagram_namespaces(kind: str | None = Query(None)):

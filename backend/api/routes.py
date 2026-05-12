@@ -16,6 +16,7 @@ from .routes_logs import create_logs_router
 from .routes_llm import create_llm_router
 from .routes_mirror import create_mirror_router
 from .routes_diagram import create_diagram_router
+from .routes_advice import build_router as create_advice_router
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,8 @@ def create_api_router(
     websocket_manager: WebSocketManager,
     notification_service=None,
     mirror_service=None,
+    topology_service=None,
+    advice_engine=None,
 ) -> APIRouter:
     """Create and configure the API router.
 
@@ -37,7 +40,13 @@ def create_api_router(
     """
     router = APIRouter(prefix="/api")
     deps = RouterDeps(
-        db, solution_engine, websocket_manager, notification_service, mirror_service
+        db,
+        solution_engine,
+        websocket_manager,
+        notification_service,
+        mirror_service,
+        topology_service,
+        advice_engine,
     )
 
     # Public (no auth) auth endpoints
@@ -73,6 +82,7 @@ def create_api_router(
     authed.include_router(create_llm_router(deps))
     authed.include_router(create_users_router(deps))
     authed.include_router(create_diagram_router(deps))
+    authed.include_router(create_advice_router(deps))
 
     if mirror_service:
         authed.include_router(create_mirror_router(deps, mirror_service))

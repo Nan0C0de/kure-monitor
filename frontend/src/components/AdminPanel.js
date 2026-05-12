@@ -7,6 +7,7 @@ import ExclusionPods from './admin/ExclusionPods';
 import ExclusionRules from './admin/ExclusionRules';
 import ExclusionRegistries from './admin/ExclusionRegistries';
 import RetentionSettings from './admin/RetentionSettings';
+import AdviceDetectorSettings from './admin/AdviceDetectorSettings';
 import UsersManager from './admin/UsersManager';
 import InvitationsManager from './admin/InvitationsManager';
 
@@ -90,7 +91,10 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
       {activeTab === 'notifications' && <NotificationSettings isDark={isDark} />}
 
       {activeTab === 'settings' && (
-        <RetentionSettings isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
+        <div className="space-y-8">
+          <RetentionSettings isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
+          <AdviceDetectorSettings isDark={isDark} onError={handleError} onSuccess={handleSuccess} />
+        </div>
       )}
 
       {activeTab === 'exclusions' && (

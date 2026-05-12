@@ -729,6 +729,137 @@ export const api = {
     return response.json();
   },
 
+  // ============================================================
+  // AI Advice API
+  // ============================================================
+  getAdviceFindings: async (params = {}) => {
+    const search = new URLSearchParams();
+    if (params.include_dismissed) search.append('include_dismissed', 'true');
+    if (params.dismissed_only) search.append('dismissed_only', 'true');
+    if (params.namespace) search.append('namespace', params.namespace);
+    if (params.resource_kind) search.append('resource_kind', params.resource_kind);
+    if (params.resource_name) search.append('resource_name', params.resource_name);
+    const query = search.toString();
+    const url = query
+      ? `${API_BASE}/api/advice/findings?${query}`
+      : `${API_BASE}/api/advice/findings`;
+    const response = await authFetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getAdviceFinding: async (findingId) => {
+    const response = await authFetch(`${API_BASE}/api/advice/findings/${findingId}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  runAdviceScan: async (scope = {}) => {
+    const body = {};
+    if (scope.namespace) body.namespace = scope.namespace;
+    if (scope.workload_kind) body.workload_kind = scope.workload_kind;
+    if (scope.workload_name) body.workload_name = scope.workload_name;
+    if (scope.pod_name) body.pod_name = scope.pod_name;
+    const response = await authFetch(`${API_BASE}/api/advice/scan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  dismissAdviceFinding: async (findingId) => {
+    const response = await authFetch(`${API_BASE}/api/advice/findings/${findingId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  restoreAdviceFinding: async (findingId) => {
+    const response = await authFetch(`${API_BASE}/api/advice/findings/${findingId}/restore`, {
+      method: 'PUT',
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  // Advice detector configuration
+  getAdviceDetectors: async () => {
+    const response = await authFetch(`${API_BASE}/api/advice/detectors`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  setAdviceDetectorEnabled: async (detectorId, enabled) => {
+    const response = await authFetch(
+      `${API_BASE}/api/advice/detectors/${encodeURIComponent(detectorId)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      },
+    );
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
+  // Build the URL for the findings export endpoint. The browser will
+  // follow Content-Disposition to save the file with the backend-supplied name.
+  getAdviceFindingsExportUrl: (format, params = {}) => {
+    const search = new URLSearchParams();
+    search.append('format', format);
+    if (params.include_dismissed) search.append('include_dismissed', 'true');
+    if (params.dismissed_only) search.append('dismissed_only', 'true');
+    if (params.namespace) search.append('namespace', params.namespace);
+    if (params.resource_kind) search.append('resource_kind', params.resource_kind);
+    if (params.resource_name) search.append('resource_name', params.resource_name);
+    return `${API_BASE}/api/advice/findings/export?${search.toString()}`;
+  },
+
+  // Cookie auth needs `credentials: include`, which a plain anchor click on a
+  // cross-origin dev URL would not send. Fetch the blob ourselves and trigger
+  // a download from an object URL.
+  downloadAdviceFindings: async (format, params = {}) => {
+    const url = api.getAdviceFindingsExportUrl(format, params);
+    const response = await authFetch(url);
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    const blob = await response.blob();
+    // Try to honor the backend's Content-Disposition filename.
+    let filename = `advice-findings.${format}`;
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    if (match && match[1]) {
+      filename = match[1];
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    // Free memory soon after the click is fired.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    return { ok: true, filename };
+  },
+
   getResourceManifest: async (namespace, kind, name) => {
     const url = `${API_BASE}/api/diagram/manifest/${encodeURIComponent(namespace)}/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`;
     const response = await authFetch(url);

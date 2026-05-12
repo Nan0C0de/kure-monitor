@@ -159,8 +159,6 @@ class TestPodSecurityChecks:
         container.resources = kwargs.get("resources", None)
         container.ports = kwargs.get("ports", None)
         container.env = kwargs.get("env", None)
-        # A real string image avoids Mock-arithmetic blowups in the
-        # :latest / registry / pull-policy checks downstream.
         container.image = kwargs.get("image", "docker.io/library/nginx:1.25.0")
         container.image_pull_policy = kwargs.get("image_pull_policy", "IfNotPresent")
         return container
