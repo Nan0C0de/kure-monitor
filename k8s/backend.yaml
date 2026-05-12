@@ -59,7 +59,7 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgresql-secret
+              name: kure-postgresql-secret
               key: POSTGRES_PASSWORD
         - name: ENCRYPTION_KEY
           valueFrom:

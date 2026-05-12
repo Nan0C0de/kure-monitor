@@ -6,7 +6,7 @@ metadata:
 data:
   KURE_CHECK_INTERVAL: "5"
   KURE_LOG_LEVEL: "INFO"
-  POSTGRES_HOST: "postgresql"
+  POSTGRES_HOST: "kure-monitor-postgresql"
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "kure"
   POSTGRES_USER: "kure_user"

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: postgresql-secret
+  name: kure-postgresql-secret
   namespace: kure-system
 type: Opaque
 stringData:
@@ -12,7 +12,7 @@ stringData:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: postgresql-config
+  name: kure-postgresql-config
   namespace: kure-system
 data:
   POSTGRES_DB: "kure"
@@ -21,20 +21,20 @@ data:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: postgresql
+  name: kure-monitor-postgresql
   namespace: kure-system
   labels:
-    app: postgresql
+    app: kure-postgresql
 spec:
-  serviceName: postgresql
+  serviceName: kure-monitor-postgresql
   replicas: 1
   selector:
     matchLabels:
-      app: postgresql
+      app: kure-postgresql
   template:
     metadata:
       labels:
-        app: postgresql
+        app: kure-postgresql
     spec:
       serviceAccountName: kure-postgresql
       automountServiceAccountToken: false
@@ -54,12 +54,12 @@ spec:
           name: postgresql
         envFrom:
         - configMapRef:
-            name: postgresql-config
+            name: kure-postgresql-config
         env:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgresql-secret
+              name: kure-postgresql-secret
               key: POSTGRES_PASSWORD
         - name: PGDATA
           value: /var/lib/postgresql/data/pgdata
@@ -132,13 +132,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgresql
+  name: kure-monitor-postgresql
   namespace: kure-system
   labels:
-    app: postgresql
+    app: kure-postgresql
 spec:
   selector:
-    app: postgresql
+    app: kure-postgresql
   ports:
   - port: 5432
     targetPort: 5432
