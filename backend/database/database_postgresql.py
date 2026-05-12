@@ -13,6 +13,7 @@ from .mixins import (
     ApiKeyMixin,
     FailureLogsMixin,
     UserMixin,
+    LoginAttemptsMixin,
 )
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
@@ -29,6 +30,7 @@ class PostgreSQLDatabase(
     ApiKeyMixin,
     FailureLogsMixin,
     UserMixin,
+    LoginAttemptsMixin,
     DatabaseInterface,
 ):
     def __init__(self):
@@ -458,6 +460,18 @@ class PostgreSQLDatabase(
                 """)
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token)
+                """)
+
+                # Login rate-limit state shared across backend replicas.
+                # One row per client IP; cleaned up after the cooldown window
+                # by `cleanup_old_login_attempts` (helper, not auto-wired).
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS login_attempts (
+                        ip TEXT PRIMARY KEY,
+                        count INTEGER NOT NULL DEFAULT 0,
+                        first_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
                 """)
 
             logger.info("PostgreSQL database initialized successfully")

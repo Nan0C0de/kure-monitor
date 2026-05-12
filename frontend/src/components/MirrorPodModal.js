@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, RefreshCw, CheckCircle, XCircle, Clock, Trash2, AlertCircle, FlaskConical, FileEdit } from 'lucide-react';
 import { api } from '../services/api';
+import useModalA11y from '../hooks/useModalA11y';
 
 const POLL_INTERVAL = 5000;
 
@@ -38,6 +39,13 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
   const [useCustomManifest, setUseCustomManifest] = useState(false);
   const pollRef = useRef(null);
   const countdownRef = useRef(null);
+  const dialogRef = useRef(null);
+
+  useModalA11y({ isOpen, onClose: () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    onClose();
+  }, dialogRef });
 
   // Reset state when modal opens
   useEffect(() => {
@@ -56,6 +64,21 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, [isOpen]);
+
+  // Clear any running intervals on unmount, even if isOpen didn't change
+  // (e.g. parent re-renders or navigation unmounts the modal).
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    };
+  }, []);
 
   const pollStatus = useCallback(async (id) => {
     try {
@@ -179,9 +202,15 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
         ></div>
 
         {/* Modal */}
-        <div className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full ${
-          stage === 'edit' || stage === 'loading-manifest' ? 'sm:max-w-3xl' : 'sm:max-w-lg'
-        } ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Test Fix"
+          className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full ${
+            stage === 'edit' || stage === 'loading-manifest' ? 'sm:max-w-3xl' : 'sm:max-w-lg'
+          } ${isDark ? 'bg-gray-800' : 'bg-white'}`}
+        >
           <div className={`px-4 pt-5 pb-4 sm:p-6 sm:pb-4 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
             {/* Header */}
             <div className="flex items-center justify-between mb-4">

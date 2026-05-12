@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Copy, Download, RefreshCw, Sparkles, FileText, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
+import useModalA11y from '../hooks/useModalA11y';
 
 const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled = false }) => {
   const [manifest, setManifest] = useState('');
@@ -10,6 +11,9 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('diff'); // 'diff', 'original', 'fixed'
   const textareaRef = useRef(null);
+  const dialogRef = useRef(null);
+
+  useModalA11y({ isOpen, onClose, dialogRef });
 
   const loadManifestAndFix = useCallback(async () => {
     if (!finding?.id) return;
@@ -220,9 +224,15 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
         ></div>
 
         {/* Modal */}
-        <div className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${
-          isDark ? 'bg-gray-800' : 'bg-white'
-        }`}>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Security Fix"
+          className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${
+            isDark ? 'bg-gray-800' : 'bg-white'
+          }`}
+        >
           <div className={`px-4 pt-5 pb-4 sm:p-6 sm:pb-4 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
             {/* Header */}
             <div className="flex items-center justify-between mb-4">

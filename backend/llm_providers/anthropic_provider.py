@@ -48,31 +48,31 @@ class AnthropicProvider(LLMProvider):
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers=headers,
-                    json=payload,
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(
-                            f"Anthropic API error {response.status}: {error_text}"
-                        )
-                        raise Exception(f"Anthropic API error: {response.status}")
-
-                    data = await response.json()
-                    content = data["content"][0]["text"]
-                    tokens_used = data.get("usage", {}).get(
-                        "input_tokens", 0
-                    ) + data.get("usage", {}).get("output_tokens", 0)
-
-                    return LLMResponse(
-                        content=content,
-                        provider=self.provider_name,
-                        model=self.model,
-                        tokens_used=tokens_used,
+            session = await self._get_session()
+            async with session.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=payload,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(
+                        f"Anthropic API error {response.status}: {error_text}"
                     )
+                    raise Exception(f"Anthropic API error: {response.status}")
+
+                data = await response.json()
+                content = data["content"][0]["text"]
+                tokens_used = data.get("usage", {}).get(
+                    "input_tokens", 0
+                ) + data.get("usage", {}).get("output_tokens", 0)
+
+                return LLMResponse(
+                    content=content,
+                    provider=self.provider_name,
+                    model=self.model,
+                    tokens_used=tokens_used,
+                )
 
         except Exception as e:
             logger.error(f"Error calling Anthropic API: {e}")
@@ -95,31 +95,31 @@ class AnthropicProvider(LLMProvider):
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers=headers,
-                    json=payload,
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(
-                            f"Anthropic API error {response.status}: {error_text}"
-                        )
-                        raise Exception(f"Anthropic API error: {response.status}")
-
-                    data = await response.json()
-                    content = data["content"][0]["text"]
-                    tokens_used = data.get("usage", {}).get(
-                        "input_tokens", 0
-                    ) + data.get("usage", {}).get("output_tokens", 0)
-
-                    return LLMResponse(
-                        content=content,
-                        provider=self.provider_name,
-                        model=self.model,
-                        tokens_used=tokens_used,
+            session = await self._get_session()
+            async with session.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=payload,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(
+                        f"Anthropic API error {response.status}: {error_text}"
                     )
+                    raise Exception(f"Anthropic API error: {response.status}")
+
+                data = await response.json()
+                content = data["content"][0]["text"]
+                tokens_used = data.get("usage", {}).get(
+                    "input_tokens", 0
+                ) + data.get("usage", {}).get("output_tokens", 0)
+
+                return LLMResponse(
+                    content=content,
+                    provider=self.provider_name,
+                    model=self.model,
+                    tokens_used=tokens_used,
+                )
 
         except Exception as e:
             logger.error(f"Error calling Anthropic API (generate_raw): {e}")

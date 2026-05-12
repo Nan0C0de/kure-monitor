@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Loader2, AlertTriangle, Terminal, RotateCcw, Download, ArrowDown } from 'lucide-react';
 import { api } from '../services/api';
+import useModalA11y from '../hooks/useModalA11y';
 
 const LINE_OPTIONS = [50, 100, 500, 1000, 2000];
 
@@ -13,6 +14,9 @@ const PodLogsModal = ({ isOpen, onClose, pod, isDark = false }) => {
   const [tailLines, setTailLines] = useState(100);
 
   const logsContainerRef = useRef(null);
+  const dialogRef = useRef(null);
+
+  useModalA11y({ isOpen, onClose, dialogRef });
 
   // Get container names from pod
   const containers = pod?.container_statuses?.map(c => c.name) || [];
@@ -98,7 +102,13 @@ const PodLogsModal = ({ isOpen, onClose, pod, isDark = false }) => {
       <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
 
       {/* Modal */}
-      <div className={`relative w-full max-w-4xl max-h-[90vh] mx-4 rounded-lg shadow-xl overflow-hidden ${bgColor}`}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Pod Logs"
+        className={`relative w-full max-w-4xl max-h-[90vh] mx-4 rounded-lg shadow-xl overflow-hidden ${bgColor}`}
+      >
         {/* Header */}
         <div className={`px-6 py-4 border-b ${borderColor} flex items-center justify-between`}>
           <div className="flex items-center space-x-3">

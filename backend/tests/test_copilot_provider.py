@@ -82,13 +82,9 @@ class TestCopilotProviderRequests:
         post_ctx = _mock_chat_completion_response(content="solution body")
         session = MagicMock()
         session.post = MagicMock(return_value=post_ctx)
-        session_ctx = MagicMock()
-        session_ctx.__aenter__ = AsyncMock(return_value=session)
-        session_ctx.__aexit__ = AsyncMock(return_value=False)
 
-        with patch(
-            "llm_providers.openai_provider.aiohttp.ClientSession",
-            return_value=session_ctx,
+        with patch.object(
+            provider, "_get_session", new=AsyncMock(return_value=session)
         ):
             result = await provider.generate_solution(
                 failure_reason="CrashLoopBackOff",
@@ -123,13 +119,9 @@ class TestCopilotProviderRequests:
         post_ctx = _mock_chat_completion_response(content="raw body")
         session = MagicMock()
         session.post = MagicMock(return_value=post_ctx)
-        session_ctx = MagicMock()
-        session_ctx.__aenter__ = AsyncMock(return_value=session)
-        session_ctx.__aexit__ = AsyncMock(return_value=False)
 
-        with patch(
-            "llm_providers.openai_provider.aiohttp.ClientSession",
-            return_value=session_ctx,
+        with patch.object(
+            provider, "_get_session", new=AsyncMock(return_value=session)
         ):
             result = await provider.generate_raw(
                 system_prompt="system",
@@ -159,13 +151,9 @@ class TestCopilotProviderRequests:
 
         session = MagicMock()
         session.post = MagicMock(return_value=post_ctx)
-        session_ctx = MagicMock()
-        session_ctx.__aenter__ = AsyncMock(return_value=session)
-        session_ctx.__aexit__ = AsyncMock(return_value=False)
 
-        with patch(
-            "llm_providers.openai_provider.aiohttp.ClientSession",
-            return_value=session_ctx,
+        with patch.object(
+            provider, "_get_session", new=AsyncMock(return_value=session)
         ):
             with pytest.raises(Exception):
                 await provider.generate_solution(

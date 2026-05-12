@@ -354,9 +354,8 @@ class TopologyService:
         self._initialised = True
 
     async def _run(self, fn, *args, **kwargs):
-        """Run a sync K8s call in the default executor."""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, lambda: fn(*args, **kwargs))
+        """Run a sync K8s call in a worker thread."""
+        return await asyncio.to_thread(fn, *args, **kwargs)
 
     # -- Public API ---------------------------------------------------------
 
@@ -607,6 +606,7 @@ class TopologyService:
 
     async def _fetch_namespace_context(self, namespace: str) -> Dict[str, Any]:
         """Fetch all the supporting lists once per request."""
+        self._init_k8s()
         pods = _items(await self._safe(self._core.list_namespaced_pod, namespace))
         replicasets = _items(
             await self._safe(self._apps.list_namespaced_replica_set, namespace)

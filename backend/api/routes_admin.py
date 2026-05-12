@@ -32,7 +32,7 @@ def create_admin_shared_router(deps: RouterDeps) -> APIRouter:
             return await db.get_excluded_namespaces()
         except Exception as e:
             logger.error(f"Error getting excluded namespaces: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/admin/excluded-pods")
     async def get_excluded_pods():
@@ -41,7 +41,7 @@ def create_admin_shared_router(deps: RouterDeps) -> APIRouter:
             return await db.get_excluded_pods()
         except Exception as e:
             logger.error(f"Error getting excluded pods: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/admin/excluded-rules")
     async def get_excluded_rules():
@@ -50,19 +50,17 @@ def create_admin_shared_router(deps: RouterDeps) -> APIRouter:
             return await db.get_excluded_rules()
         except Exception as e:
             logger.error(f"Error getting excluded rules: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/admin/trusted-registries")
     async def get_trusted_registries():
         """Get all admin-added trusted container registries"""
         try:
             registries = await db.get_trusted_registries()
-            return [
-                r.model_dump() if hasattr(r, "model_dump") else r for r in registries
-            ]
+            return [r.model_dump() for r in registries]
         except Exception as e:
             logger.error(f"Error getting trusted registries: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     return router
 
@@ -83,7 +81,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             return await db.get_all_namespaces()
         except Exception as e:
             logger.error(f"Error getting namespaces: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.post("/admin/excluded-namespaces", response_model=ExcludedNamespaceResponse)
     async def add_excluded_namespace(request: ExcludedNamespace):
@@ -116,7 +114,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error adding excluded namespace: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.delete("/admin/excluded-namespaces/{namespace}")
     async def remove_excluded_namespace(namespace: str):
@@ -140,7 +138,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error removing excluded namespace: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     # --- Excluded pods ---
 
@@ -151,7 +149,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             return await db.get_all_monitored_pods()
         except Exception as e:
             logger.error(f"Error getting monitored pods: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.post("/admin/excluded-pods")
     async def add_excluded_pod(request: ExcludedPod):
@@ -178,7 +176,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error adding excluded pod: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.delete("/admin/excluded-pods/{pod_name}")
     async def remove_excluded_pod(pod_name: str):
@@ -200,7 +198,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error removing excluded pod: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     # --- Excluded rules ---
 
@@ -211,7 +209,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             return await db.get_all_rule_titles(namespace)
         except Exception as e:
             logger.error(f"Error getting rule titles: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.post("/admin/excluded-rules")
     async def add_excluded_rule(request: ExcludedRule):
@@ -248,7 +246,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error adding excluded rule: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.delete("/admin/excluded-rules/{rule_title:path}")
     async def remove_excluded_rule(rule_title: str, namespace: str = Query(None)):
@@ -274,7 +272,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error removing excluded rule: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     # --- Trusted registries ---
 
@@ -313,12 +311,12 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
 
             asyncio.create_task(_broadcast_changes())
 
-            return result.model_dump() if hasattr(result, "model_dump") else result
+            return result.model_dump()
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Error adding trusted registry: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.delete("/admin/trusted-registries/{registry}")
     async def remove_trusted_registry(registry: str):
@@ -340,7 +338,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error removing trusted registry: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     # --- Notifications ---
 
@@ -353,7 +351,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             return await db.get_notification_settings()
         except Exception as e:
             logger.error(f"Error getting notification settings: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.post("/admin/notifications", response_model=NotificationSettingResponse)
     async def create_notification_setting(setting: NotificationSettingCreate):
@@ -364,7 +362,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             return result
         except Exception as e:
             logger.error(f"Error saving notification setting: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.put(
         "/admin/notifications/{provider}", response_model=NotificationSettingResponse
@@ -387,7 +385,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error updating notification setting: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.delete("/admin/notifications/{provider}")
     async def delete_notification_setting(provider: str):
@@ -406,7 +404,7 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error deleting notification setting: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.post("/admin/notifications/{provider}/test")
     async def test_notification(provider: str):
@@ -431,6 +429,6 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error sending test notification: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     return router

@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import Set, Tuple
+from typing import Optional, Set, Tuple
 
 from kubernetes import client, config
 
@@ -80,11 +80,11 @@ class SecurityScanner:
             logger.debug(f"Skipping excluded rule: {title} (namespace: {namespace})")
             return
 
-        if 'manifest' not in finding_data and self._current_resource_obj:
-            finding_data['manifest'] = get_resource_manifest(
+        if "manifest" not in finding_data and self._current_resource_obj:
+            finding_data["manifest"] = get_resource_manifest(
                 self._current_resource_obj,
                 self._current_resource_api_version,
-                self._current_resource_kind
+                self._current_resource_kind,
             )
 
         resource_type = finding_data.get("resource_type", "")
@@ -94,51 +94,71 @@ class SecurityScanner:
 
         await self.backend_client.report_security_finding(finding_data)
 
-    async def _wait_for_backend(self, max_retries: int = 30, retry_interval: float = 2.0):
-        """Wait for backend to be ready before starting scan"""
+    async def _wait_for_backend(
+        self, max_retries: int = 30, retry_interval: float = 2.0
+    ):
+        """Wait for backend to be ready before starting scan.
+
+        Uses an explicit ``health_check`` probe so the underlying failure
+        (timeout, connection refused, HTTP status) propagates and is logged.
+        After the probe succeeds, exclusion caches are warmed up.
+        """
+        last_error: Optional[Exception] = None
         for attempt in range(max_retries):
             try:
-                success = await self.exclusion_mgr.refresh_excluded_namespaces(force=True)
-                if success:
-                    await self.exclusion_mgr.refresh_excluded_rules(force=True)
-                    logger.info("Backend is ready, excluded namespaces and rules loaded successfully")
-                    return True
+                await self.backend_client.health_check()
+                await self.exclusion_mgr.refresh_excluded_namespaces(force=True)
+                await self.exclusion_mgr.refresh_excluded_rules(force=True)
+                logger.info(
+                    "Backend is ready, excluded namespaces and rules loaded successfully"
+                )
+                return True
             except Exception as e:
-                logger.warning(f"Backend not ready (attempt {attempt + 1}/{max_retries}): {e}")
+                last_error = e
+                logger.warning(
+                    f"Backend not ready (attempt {attempt + 1}/{max_retries}): {e}"
+                )
 
             if attempt < max_retries - 1:
                 logger.info(f"Waiting {retry_interval}s before retrying...")
                 await asyncio.sleep(retry_interval)
 
-        logger.error(f"Backend not ready after {max_retries} attempts")
+        logger.error("Backend not ready after %d retries: %s", max_retries, last_error)
         return False
 
     async def scan_cluster(self):
-        """Run all security checks"""
-        start_time = time.monotonic()
+        """Run all security checks.
 
-        await self.exclusion_mgr.refresh_excluded_namespaces()
-        await self.exclusion_mgr.refresh_excluded_rules()
+        Guarded by ``self._lock`` so concurrent full/partial scans triggered by
+        the periodic loop, WS rescan requests, rule/registry change events, and
+        watch-manager deletions cannot interleave their delete-then-insert
+        sequences (see ``pod_scanner.scan_single_pod``).
+        """
+        async with self._lock:
+            start_time = time.monotonic()
 
-        await self.pod_scanner.scan_pods()
-        await self.resource_scanner.scan_deployments()
-        await self.resource_scanner.scan_services()
-        await self.resource_scanner.scan_rbac()
-        await self.resource_scanner.scan_network_policies()
-        await self.pod_scanner.scan_service_accounts()
-        await self.resource_scanner.scan_pod_security_admission()
-        await self.resource_scanner.scan_ingresses()
-        await self.pod_scanner.scan_seccomp_profiles()
-        await self.resource_scanner.scan_cluster_role_bindings()
-        await self.resource_scanner.scan_pod_disruption_budgets()
-        await self.resource_scanner.scan_resource_quotas()
-        await self.resource_scanner.scan_configmaps()
-        await self.resource_scanner.scan_cronjobs()
-        await self.resource_scanner.scan_persistent_volumes()
+            await self.exclusion_mgr.refresh_excluded_namespaces()
+            await self.exclusion_mgr.refresh_excluded_rules()
 
-        duration = time.monotonic() - start_time
-        logger.info(f"Security scan completed in {duration:.1f}s")
-        await self.backend_client.report_scan_duration(duration)
+            await self.pod_scanner.scan_pods()
+            await self.resource_scanner.scan_deployments()
+            await self.resource_scanner.scan_services()
+            await self.resource_scanner.scan_rbac()
+            await self.resource_scanner.scan_network_policies()
+            await self.pod_scanner.scan_service_accounts()
+            await self.resource_scanner.scan_pod_security_admission()
+            await self.resource_scanner.scan_ingresses()
+            await self.pod_scanner.scan_seccomp_profiles()
+            await self.resource_scanner.scan_cluster_role_bindings()
+            await self.resource_scanner.scan_pod_disruption_budgets()
+            await self.resource_scanner.scan_resource_quotas()
+            await self.resource_scanner.scan_configmaps()
+            await self.resource_scanner.scan_cronjobs()
+            await self.resource_scanner.scan_persistent_volumes()
+
+            duration = time.monotonic() - start_time
+            logger.info(f"Security scan completed in {duration:.1f}s")
+            await self.backend_client.report_scan_duration(duration)
 
     async def start_scanning(self):
         """Start real-time security scanning with Kubernetes watches"""
@@ -150,14 +170,24 @@ class SecurityScanner:
         logger.info("Waiting for backend to be ready...")
         backend_ready = await self._wait_for_backend()
         if not backend_ready:
-            logger.warning("Starting scan without confirmed excluded namespaces - some excluded namespaces may be scanned")
+            logger.warning(
+                "Starting scan without confirmed excluded namespaces - some excluded namespaces may be scanned"
+            )
 
         await self.backend_client.clear_security_findings()
 
-        self.websocket_client.set_namespace_change_handler(self.exclusion_mgr.handle_namespace_change)
-        self.websocket_client.set_rule_change_handler(self.exclusion_mgr.handle_rule_change)
-        self.websocket_client.set_registry_change_handler(self.exclusion_mgr.handle_registry_change)
-        self.websocket_client.set_rescan_request_handler(self.exclusion_mgr.handle_rescan_request)
+        self.websocket_client.set_namespace_change_handler(
+            self.exclusion_mgr.handle_namespace_change
+        )
+        self.websocket_client.set_rule_change_handler(
+            self.exclusion_mgr.handle_rule_change
+        )
+        self.websocket_client.set_registry_change_handler(
+            self.exclusion_mgr.handle_registry_change
+        )
+        self.websocket_client.set_rescan_request_handler(
+            self.exclusion_mgr.handle_rescan_request
+        )
 
         logger.info("Running initial security scan...")
         await self.scan_cluster()
@@ -166,31 +196,77 @@ class SecurityScanner:
         rs = self.resource_scanner
         watch_tasks = [
             asyncio.create_task(self.watch_mgr.watch_pods()),
-            asyncio.create_task(self.watch_mgr.create_namespaced_watch(
-                "Deployment", self.apps_v1.list_deployment_for_all_namespaces,
-                "deploy-watch", rs.scan_single_deployment)),
-            asyncio.create_task(self.watch_mgr.create_namespaced_watch(
-                "Service", self.v1.list_service_for_all_namespaces,
-                "svc-watch", rs.scan_single_service)),
-            asyncio.create_task(self.watch_mgr.create_cluster_watch(
-                "ClusterRole", self.rbac_v1.list_cluster_role,
-                "cr-watch", rs.scan_single_cluster_role, skip_system_prefix=True)),
-            asyncio.create_task(self.watch_mgr.create_namespaced_watch(
-                "Role", self.rbac_v1.list_role_for_all_namespaces,
-                "role-watch", rs.scan_single_role)),
-            asyncio.create_task(self.watch_mgr.create_deletion_only_watch(
-                "Namespace", self.v1.list_namespace, "ns-watch", namespaced=False)),
-            asyncio.create_task(self.watch_mgr.create_deletion_only_watch(
-                "DaemonSet", self.apps_v1.list_daemon_set_for_all_namespaces, "ds-watch")),
-            asyncio.create_task(self.watch_mgr.create_deletion_only_watch(
-                "StatefulSet", self.apps_v1.list_stateful_set_for_all_namespaces, "sts-watch")),
-            asyncio.create_task(self.watch_mgr.create_namespaced_watch(
-                "Ingress", self.networking_v1.list_ingress_for_all_namespaces,
-                "ingress-watch", rs.scan_single_ingress)),
-            asyncio.create_task(self.watch_mgr.create_namespaced_watch(
-                "CronJob", self.batch_v1.list_cron_job_for_all_namespaces,
-                "cj-watch", rs.scan_single_cronjob, handle_403=True)),
+            asyncio.create_task(
+                self.watch_mgr.create_namespaced_watch(
+                    "Deployment",
+                    self.apps_v1.list_deployment_for_all_namespaces,
+                    "deploy-watch",
+                    rs.scan_single_deployment,
+                )
+            ),
+            asyncio.create_task(
+                self.watch_mgr.create_namespaced_watch(
+                    "Service",
+                    self.v1.list_service_for_all_namespaces,
+                    "svc-watch",
+                    rs.scan_single_service,
+                )
+            ),
+            asyncio.create_task(
+                self.watch_mgr.create_cluster_watch(
+                    "ClusterRole",
+                    self.rbac_v1.list_cluster_role,
+                    "cr-watch",
+                    rs.scan_single_cluster_role,
+                    skip_system_prefix=True,
+                )
+            ),
+            asyncio.create_task(
+                self.watch_mgr.create_namespaced_watch(
+                    "Role",
+                    self.rbac_v1.list_role_for_all_namespaces,
+                    "role-watch",
+                    rs.scan_single_role,
+                )
+            ),
+            asyncio.create_task(
+                self.watch_mgr.create_deletion_only_watch(
+                    "Namespace", self.v1.list_namespace, "ns-watch", namespaced=False
+                )
+            ),
+            asyncio.create_task(
+                self.watch_mgr.create_deletion_only_watch(
+                    "DaemonSet",
+                    self.apps_v1.list_daemon_set_for_all_namespaces,
+                    "ds-watch",
+                )
+            ),
+            asyncio.create_task(
+                self.watch_mgr.create_deletion_only_watch(
+                    "StatefulSet",
+                    self.apps_v1.list_stateful_set_for_all_namespaces,
+                    "sts-watch",
+                )
+            ),
+            asyncio.create_task(
+                self.watch_mgr.create_namespaced_watch(
+                    "Ingress",
+                    self.networking_v1.list_ingress_for_all_namespaces,
+                    "ingress-watch",
+                    rs.scan_single_ingress,
+                )
+            ),
+            asyncio.create_task(
+                self.watch_mgr.create_namespaced_watch(
+                    "CronJob",
+                    self.batch_v1.list_cron_job_for_all_namespaces,
+                    "cj-watch",
+                    rs.scan_single_cronjob,
+                    handle_403=True,
+                )
+            ),
             asyncio.create_task(self.websocket_client.connect()),
+            asyncio.create_task(self.watch_mgr.liveness_check_loop()),
         ]
 
         try:
@@ -199,3 +275,4 @@ class SecurityScanner:
             for task in watch_tasks:
                 task.cancel()
             await self.websocket_client.disconnect()
+            await self.watch_mgr.shutdown()

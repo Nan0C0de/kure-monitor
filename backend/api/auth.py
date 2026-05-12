@@ -11,12 +11,11 @@ Uses a two-tier auth model:
    - Shared secret stored in app_settings (auto-generated on first boot).
    - Used by the agent and security-scanner to POST ingest data.
 """
+
 import hmac
 import logging
 import os
 import secrets
-import time
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -33,17 +32,14 @@ SESSION_TTL_DAYS = 7
 SESSION_SECRET_SETTING_KEY = "session_secret"
 SERVICE_TOKEN_SETTING_KEY = "service_token"
 
-# Cached service-token value (lazy-loaded from db on first request).
-_cached_service_token: Optional[str] = None
-_cached_session_secret: Optional[str] = None
-
-# In-memory login rate limiter: 5 attempts per IP, 30-second cooldown
+# Login rate limiter: 5 attempts per IP, 30-second window.
+# Backed by the `login_attempts` DB table so multi-replica backends share state.
 _LOGIN_MAX_ATTEMPTS = 5
 _LOGIN_COOLDOWN_SECONDS = 30
-_login_attempts: dict[str, list[float]] = defaultdict(list)
 
 
 # --- Password hashing ---
+
 
 def hash_password(password: str) -> str:
     """Hash a password with bcrypt."""
@@ -64,17 +60,18 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 # --- Session secret ---
 
+
 async def get_session_secret(db) -> str:
     """Resolve session secret with precedence: env var > app_settings > generated.
+
+    No process-local cache: every call hits the DB so admin rotations from
+    other backend replicas take effect immediately. The `app_settings` lookup
+    is an indexed PK read (microseconds).
 
     If `SESSION_SECRET` env var is set, it is the source of truth: the
     `app_settings.session_secret` row is seeded (if missing) or overwritten
     (if it differs) so that other code paths reading from the DB stay in sync.
     """
-    global _cached_session_secret
-    if _cached_session_secret:
-        return _cached_session_secret
-
     env_secret = os.environ.get("SESSION_SECRET")
     if env_secret:
         stored = await db.get_app_setting(SESSION_SECRET_SETTING_KEY)
@@ -83,8 +80,9 @@ async def get_session_secret(db) -> str:
             if stored is None:
                 logger.info("Seeded session secret from SESSION_SECRET env var")
             else:
-                logger.info("Overwrote session secret in app_settings from SESSION_SECRET env var")
-        _cached_session_secret = env_secret
+                logger.info(
+                    "Overwrote session secret in app_settings from SESSION_SECRET env var"
+                )
         return env_secret
 
     stored = await db.get_app_setting(SESSION_SECRET_SETTING_KEY)
@@ -92,24 +90,24 @@ async def get_session_secret(db) -> str:
         stored = secrets.token_hex(32)
         await db.set_app_setting(SESSION_SECRET_SETTING_KEY, stored)
         logger.info("Generated new session secret and stored in app_settings")
-    _cached_session_secret = stored
     return stored
 
 
 # --- Service token ---
 
+
 async def get_service_token(db) -> str:
     """Resolve service token with precedence: env var > app_settings > generated.
+
+    No process-local cache: every call hits the DB so admin rotations from
+    other backend replicas take effect immediately. The `app_settings` lookup
+    is an indexed PK read (microseconds).
 
     If `SERVICE_TOKEN` env var is set, it is the source of truth: the
     `app_settings.service_token` row is seeded (if missing) or overwritten
     (if it differs). This lets Helm pre-provision the token via a shared
     Kubernetes Secret and share the same value across agent/scanner/backend.
     """
-    global _cached_service_token
-    if _cached_service_token:
-        return _cached_service_token
-
     env_token = os.environ.get("SERVICE_TOKEN")
     if env_token:
         stored = await db.get_app_setting(SERVICE_TOKEN_SETTING_KEY)
@@ -118,8 +116,9 @@ async def get_service_token(db) -> str:
             if stored is None:
                 logger.info("Seeded service token from SERVICE_TOKEN env var")
             else:
-                logger.info("Overwrote service token in app_settings from SERVICE_TOKEN env var")
-        _cached_service_token = env_token
+                logger.info(
+                    "Overwrote service token in app_settings from SERVICE_TOKEN env var"
+                )
         return env_token
 
     stored = await db.get_app_setting(SERVICE_TOKEN_SETTING_KEY)
@@ -127,18 +126,17 @@ async def get_service_token(db) -> str:
         stored = secrets.token_hex(32)
         await db.set_app_setting(SERVICE_TOKEN_SETTING_KEY, stored)
         logger.info("Generated new service token and stored in app_settings")
-    _cached_service_token = stored
     return stored
 
 
 def reset_auth_cache():
-    """Test helper: clear cached session secret and service token."""
-    global _cached_service_token, _cached_session_secret
-    _cached_service_token = None
-    _cached_session_secret = None
+    """Deprecated test helper. Auth resolvers no longer cache; this is a no-op
+    kept for backwards compatibility with existing test fixtures."""
+    return None
 
 
 # --- JWT encode/decode ---
+
 
 def _encode_session_jwt(user: dict, secret: str) -> str:
     now = datetime.now(timezone.utc)
@@ -184,29 +182,35 @@ def clear_session_cookie(response: Response) -> None:
 
 
 # --- Rate limiting (login) ---
+#
+# Backed by the `login_attempts` DB table so all backend replicas share state
+# and the attacker can't bypass the limit by hitting different pods. Bounded
+# growth: each IP is one row, and `cleanup_old_login_attempts` can be wired
+# up to sweep stale rows periodically.
 
-def check_login_rate_limit(client_ip: str) -> None:
-    now = time.monotonic()
-    _login_attempts[client_ip] = [
-        t for t in _login_attempts[client_ip]
-        if now - t < _LOGIN_COOLDOWN_SECONDS
-    ]
-    if len(_login_attempts[client_ip]) >= _LOGIN_MAX_ATTEMPTS:
+
+async def check_login_rate_limit(db, client_ip: str) -> None:
+    """Raise 429 if the IP has exhausted its attempts in the current window."""
+    count = await db.get_login_attempt_count(client_ip, _LOGIN_COOLDOWN_SECONDS)
+    if count >= _LOGIN_MAX_ATTEMPTS:
         raise HTTPException(
             status_code=429,
             detail="Too many login attempts. Please try again in 30 seconds.",
         )
 
 
-def record_failed_login(client_ip: str) -> None:
-    _login_attempts[client_ip].append(time.monotonic())
+async def record_failed_login(db, client_ip: str) -> int:
+    """Record a failed login attempt for this IP. Returns new count in window."""
+    return await db.record_failed_login(client_ip, _LOGIN_COOLDOWN_SECONDS)
 
 
-def clear_login_attempts(client_ip: str) -> None:
-    _login_attempts.pop(client_ip, None)
+async def clear_login_attempts(db, client_ip: str) -> None:
+    """Clear all recorded attempts for this IP (called after successful login)."""
+    await db.clear_login_attempts(client_ip)
 
 
 # --- Current user resolution ---
+
 
 async def _resolve_user_from_cookie(request: Request) -> Optional[dict]:
     """Decode the session cookie and return the user dict (from JWT claims).
@@ -235,6 +239,7 @@ async def _resolve_user_from_cookie(request: Request) -> Optional[dict]:
 
 
 # --- FastAPI dependencies ---
+
 
 async def require_user(request: Request) -> dict:
     """Require any authenticated user. Returns user dict."""
@@ -306,6 +311,7 @@ async def require_user_or_service(request: Request) -> dict:
 
 
 # --- WebSocket helpers ---
+
 
 async def validate_ws_auth(
     *, cookie_token: Optional[str], query_token: Optional[str], db

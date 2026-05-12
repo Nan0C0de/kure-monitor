@@ -6,6 +6,10 @@ export const useWebSocket = (onMessage) => {
   const onMessageRef = useRef(onMessage);
   const reconnectTimeoutRef = useRef(null);
   const isConnectingRef = useRef(false);
+  // Set to true by the effect cleanup before calling close(); read by the
+  // socket's onclose handler so an intentional unmount/HMR/StrictMode
+  // double-invoke does not schedule a reconnect against a torn-down hook.
+  const intentionalCloseRef = useRef(false);
 
   // Keep the callback ref updated
   useEffect(() => {
@@ -29,11 +33,13 @@ export const useWebSocket = (onMessage) => {
         `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
 
     const websocket = new WebSocket(WS_URL);
+    // Track the socket immediately so the cleanup function can close it even
+    // if the connection is still pending when the component unmounts.
+    wsRef.current = websocket;
 
     websocket.onopen = () => {
       isConnectingRef.current = false;
       setConnected(true);
-      wsRef.current = websocket;
     };
 
     websocket.onmessage = (event) => {
@@ -53,6 +59,12 @@ export const useWebSocket = (onMessage) => {
       setConnected(false);
       wsRef.current = null;
 
+      // If the close was triggered by effect cleanup (unmount/HMR/StrictMode),
+      // do NOT schedule a reconnect — the hook is going away.
+      if (intentionalCloseRef.current) {
+        return;
+      }
+
       // Attempt to reconnect after 5 seconds
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
@@ -63,19 +75,23 @@ export const useWebSocket = (onMessage) => {
       isConnectingRef.current = false;
       console.warn('WebSocket connection error - this is normal if backend is not running');
     };
-
-    wsRef.current = websocket;
   }, []);
 
   useEffect(() => {
+    // Fresh mount (or remount after StrictMode double-invoke): allow
+    // server-side closes to drive reconnects again.
+    intentionalCloseRef.current = false;
     connect();
 
     return () => {
       // Clear any pending reconnect
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
-      // Close the connection
+      // Flag must be set BEFORE close() so the synchronous (or async) onclose
+      // handler sees the intentional-close signal.
+      intentionalCloseRef.current = true;
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

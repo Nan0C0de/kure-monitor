@@ -1,4 +1,5 @@
 """Auth routes: setup, login, logout, invitations, me."""
+
 import logging
 import secrets
 from datetime import datetime, timezone
@@ -62,7 +63,9 @@ def create_auth_router(deps: RouterDeps) -> APIRouter:
         return {"setup_required": count == 0}
 
     @router.post("/auth/setup")
-    async def setup_first_admin(body: SetupRequest, request: Request, response: Response):
+    async def setup_first_admin(
+        body: SetupRequest, request: Request, response: Response
+    ):
         """Create the first admin account. Rejected if any users already exist."""
         count = await db.count_users()
         if count > 0:
@@ -90,14 +93,16 @@ def create_auth_router(deps: RouterDeps) -> APIRouter:
     async def login(body: LoginRequest, request: Request, response: Response):
         """Authenticate with username/password. Sets session cookie."""
         client_ip = request.client.host if request.client else "unknown"
-        check_login_rate_limit(client_ip)
+        await check_login_rate_limit(db, client_ip)
 
         user = await db.get_user_by_username(body.username.strip())
-        if not user or not verify_password(body.password, user.get("password_hash", "")):
-            record_failed_login(client_ip)
+        if not user or not verify_password(
+            body.password, user.get("password_hash", "")
+        ):
+            await record_failed_login(db, client_ip)
             raise HTTPException(status_code=401, detail="Invalid username or password")
 
-        clear_login_attempts(client_ip)
+        await clear_login_attempts(db, client_ip)
         await issue_session_cookie(response, request, user)
         return {"user": _public_user(user)}
 
@@ -167,7 +172,9 @@ def create_auth_router(deps: RouterDeps) -> APIRouter:
             raise HTTPException(status_code=410, detail="Invitation already used")
 
         await issue_session_cookie(response, request, user)
-        logger.info(f"User '{user['username']}' created via invitation (role={user['role']})")
+        logger.info(
+            f"User '{user['username']}' created via invitation (role={user['role']})"
+        )
         return {"user": _public_user(user)}
 
     return router

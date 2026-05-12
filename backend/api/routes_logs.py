@@ -7,6 +7,7 @@ from typing import Optional
 # Kubernetes client for pod logs
 try:
     from kubernetes import client, config
+
     K8S_AVAILABLE = True
 except ImportError:
     K8S_AVAILABLE = False
@@ -25,12 +26,18 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
         namespace: str,
         pod_name: str,
         container: Optional[str] = Query(None, description="Container name (optional)"),
-        tail_lines: int = Query(100, description="Number of lines to return", ge=1, le=5000),
-        previous: bool = Query(False, description="Get logs from previous container instance")
+        tail_lines: int = Query(
+            100, description="Number of lines to return", ge=1, le=5000
+        ),
+        previous: bool = Query(
+            False, description="Get logs from previous container instance"
+        ),
     ):
         """Get logs for a specific pod"""
         if not K8S_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Kubernetes client not available")
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
 
         try:
             try:
@@ -39,7 +46,9 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                 try:
                     config.load_kube_config()
                 except config.ConfigException:
-                    raise HTTPException(status_code=503, detail="Could not configure Kubernetes client")
+                    raise HTTPException(
+                        status_code=503, detail="Could not configure Kubernetes client"
+                    )
 
             v1 = client.CoreV1Api()
 
@@ -47,22 +56,29 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                 pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
             except client.ApiException as e:
                 if e.status == 404:
-                    raise HTTPException(status_code=404, detail=f"Pod '{pod_name}' not found in namespace '{namespace}'")
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Pod '{pod_name}' not found in namespace '{namespace}'",
+                    )
                 raise HTTPException(status_code=e.status, detail=str(e.reason))
 
             containers = [c.name for c in pod.spec.containers]
             init_containers = [c.name for c in (pod.spec.init_containers or [])]
             all_containers = containers + init_containers
 
-            target_container = container if container else (containers[0] if containers else None)
+            target_container = (
+                container if container else (containers[0] if containers else None)
+            )
 
             if not target_container:
-                raise HTTPException(status_code=400, detail="No containers found in pod")
+                raise HTTPException(
+                    status_code=400, detail="No containers found in pod"
+                )
 
             if target_container not in all_containers:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Container '{target_container}' not found. Available: {', '.join(all_containers)}"
+                    detail=f"Container '{target_container}' not found. Available: {', '.join(all_containers)}",
                 )
 
             try:
@@ -71,7 +87,7 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                     namespace=namespace,
                     container=target_container,
                     tail_lines=tail_lines,
-                    previous=previous
+                    previous=previous,
                 )
             except client.ApiException as e:
                 if e.status == 400:
@@ -86,26 +102,30 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                 "containers": all_containers,
                 "logs": logs,
                 "tail_lines": tail_lines,
-                "previous": previous
+                "previous": previous,
             }
 
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Error fetching pod logs: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/pods/{namespace}/{pod_name}/logs/stream")
     async def stream_pod_logs(
         namespace: str,
         pod_name: str,
         container: Optional[str] = Query(None, description="Container name (optional)"),
-        tail_lines: int = Query(100, description="Initial number of lines to return", ge=1, le=1000)
+        tail_lines: int = Query(
+            100, description="Initial number of lines to return", ge=1, le=1000
+        ),
     ):
         """Stream logs for a specific pod (Server-Sent Events).
         Authenticated via the session cookie on the user's browser."""
         if not K8S_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Kubernetes client not available")
+            raise HTTPException(
+                status_code=503, detail="Kubernetes client not available"
+            )
 
         try:
             try:
@@ -114,7 +134,9 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                 try:
                     config.load_kube_config()
                 except config.ConfigException:
-                    raise HTTPException(status_code=503, detail="Could not configure Kubernetes client")
+                    raise HTTPException(
+                        status_code=503, detail="Could not configure Kubernetes client"
+                    )
 
             v1 = client.CoreV1Api()
 
@@ -122,14 +144,21 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                 pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
             except client.ApiException as e:
                 if e.status == 404:
-                    raise HTTPException(status_code=404, detail=f"Pod '{pod_name}' not found in namespace '{namespace}'")
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Pod '{pod_name}' not found in namespace '{namespace}'",
+                    )
                 raise HTTPException(status_code=e.status, detail=str(e.reason))
 
             containers = [c.name for c in pod.spec.containers]
-            target_container = container if container else (containers[0] if containers else None)
+            target_container = (
+                container if container else (containers[0] if containers else None)
+            )
 
             if not target_container:
-                raise HTTPException(status_code=400, detail="No containers found in pod")
+                raise HTTPException(
+                    status_code=400, detail="No containers found in pod"
+                )
 
             async def log_stream_generator():
                 """Generator that yields log lines as SSE events using a thread for blocking I/O"""
@@ -143,6 +172,7 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                     """Run blocking kubernetes watch in a separate thread"""
                     try:
                         from kubernetes.watch import Watch
+
                         w = Watch()
 
                         for line in w.stream(
@@ -152,20 +182,20 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                             container=target_container,
                             follow=True,
                             tail_lines=tail_lines,
-                            _preload_content=False
+                            _preload_content=False,
                         ):
                             if stop_event.is_set():
                                 w.stop()
                                 break
-                            log_queue.put(('data', line))
+                            log_queue.put(("data", line))
 
                     except client.ApiException as e:
-                        log_queue.put(('error', f"[Error: {e.reason}]"))
+                        log_queue.put(("error", f"[Error: {e.reason}]"))
                     except Exception as e:
                         logger.error(f"Error in log watch thread: {e}")
-                        log_queue.put(('error', f"[Error: {str(e)}]"))
+                        log_queue.put(("error", f"[Error: {str(e)}]"))
                     finally:
-                        log_queue.put(('done', None))
+                        log_queue.put(("done", None))
 
                 watch_thread = threading.Thread(target=watch_logs, daemon=True)
                 watch_thread.start()
@@ -173,17 +203,16 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                 try:
                     while True:
                         try:
-                            msg_type, msg_data = await asyncio.get_event_loop().run_in_executor(
-                                None,
-                                lambda: log_queue.get(timeout=0.5)
+                            msg_type, msg_data = await asyncio.to_thread(
+                                log_queue.get, True, 0.5
                             )
 
-                            if msg_type == 'done':
+                            if msg_type == "done":
                                 break
-                            elif msg_type == 'error':
+                            elif msg_type == "error":
                                 yield f"data: {msg_data}\n\n"
                                 break
-                            elif msg_type == 'data':
+                            elif msg_type == "data":
                                 yield f"data: {msg_data}\n\n"
 
                         except queue.Empty:
@@ -203,14 +232,14 @@ def create_logs_router(deps: RouterDeps) -> APIRouter:
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no"
-                }
+                    "X-Accel-Buffering": "no",
+                },
             )
 
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Error setting up log stream: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     return router

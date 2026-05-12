@@ -1055,3 +1055,68 @@ class TestRbacRoutes:
         async with diagram_client as client:
             resp = await client.get("/api/diagram/clusterrole/anything")
         assert resp.status_code == 503
+
+
+class TestFetchNamespaceContextInit:
+    """Regression: AdviceEngine calls ``_fetch_namespace_context`` directly,
+    so the method must initialise its K8s clients itself rather than relying
+    on a sibling method to have been called first."""
+
+    @pytest.mark.asyncio
+    async def test_initialises_clients_when_called_first(self, monkeypatch):
+        svc = TopologyService()
+        assert svc._initialised is False
+        assert svc._core is None
+
+        # Stub _init_k8s to populate clients with empty-list mocks (so we
+        # don't reach a real cluster).
+        def fake_init():
+            if svc._initialised:
+                return
+            svc._core = MagicMock()
+            svc._apps = MagicMock()
+            svc._networking = MagicMock()
+            svc._discovery = MagicMock()
+            svc._autoscaling = MagicMock()
+            svc._batch = MagicMock()
+            svc._rbac = MagicMock()
+            for client_mock, methods in (
+                (
+                    svc._core,
+                    [
+                        "list_namespaced_pod",
+                        "list_namespaced_service",
+                        "list_namespaced_endpoints",
+                        "list_namespaced_persistent_volume_claim",
+                        "list_namespaced_config_map",
+                    ],
+                ),
+                (svc._apps, ["list_namespaced_replica_set"]),
+                (
+                    svc._networking,
+                    [
+                        "list_namespaced_ingress",
+                        "list_namespaced_network_policy",
+                    ],
+                ),
+                (svc._discovery, ["list_namespaced_endpoint_slice"]),
+                (
+                    svc._autoscaling,
+                    [
+                        "list_namespaced_horizontal_pod_autoscaler",
+                    ],
+                ),
+                (svc._batch, ["list_namespaced_job"]),
+                (svc._rbac, ["list_namespaced_role"]),
+            ):
+                for m in methods:
+                    getattr(client_mock, m).return_value = _list_wrapper([])
+            svc._initialised = True
+
+        monkeypatch.setattr(svc, "_init_k8s", fake_init)
+
+        ctx = await svc._fetch_namespace_context("default")
+
+        assert svc._initialised is True
+        assert isinstance(ctx, dict)
+        assert ctx.get("pods") == []

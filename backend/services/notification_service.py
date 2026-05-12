@@ -1,9 +1,12 @@
 import aiohttp
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from models.models import PodFailureResponse
 
 logger = logging.getLogger(__name__)
+
+# Total HTTP timeout for outbound webhook calls (Slack/Teams).
+_WEBHOOK_TIMEOUT_SECONDS = 30.0
 
 
 class NotificationService:
@@ -11,6 +14,24 @@ class NotificationService:
 
     def __init__(self, db):
         self.db = db
+        # Lazily created in an event loop on first webhook send.
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Return a process-wide ClientSession, creating it lazily."""
+        if self._session is None or self._session.closed:
+            timeout = aiohttp.ClientTimeout(total=_WEBHOOK_TIMEOUT_SECONDS)
+            self._session = aiohttp.ClientSession(timeout=timeout)
+        return self._session
+
+    async def close(self) -> None:
+        """Close the shared ClientSession if one was created."""
+        if self._session is not None and not self._session.closed:
+            try:
+                await self._session.close()
+            except Exception:
+                pass
+        self._session = None
 
     async def send_pod_failure_notification(self, failure: PodFailureResponse):
         """Send notification for a pod failure to all enabled providers"""
@@ -22,20 +43,21 @@ class NotificationService:
                     await self._send_notification(
                         provider=setting.provider,
                         config=setting.config,
-                        failure=failure
+                        failure=failure,
                     )
-                    logger.info(f"Sent {setting.provider} notification for pod {failure.namespace}/{failure.pod_name}")
+                    logger.info(
+                        f"Sent {setting.provider} notification for pod {failure.namespace}/{failure.pod_name}"
+                    )
                 except Exception as e:
                     logger.error(f"Failed to send {setting.provider} notification: {e}")
         except Exception as e:
             logger.error(f"Error getting notification settings: {e}")
 
-    async def _send_notification(self, provider: str, config: Dict[str, Any], failure: PodFailureResponse):
+    async def _send_notification(
+        self, provider: str, config: Dict[str, Any], failure: PodFailureResponse
+    ):
         """Route to appropriate provider handler"""
-        handlers = {
-            'slack': self._send_slack,
-            'teams': self._send_teams
-        }
+        handlers = {"slack": self._send_slack, "teams": self._send_teams}
 
         handler = handlers.get(provider)
         if handler:
@@ -46,30 +68,48 @@ class NotificationService:
     async def _send_slack(self, config: Dict[str, Any], failure: PodFailureResponse):
         """Send Slack notification via webhook"""
         payload = {
-            "attachments": [{
-                "color": "danger",
-                "title": f"Pod Failure: {failure.namespace}/{failure.pod_name}",
-                "fields": [
-                    {"title": "Namespace", "value": failure.namespace, "short": True},
-                    {"title": "Pod", "value": failure.pod_name, "short": True},
-                    {"title": "Reason", "value": failure.failure_reason, "short": True},
-                    {"title": "Node", "value": failure.node_name or "N/A", "short": True},
-                    {"title": "Message", "value": (failure.failure_message or "N/A")[:500], "short": False}
-                ],
-                "footer": "Kure Monitor",
-                "ts": int(__import__('time').time())
-            }]
+            "attachments": [
+                {
+                    "color": "danger",
+                    "title": f"Pod Failure: {failure.namespace}/{failure.pod_name}",
+                    "fields": [
+                        {
+                            "title": "Namespace",
+                            "value": failure.namespace,
+                            "short": True,
+                        },
+                        {"title": "Pod", "value": failure.pod_name, "short": True},
+                        {
+                            "title": "Reason",
+                            "value": failure.failure_reason,
+                            "short": True,
+                        },
+                        {
+                            "title": "Node",
+                            "value": failure.node_name or "N/A",
+                            "short": True,
+                        },
+                        {
+                            "title": "Message",
+                            "value": (failure.failure_message or "N/A")[:500],
+                            "short": False,
+                        },
+                    ],
+                    "footer": "Kure Monitor",
+                    "ts": int(__import__("time").time()),
+                }
+            ]
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                config['webhook_url'],
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                if response.status != 200:
-                    text = await response.text()
-                    raise Exception(f"Slack webhook returned {response.status}: {text}")
+        session = await self._get_session()
+        async with session.post(
+            config["webhook_url"],
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as response:
+            if response.status != 200:
+                text = await response.text()
+                raise Exception(f"Slack webhook returned {response.status}: {text}")
 
     async def _send_teams(self, config: Dict[str, Any], failure: PodFailureResponse):
         """Send Microsoft Teams notification via Power Automate Workflows webhook"""
@@ -91,57 +131,63 @@ class NotificationService:
                                 "size": "Large",
                                 "weight": "Bolder",
                                 "color": "Attention",
-                                "text": "Pod Failure Alert"
+                                "text": "Pod Failure Alert",
                             },
                             {
                                 "type": "TextBlock",
                                 "text": f"{failure.namespace}/{failure.pod_name}",
                                 "wrap": True,
-                                "weight": "Bolder"
+                                "weight": "Bolder",
                             },
                             {
                                 "type": "FactSet",
                                 "facts": [
                                     {"title": "Namespace", "value": failure.namespace},
                                     {"title": "Pod", "value": failure.pod_name},
-                                    {"title": "Reason", "value": failure.failure_reason},
-                                    {"title": "Node", "value": failure.node_name or "N/A"}
-                                ]
+                                    {
+                                        "title": "Reason",
+                                        "value": failure.failure_reason,
+                                    },
+                                    {
+                                        "title": "Node",
+                                        "value": failure.node_name or "N/A",
+                                    },
+                                ],
                             },
                             {
                                 "type": "TextBlock",
                                 "text": "Message",
                                 "weight": "Bolder",
-                                "spacing": "Medium"
+                                "spacing": "Medium",
                             },
                             {
                                 "type": "TextBlock",
                                 "text": (failure.failure_message or "N/A")[:500],
-                                "wrap": True
+                                "wrap": True,
                             },
                             {
                                 "type": "TextBlock",
                                 "text": "Kure Monitor",
                                 "size": "Small",
                                 "color": "Accent",
-                                "spacing": "Medium"
-                            }
-                        ]
-                    }
+                                "spacing": "Medium",
+                            },
+                        ],
+                    },
                 }
-            ]
+            ],
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                config['webhook_url'],
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                # Workflows webhooks return 202 Accepted on success
-                if response.status not in (200, 202):
-                    text = await response.text()
-                    raise Exception(f"Teams webhook returned {response.status}: {text}")
+        session = await self._get_session()
+        async with session.post(
+            config["webhook_url"],
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as response:
+            # Workflows webhooks return 202 Accepted on success
+            if response.status not in (200, 202):
+                text = await response.text()
+                raise Exception(f"Teams webhook returned {response.status}: {text}")
 
     async def send_pod_resolved_notification(self, namespace: str, pod_name: str):
         """Send notification when a pod failure is resolved/dismissed"""
@@ -154,19 +200,25 @@ class NotificationService:
                         provider=setting.provider,
                         config=setting.config,
                         namespace=namespace,
-                        pod_name=pod_name
+                        pod_name=pod_name,
                     )
-                    logger.info(f"Sent {setting.provider} resolved notification for pod {namespace}/{pod_name}")
+                    logger.info(
+                        f"Sent {setting.provider} resolved notification for pod {namespace}/{pod_name}"
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to send {setting.provider} resolved notification: {e}")
+                    logger.error(
+                        f"Failed to send {setting.provider} resolved notification: {e}"
+                    )
         except Exception as e:
             logger.error(f"Error getting notification settings: {e}")
 
-    async def _send_resolved_notification(self, provider: str, config: Dict[str, Any], namespace: str, pod_name: str):
+    async def _send_resolved_notification(
+        self, provider: str, config: Dict[str, Any], namespace: str, pod_name: str
+    ):
         """Route to appropriate provider handler for resolved notifications"""
         handlers = {
-            'slack': self._send_slack_resolved,
-            'teams': self._send_teams_resolved
+            "slack": self._send_slack_resolved,
+            "teams": self._send_teams_resolved,
         }
 
         handler = handlers.get(provider)
@@ -175,33 +227,39 @@ class NotificationService:
         else:
             logger.warning(f"Unknown notification provider: {provider}")
 
-    async def _send_slack_resolved(self, config: Dict[str, Any], namespace: str, pod_name: str):
+    async def _send_slack_resolved(
+        self, config: Dict[str, Any], namespace: str, pod_name: str
+    ):
         """Send Slack resolved notification via webhook"""
         payload = {
-            "attachments": [{
-                "color": "good",
-                "title": f"Pod Resolved: {namespace}/{pod_name}",
-                "fields": [
-                    {"title": "Namespace", "value": namespace, "short": True},
-                    {"title": "Pod", "value": pod_name, "short": True},
-                    {"title": "Status", "value": "Resolved", "short": True}
-                ],
-                "footer": "Kure Monitor",
-                "ts": int(__import__('time').time())
-            }]
+            "attachments": [
+                {
+                    "color": "good",
+                    "title": f"Pod Resolved: {namespace}/{pod_name}",
+                    "fields": [
+                        {"title": "Namespace", "value": namespace, "short": True},
+                        {"title": "Pod", "value": pod_name, "short": True},
+                        {"title": "Status", "value": "Resolved", "short": True},
+                    ],
+                    "footer": "Kure Monitor",
+                    "ts": int(__import__("time").time()),
+                }
+            ]
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                config['webhook_url'],
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                if response.status != 200:
-                    text = await response.text()
-                    raise Exception(f"Slack webhook returned {response.status}: {text}")
+        session = await self._get_session()
+        async with session.post(
+            config["webhook_url"],
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as response:
+            if response.status != 200:
+                text = await response.text()
+                raise Exception(f"Slack webhook returned {response.status}: {text}")
 
-    async def _send_teams_resolved(self, config: Dict[str, Any], namespace: str, pod_name: str):
+    async def _send_teams_resolved(
+        self, config: Dict[str, Any], namespace: str, pod_name: str
+    ):
         """Send Microsoft Teams resolved notification via Power Automate Workflows webhook"""
         payload = {
             "type": "message",
@@ -219,44 +277,44 @@ class NotificationService:
                                 "size": "Large",
                                 "weight": "Bolder",
                                 "color": "Good",
-                                "text": "Pod Resolved"
+                                "text": "Pod Resolved",
                             },
                             {
                                 "type": "TextBlock",
                                 "text": f"{namespace}/{pod_name}",
                                 "wrap": True,
-                                "weight": "Bolder"
+                                "weight": "Bolder",
                             },
                             {
                                 "type": "FactSet",
                                 "facts": [
                                     {"title": "Namespace", "value": namespace},
                                     {"title": "Pod", "value": pod_name},
-                                    {"title": "Status", "value": "Resolved"}
-                                ]
+                                    {"title": "Status", "value": "Resolved"},
+                                ],
                             },
                             {
                                 "type": "TextBlock",
                                 "text": "Kure Monitor",
                                 "size": "Small",
                                 "color": "Accent",
-                                "spacing": "Medium"
-                            }
-                        ]
-                    }
+                                "spacing": "Medium",
+                            },
+                        ],
+                    },
                 }
-            ]
+            ],
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                config['webhook_url'],
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                if response.status not in (200, 202):
-                    text = await response.text()
-                    raise Exception(f"Teams webhook returned {response.status}: {text}")
+        session = await self._get_session()
+        async with session.post(
+            config["webhook_url"],
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as response:
+            if response.status not in (200, 202):
+                text = await response.text()
+                raise Exception(f"Teams webhook returned {response.status}: {text}")
 
     async def test_notification(self, provider: str, config: Dict[str, Any]) -> bool:
         """Send a test notification to verify configuration"""
@@ -274,7 +332,7 @@ class NotificationService:
             logs="",
             manifest="",
             solution="This is a test - no solution needed.",
-            timestamp="2024-01-01T00:00:00Z"
+            timestamp="2024-01-01T00:00:00Z",
         )
 
         await self._send_notification(provider, config, test_failure)

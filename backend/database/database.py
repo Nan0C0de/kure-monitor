@@ -317,3 +317,16 @@ class Database:
 
     async def delete_invitation(self, invitation_id):
         return await self._db.delete_invitation(invitation_id)
+
+    # Login rate limiting (DB-backed so all replicas share state)
+    async def record_failed_login(self, ip, window_seconds):
+        return await self._db.record_failed_login(ip, window_seconds)
+
+    async def get_login_attempt_count(self, ip, window_seconds):
+        return await self._db.get_login_attempt_count(ip, window_seconds)
+
+    async def clear_login_attempts(self, ip):
+        return await self._db.clear_login_attempts(ip)
+
+    async def cleanup_old_login_attempts(self, older_than_seconds):
+        return await self._db.cleanup_old_login_attempts(older_than_seconds)

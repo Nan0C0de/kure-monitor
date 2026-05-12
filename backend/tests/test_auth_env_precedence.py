@@ -3,6 +3,7 @@
 These tests use a pure in-memory mock of the `app_settings` store so they
 do not require a real PostgreSQL connection.
 """
+
 import pytest
 
 from api.auth import (
@@ -130,16 +131,21 @@ async def test_session_secret_env_seeds_empty_db(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_session_secret_cache_short_circuits_db(monkeypatch):
-    """Once cached, further calls don't hit the DB."""
+async def test_session_secret_no_cache_reflects_db_updates(monkeypatch):
+    """No process-local cache: subsequent calls reflect external DB changes.
+
+    Multi-replica safety: when an admin rotates the secret from another
+    replica, this process must observe the change without restart.
+    """
     monkeypatch.setenv("SESSION_SECRET", "env-secret-xyz")
     db = FakeDB()
 
-    await get_session_secret(db)
+    first = await get_session_secret(db)
+    assert first == "env-secret-xyz"
 
-    # Mutate the fake DB under us; cached value should still be returned.
-    db._settings[SESSION_SECRET_SETTING_KEY] = "tampered"
+    # Drop the env override and "rotate" the DB value externally.
     monkeypatch.delenv("SESSION_SECRET", raising=False)
+    db._settings[SESSION_SECRET_SETTING_KEY] = "rotated-secret"
 
     result = await get_session_secret(db)
-    assert result == "env-secret-xyz"
+    assert result == "rotated-secret"

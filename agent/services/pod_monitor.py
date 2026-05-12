@@ -7,7 +7,7 @@ from kubernetes.client.rest import ApiException
 
 from clients.backend_client import BackendClient
 from clients.websocket_client import WebSocketClient
-from services.data_collector import DataCollector
+from services.data_collector import DataCollector, K8S_API_TIMEOUT_SECONDS
 from config.config import Config
 
 logging.basicConfig(level=logging.INFO)
@@ -16,13 +16,25 @@ logger = logging.getLogger(__name__)
 
 class PodMonitor:
     # System namespaces that are always excluded
-    SYSTEM_NAMESPACES = ["kube-system", "kube-public", "kube-node-lease", "local-path-storage", "kure-system"]
+    SYSTEM_NAMESPACES = [
+        "kube-system",
+        "kube-public",
+        "kube-node-lease",
+        "local-path-storage",
+        "kure-system",
+    ]
 
     # Container failure reasons that indicate a definitive problem (not transient startup)
-    FAILURE_REASONS = frozenset([
-        "CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull",
-        "InvalidImageName", "ErrImageNeverPull", "CreateContainerError",
-    ])
+    FAILURE_REASONS = frozenset(
+        [
+            "CrashLoopBackOff",
+            "ImagePullBackOff",
+            "ErrImagePull",
+            "InvalidImageName",
+            "ErrImageNeverPull",
+            "CreateContainerError",
+        ]
+    )
 
     def __init__(self):
         self.config = Config()
@@ -54,21 +66,31 @@ class PodMonitor:
     async def _refresh_excluded_namespaces(self):
         """Refresh the excluded namespaces cache from backend (kept for compatibility, not used for pod monitoring)"""
         now = datetime.now()
-        if (self.excluded_namespaces_last_refresh is None or
-                now - self.excluded_namespaces_last_refresh > self.excluded_namespaces_refresh_interval):
+        if (
+            self.excluded_namespaces_last_refresh is None
+            or now - self.excluded_namespaces_last_refresh
+            > self.excluded_namespaces_refresh_interval
+        ):
             try:
-                self.excluded_namespaces = await self.backend_client.get_excluded_namespaces()
+                self.excluded_namespaces = (
+                    await self.backend_client.get_excluded_namespaces()
+                )
                 self.excluded_namespaces_last_refresh = now
                 if self.excluded_namespaces:
-                    logger.debug(f"Refreshed excluded namespaces: {self.excluded_namespaces}")
+                    logger.debug(
+                        f"Refreshed excluded namespaces: {self.excluded_namespaces}"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to refresh excluded namespaces: {e}")
 
     async def _refresh_excluded_pods(self):
         """Refresh the excluded pods cache from backend"""
         now = datetime.now()
-        if (self.excluded_pods_last_refresh is None or
-                now - self.excluded_pods_last_refresh > self.excluded_pods_refresh_interval):
+        if (
+            self.excluded_pods_last_refresh is None
+            or now - self.excluded_pods_last_refresh
+            > self.excluded_pods_refresh_interval
+        ):
             try:
                 self.excluded_pods = await self.backend_client.get_excluded_pods()
                 self.excluded_pods_last_refresh = now
@@ -92,7 +114,9 @@ class PodMonitor:
         """Handle real-time namespace exclusion changes from WebSocket (for security scan only now)"""
         # Namespace exclusions are now only for security scan, not pod monitoring
         # Keep this handler for potential future use or logging
-        logger.info(f"Namespace exclusion change received (security scan only): {namespace} -> {action}")
+        logger.info(
+            f"Namespace exclusion change received (security scan only): {namespace} -> {action}"
+        )
 
     async def _handle_pod_exclusion_change(self, pod_name: str, action: str):
         """Handle real-time pod exclusion changes from WebSocket"""
@@ -104,7 +128,8 @@ class PodMonitor:
             if action == "included":
                 # Pod was included (removed from exclusion) - clear cache for all pods with this name
                 pods_to_clear = [
-                    pod_key for pod_key in self.reported_pods.keys()
+                    pod_key
+                    for pod_key in self.reported_pods.keys()
                     if pod_key.endswith(f"/{pod_name}")
                 ]
                 for pod_key in pods_to_clear:
@@ -113,7 +138,8 @@ class PodMonitor:
             elif action == "excluded":
                 # Pod was excluded - clear from reported cache
                 pods_to_clear = [
-                    pod_key for pod_key in self.reported_pods.keys()
+                    pod_key
+                    for pod_key in self.reported_pods.keys()
                     if pod_key.endswith(f"/{pod_name}")
                 ]
                 for pod_key in pods_to_clear:
@@ -141,9 +167,13 @@ class PodMonitor:
             for namespace, pod_name in failed_pods:
                 pod_key = f"{namespace}/{pod_name}"
                 # Add to reported_pods so recovery detection works
-                self.reported_pods[pod_key] = datetime.min  # old timestamp so re-reporting is allowed
+                self.reported_pods[pod_key] = (
+                    datetime.min
+                )  # old timestamp so re-reporting is allowed
             if failed_pods:
-                logger.info(f"Synced {len(failed_pods)} failed pods from backend for recovery detection")
+                logger.info(
+                    f"Synced {len(failed_pods)} failed pods from backend for recovery detection"
+                )
         except Exception as e:
             logger.error(f"Error syncing failed pods from backend: {e}")
 
@@ -158,8 +188,12 @@ class PodMonitor:
         await self._refresh_excluded_pods()
 
         # Set up WebSocket client for real-time exclusion changes
-        self.websocket_client.set_namespace_change_handler(self._handle_namespace_change)
-        self.websocket_client.set_pod_exclusion_change_handler(self._handle_pod_exclusion_change)
+        self.websocket_client.set_namespace_change_handler(
+            self._handle_namespace_change
+        )
+        self.websocket_client.set_pod_exclusion_change_handler(
+            self._handle_pod_exclusion_change
+        )
 
         # Run monitoring loop and WebSocket client concurrently
         tasks = [
@@ -173,11 +207,27 @@ class PodMonitor:
             for task in tasks:
                 task.cancel()
             await self.websocket_client.disconnect()
+            try:
+                await self.backend_client.close()
+            except Exception as e:
+                logger.warning(f"Error closing backend client: {e}")
 
     async def _check_failed_pods(self):
         """Check for failed pods across all namespaces"""
         try:
-            pods = self.v1.list_pod_for_all_namespaces()
+            loop = asyncio.get_running_loop()
+            try:
+                pods = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None, lambda: self.v1.list_pod_for_all_namespaces()
+                    ),
+                    timeout=K8S_API_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    f"Timeout listing pods after {K8S_API_TIMEOUT_SECONDS}s; skipping cycle"
+                )
+                return
 
             # Build map of current pods for recovery checking
             current_pods = set()
@@ -219,11 +269,11 @@ class PodMonitor:
         # Failed phase is obviously a failure
         if pod.status.phase == "Failed":
             return True
-            
+
         # Succeeded phase is for completed jobs - not a failure
         if pod.status.phase == "Succeeded":
             return False
-            
+
         # Pending phase - check for definitive failures or grace period
         if pod.status.phase == "Pending":
             # Check init containers and regular containers for definitive failure reasons
@@ -260,9 +310,11 @@ class PodMonitor:
             # Check for actual container failures (not just "not ready")
             for container_status in pod.status.container_statuses:
                 # Container terminated with failure (not due to completion)
-                if (container_status.state.terminated and
-                    container_status.state.terminated.reason not in ["Completed"] and
-                    container_status.state.terminated.exit_code != 0):
+                if (
+                    container_status.state.terminated
+                    and container_status.state.terminated.reason not in ["Completed"]
+                    and container_status.state.terminated.exit_code != 0
+                ):
                     return True
 
                 # Container in crash loop or image pull issues
@@ -271,10 +323,10 @@ class PodMonitor:
                     # Only report actual failures, not transitional states
                     if waiting_reason in self.FAILURE_REASONS:
                         return True
-            
+
             # Pod is running and containers are healthy or in normal transitional states
             return False
-            
+
         # Any other phase (shouldn't normally happen) - consider as failure
         return True
 
@@ -293,21 +345,23 @@ class PodMonitor:
     async def _handle_failed_pod(self, pod):
         """Handle a failed pod by collecting data and sending to backend"""
         pod_key = f"{pod.metadata.namespace}/{pod.metadata.name}"
-        
+
         try:
             logger.info(f"Processing failed pod: {pod_key}")
             pod_data = await self.data_collector.collect_pod_data(pod, self.v1)
 
             # Send to backend
             success = await self.backend_client.report_failed_pod(pod_data)
-            
+
             if success:
                 # Mark as reported only if successful
                 self.reported_pods[pod_key] = datetime.now()
                 logger.info(f"Successfully reported failed pod: {pod_key}")
             else:
                 # Log failure but don't mark as reported so we can retry later
-                logger.warning(f"Failed to report pod {pod_key} to backend, will retry later")
+                logger.warning(
+                    f"Failed to report pod {pod_key} to backend, will retry later"
+                )
 
         except Exception as e:
             logger.error(f"Error handling failed pod {pod_key}: {e}")
@@ -329,7 +383,7 @@ class PodMonitor:
                 logger.info(f"Pod recovered and is now healthy: {pod_key}")
 
                 # Notify backend to dismiss the pod (triggers resolved notification)
-                namespace, pod_name = pod_key.split('/', 1)
+                namespace, pod_name = pod_key.split("/", 1)
                 await self.backend_client.dismiss_deleted_pod(namespace, pod_name)
 
         except Exception as e:
@@ -349,7 +403,7 @@ class PodMonitor:
                 logger.info(f"Cleaned up tracking for deleted pod: {pod_key}")
 
                 # Notify backend to dismiss the pod
-                namespace, pod_name = pod_key.split('/', 1)
+                namespace, pod_name = pod_key.split("/", 1)
                 await self.backend_client.dismiss_deleted_pod(namespace, pod_name)
 
         except Exception as e:

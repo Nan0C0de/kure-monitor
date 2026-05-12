@@ -7,7 +7,7 @@ from services.data_collector import DataCollector, MAX_RAW_BYTES
 
 
 class TestDataCollector:
-    
+
     @pytest.fixture
     def data_collector(self):
         """Create DataCollector instance"""
@@ -23,7 +23,7 @@ class TestDataCollector:
         pod.spec.node_name = "test-node"
         pod.status.phase = "Pending"
         pod.status.container_statuses = [Mock()]
-        
+
         container_status = pod.status.container_statuses[0]
         container_status.name = "test-container"
         container_status.ready = False
@@ -34,7 +34,7 @@ class TestDataCollector:
         container_status.state.waiting.message = "Failed to pull image"
         container_status.state.running = None
         container_status.state.terminated = None
-        
+
         return pod
 
     @pytest.fixture
@@ -56,7 +56,10 @@ class TestDataCollector:
 
         # Mock logs (will fail with 403)
         from kubernetes.client.rest import ApiException
-        client.read_namespaced_pod_log.side_effect = ApiException(status=403, reason="Forbidden")
+
+        client.read_namespaced_pod_log.side_effect = ApiException(
+            status=403, reason="Forbidden"
+        )
 
         return client
 
@@ -64,18 +67,18 @@ class TestDataCollector:
     async def test_collect_pod_data(self, data_collector, mock_pod, mock_v1_client):
         """Test collecting comprehensive pod data"""
         result = await data_collector.collect_pod_data(mock_pod, mock_v1_client)
-        
+
         # Verify basic pod info
         assert result["pod_name"] == "test-pod"
         assert result["namespace"] == "default"
         assert result["node_name"] == "test-node"
         assert result["phase"] == "Pending"
         assert result["creation_timestamp"] == "2025-01-01T00:00:00Z"
-        
+
         # Verify failure info
         assert result["failure_reason"] == "ImagePullBackOff"
         assert result["failure_message"] == "Failed to pull image"
-        
+
         # Verify container statuses
         assert len(result["container_statuses"]) == 1
         container = result["container_statuses"][0]
@@ -83,16 +86,16 @@ class TestDataCollector:
         assert container["ready"] == False
         assert container["image"] == "test:latest"
         assert container["reason"] == "ImagePullBackOff"
-        
+
         # Verify events were collected
         assert len(result["events"]) == 1
         event = result["events"][0]
         assert event["type"] == "Warning"
         assert event["reason"] == "ImagePullBackOff"
-        
+
         # Verify logs are empty (due to 403 error)
         assert result["logs"] == ""
-        
+
         # Verify manifest was generated
         assert result["manifest"] is not None
 
@@ -115,7 +118,7 @@ class TestDataCollector:
         pod = Mock()
         pod.status.phase = "Pending"
         pod.status.container_statuses = None
-        
+
         result = data_collector._get_failure_reason(pod)
         assert result == "Pending"
 
@@ -128,22 +131,22 @@ class TestDataCollector:
         """Test extracting failure message from events when container message unavailable"""
         pod = Mock()
         pod.status.container_statuses = None
-        
+
         events = [
             {
                 "type": "Warning",
                 "reason": "FailedMount",
-                "message": "MountVolume.SetUp failed: secret 'test' not found"
+                "message": "MountVolume.SetUp failed: secret 'test' not found",
             }
         ]
-        
+
         result = data_collector._get_failure_message(pod, events)
         assert result == "MountVolume.SetUp failed: secret 'test' not found"
 
     def test_get_container_statuses_waiting_state(self, data_collector, mock_pod):
         """Test getting container statuses in waiting state"""
         result = data_collector._get_container_statuses(mock_pod)
-        
+
         assert len(result) == 1
         container = result[0]
         assert container["name"] == "test-container"
@@ -155,7 +158,7 @@ class TestDataCollector:
         """Test getting container statuses in terminated state"""
         pod = Mock()
         pod.status.container_statuses = [Mock()]
-        
+
         container_status = pod.status.container_statuses[0]
         container_status.name = "terminated-container"
         container_status.ready = False
@@ -166,7 +169,7 @@ class TestDataCollector:
         container_status.state.terminated = Mock()
         container_status.state.terminated.exit_code = 1
         container_status.state.terminated.reason = "Error"
-        
+
         result = data_collector._get_container_statuses(pod)
 
         assert len(result) == 1
@@ -242,15 +245,17 @@ class TestIdentifyCrashContainers:
         self.dc = DataCollector(_FakeConfig())
 
     def test_identify_crash_containers_crashloop(self):
-        pod = _make_pod_with_statuses(container_statuses=[
-            _make_container_status(
-                name="app",
-                restart_count=3,
-                waiting_reason="CrashLoopBackOff",
-                last_terminated_reason="Error",
-                last_terminated_exit_code=1,
-            )
-        ])
+        pod = _make_pod_with_statuses(
+            container_statuses=[
+                _make_container_status(
+                    name="app",
+                    restart_count=3,
+                    waiting_reason="CrashLoopBackOff",
+                    last_terminated_reason="Error",
+                    last_terminated_exit_code=1,
+                )
+            ]
+        )
 
         result = self.dc._identify_crash_containers(pod)
 
@@ -263,15 +268,17 @@ class TestIdentifyCrashContainers:
         assert entry["exit_code"] == 1
 
     def test_identify_crash_containers_oomkilled_last_state(self):
-        pod = _make_pod_with_statuses(container_statuses=[
-            _make_container_status(
-                name="mem-hog",
-                restart_count=2,
-                waiting_reason="CrashLoopBackOff",
-                last_terminated_reason="OOMKilled",
-                last_terminated_exit_code=137,
-            )
-        ])
+        pod = _make_pod_with_statuses(
+            container_statuses=[
+                _make_container_status(
+                    name="mem-hog",
+                    restart_count=2,
+                    waiting_reason="CrashLoopBackOff",
+                    last_terminated_reason="OOMKilled",
+                    last_terminated_exit_code=137,
+                )
+            ]
+        )
 
         result = self.dc._identify_crash_containers(pod)
 
@@ -283,14 +290,16 @@ class TestIdentifyCrashContainers:
         assert entry["has_previous"] is True
 
     def test_identify_crash_containers_oomkilled_terminated_only(self):
-        pod = _make_pod_with_statuses(container_statuses=[
-            _make_container_status(
-                name="mem-hog",
-                restart_count=0,
-                terminated_reason="OOMKilled",
-                terminated_exit_code=137,
-            )
-        ])
+        pod = _make_pod_with_statuses(
+            container_statuses=[
+                _make_container_status(
+                    name="mem-hog",
+                    restart_count=0,
+                    terminated_reason="OOMKilled",
+                    terminated_exit_code=137,
+                )
+            ]
+        )
 
         result = self.dc._identify_crash_containers(pod)
         assert len(result) == 1
@@ -300,25 +309,29 @@ class TestIdentifyCrashContainers:
         assert entry["has_previous"] is False
 
     def test_identify_crash_containers_imagepullbackoff_excluded(self):
-        pod = _make_pod_with_statuses(container_statuses=[
-            _make_container_status(
-                name="app",
-                restart_count=0,
-                waiting_reason="ImagePullBackOff",
-            )
-        ])
+        pod = _make_pod_with_statuses(
+            container_statuses=[
+                _make_container_status(
+                    name="app",
+                    restart_count=0,
+                    waiting_reason="ImagePullBackOff",
+                )
+            ]
+        )
 
         result = self.dc._identify_crash_containers(pod)
         assert result == []
 
     def test_identify_crash_containers_first_crash_no_previous(self):
-        pod = _make_pod_with_statuses(container_statuses=[
-            _make_container_status(
-                name="app",
-                restart_count=0,
-                waiting_reason="CrashLoopBackOff",
-            )
-        ])
+        pod = _make_pod_with_statuses(
+            container_statuses=[
+                _make_container_status(
+                    name="app",
+                    restart_count=0,
+                    waiting_reason="CrashLoopBackOff",
+                )
+            ]
+        )
 
         result = self.dc._identify_crash_containers(pod)
         assert len(result) == 1
@@ -353,15 +366,19 @@ class TestGetFailureLogs:
         log_text = "line1\nline2\nline3\nline4\n"
         v1.read_namespaced_pod_log.return_value = log_text
 
-        crash_containers = [{
-            "name": "app",
-            "reason": "CrashLoopBackOff",
-            "exit_code": 1,
-            "restart_count": 2,
-            "has_previous": True,
-        }]
+        crash_containers = [
+            {
+                "name": "app",
+                "reason": "CrashLoopBackOff",
+                "exit_code": 1,
+                "restart_count": 2,
+                "has_previous": True,
+            }
+        ]
 
-        result = await self.dc._get_failure_logs(v1, "default", "test-pod", crash_containers, 1000)
+        result = await self.dc._get_failure_logs(
+            v1, "default", "test-pod", crash_containers, 1000
+        )
 
         assert result is not None
         assert result["version"] == 1
@@ -396,15 +413,19 @@ class TestGetFailureLogs:
         v1 = Mock()
         v1.read_namespaced_pod_log.return_value = big_text
 
-        crash_containers = [{
-            "name": "app",
-            "reason": "CrashLoopBackOff",
-            "exit_code": 1,
-            "restart_count": 1,
-            "has_previous": True,
-        }]
+        crash_containers = [
+            {
+                "name": "app",
+                "reason": "CrashLoopBackOff",
+                "exit_code": 1,
+                "restart_count": 1,
+                "has_previous": True,
+            }
+        ]
 
-        result = await self.dc._get_failure_logs(v1, "default", "test-pod", crash_containers, 1000)
+        result = await self.dc._get_failure_logs(
+            v1, "default", "test-pod", crash_containers, 1000
+        )
 
         prev = result["containers"]["app"]["previous"]
         assert prev is not None
@@ -417,14 +438,23 @@ class TestGetFailureLogs:
     @pytest.mark.asyncio
     async def test_get_failure_logs_no_previous_400(self):
         v1 = Mock()
-        v1.read_namespaced_pod_log.side_effect = ApiException(status=400, reason="Bad Request")
+        v1.read_namespaced_pod_log.side_effect = ApiException(
+            status=400, reason="Bad Request"
+        )
 
-        crash_containers = [{
-            "name": "app", "reason": "CrashLoopBackOff",
-            "exit_code": None, "restart_count": 1, "has_previous": True,
-        }]
+        crash_containers = [
+            {
+                "name": "app",
+                "reason": "CrashLoopBackOff",
+                "exit_code": None,
+                "restart_count": 1,
+                "has_previous": True,
+            }
+        ]
 
-        result = await self.dc._get_failure_logs(v1, "default", "test-pod", crash_containers, 1000)
+        result = await self.dc._get_failure_logs(
+            v1, "default", "test-pod", crash_containers, 1000
+        )
         entry = result["containers"]["app"]
         assert entry["previous"] is None
         assert entry["error"] == "no_previous_instance"
@@ -432,14 +462,23 @@ class TestGetFailureLogs:
     @pytest.mark.asyncio
     async def test_get_failure_logs_permission_denied_403(self):
         v1 = Mock()
-        v1.read_namespaced_pod_log.side_effect = ApiException(status=403, reason="Forbidden")
+        v1.read_namespaced_pod_log.side_effect = ApiException(
+            status=403, reason="Forbidden"
+        )
 
-        crash_containers = [{
-            "name": "app", "reason": "CrashLoopBackOff",
-            "exit_code": None, "restart_count": 1, "has_previous": True,
-        }]
+        crash_containers = [
+            {
+                "name": "app",
+                "reason": "CrashLoopBackOff",
+                "exit_code": None,
+                "restart_count": 1,
+                "has_previous": True,
+            }
+        ]
 
-        result = await self.dc._get_failure_logs(v1, "default", "test-pod", crash_containers, 1000)
+        result = await self.dc._get_failure_logs(
+            v1, "default", "test-pod", crash_containers, 1000
+        )
         assert result["containers"]["app"]["error"] == "permission_denied"
 
     @pytest.mark.asyncio
@@ -447,12 +486,19 @@ class TestGetFailureLogs:
         v1 = Mock()
         v1.read_namespaced_pod_log.side_effect = TimeoutError("timed out")
 
-        crash_containers = [{
-            "name": "app", "reason": "CrashLoopBackOff",
-            "exit_code": None, "restart_count": 1, "has_previous": True,
-        }]
+        crash_containers = [
+            {
+                "name": "app",
+                "reason": "CrashLoopBackOff",
+                "exit_code": None,
+                "restart_count": 1,
+                "has_previous": True,
+            }
+        ]
 
-        result = await self.dc._get_failure_logs(v1, "default", "test-pod", crash_containers, 1000)
+        result = await self.dc._get_failure_logs(
+            v1, "default", "test-pod", crash_containers, 1000
+        )
         assert result["containers"]["app"]["error"] == "timeout"
 
     @pytest.mark.asyncio
@@ -460,12 +506,19 @@ class TestGetFailureLogs:
         v1 = Mock()
         v1.read_namespaced_pod_log.return_value = ""
 
-        crash_containers = [{
-            "name": "app", "reason": "CrashLoopBackOff",
-            "exit_code": None, "restart_count": 1, "has_previous": True,
-        }]
+        crash_containers = [
+            {
+                "name": "app",
+                "reason": "CrashLoopBackOff",
+                "exit_code": None,
+                "restart_count": 1,
+                "has_previous": True,
+            }
+        ]
 
-        result = await self.dc._get_failure_logs(v1, "default", "test-pod", crash_containers, 1000)
+        result = await self.dc._get_failure_logs(
+            v1, "default", "test-pod", crash_containers, 1000
+        )
         entry = result["containers"]["app"]
         assert entry["previous"] is None
         assert entry["error"] == "empty"
@@ -474,12 +527,19 @@ class TestGetFailureLogs:
     async def test_get_failure_logs_no_previous_flag(self):
         """has_previous=False should not trigger the API call."""
         v1 = Mock()
-        crash_containers = [{
-            "name": "app", "reason": "CrashLoopBackOff",
-            "exit_code": None, "restart_count": 0, "has_previous": False,
-        }]
+        crash_containers = [
+            {
+                "name": "app",
+                "reason": "CrashLoopBackOff",
+                "exit_code": None,
+                "restart_count": 0,
+                "has_previous": False,
+            }
+        ]
 
-        result = await self.dc._get_failure_logs(v1, "default", "test-pod", crash_containers, 1000)
+        result = await self.dc._get_failure_logs(
+            v1, "default", "test-pod", crash_containers, 1000
+        )
 
         assert result["containers"]["app"]["error"] == "no_previous_instance"
         assert result["containers"]["app"]["previous"] is None
@@ -504,17 +564,21 @@ class TestCollectPodDataFailureLogs:
 
             v1.read_namespaced_pod_log.side_effect = _read_log
             return v1
+
         return _build
 
     @pytest.mark.asyncio
     async def test_collect_pod_data_disabled_no_api_call(self, v1_client_factory):
         dc = DataCollector(_FakeConfig(enabled=False))
-        pod = _make_pod_with_statuses(container_statuses=[
-            _make_container_status(
-                name="app", restart_count=2,
-                waiting_reason="CrashLoopBackOff",
-            )
-        ])
+        pod = _make_pod_with_statuses(
+            container_statuses=[
+                _make_container_status(
+                    name="app",
+                    restart_count=2,
+                    waiting_reason="CrashLoopBackOff",
+                )
+            ]
+        )
         v1 = v1_client_factory(pod_log="current\n", previous_log="prev\n")
 
         result = await dc.collect_pod_data(pod, v1)
@@ -525,14 +589,19 @@ class TestCollectPodDataFailureLogs:
             assert call.kwargs.get("previous") is not True
 
     @pytest.mark.asyncio
-    async def test_collect_pod_data_imagepullbackoff_skips_fetch(self, v1_client_factory):
+    async def test_collect_pod_data_imagepullbackoff_skips_fetch(
+        self, v1_client_factory
+    ):
         dc = DataCollector(_FakeConfig(enabled=True))
-        pod = _make_pod_with_statuses(container_statuses=[
-            _make_container_status(
-                name="app", restart_count=0,
-                waiting_reason="ImagePullBackOff",
-            )
-        ])
+        pod = _make_pod_with_statuses(
+            container_statuses=[
+                _make_container_status(
+                    name="app",
+                    restart_count=0,
+                    waiting_reason="ImagePullBackOff",
+                )
+            ]
+        )
         v1 = v1_client_factory(pod_log="current\n", previous_log="should-not-be-read\n")
 
         result = await dc.collect_pod_data(pod, v1)
@@ -542,18 +611,24 @@ class TestCollectPodDataFailureLogs:
             assert call.kwargs.get("previous") is not True
 
     @pytest.mark.asyncio
-    async def test_collect_pod_data_multi_container_only_oom_captured(self, v1_client_factory):
+    async def test_collect_pod_data_multi_container_only_oom_captured(
+        self, v1_client_factory
+    ):
         dc = DataCollector(_FakeConfig(enabled=True))
-        pod = _make_pod_with_statuses(container_statuses=[
-            _make_container_status(
-                name="healthy", restart_count=0,
-            ),
-            _make_container_status(
-                name="oomer", restart_count=2,
-                last_terminated_reason="OOMKilled",
-                last_terminated_exit_code=137,
-            ),
-        ])
+        pod = _make_pod_with_statuses(
+            container_statuses=[
+                _make_container_status(
+                    name="healthy",
+                    restart_count=0,
+                ),
+                _make_container_status(
+                    name="oomer",
+                    restart_count=2,
+                    last_terminated_reason="OOMKilled",
+                    last_terminated_exit_code=137,
+                ),
+            ]
+        )
         v1 = v1_client_factory(pod_log="current\n", previous_log="oom-prev-logs\n")
 
         result = await dc.collect_pod_data(pod, v1)
@@ -565,3 +640,124 @@ class TestCollectPodDataFailureLogs:
         assert prev is not None
         decoded = gzip.decompress(base64.b64decode(prev["data"]))
         assert decoded == b"oom-prev-logs\n"
+
+
+class TestManifestRedaction:
+    """Verify _redact_manifest_secrets scrubs env-var and annotation secrets."""
+
+    def setup_method(self):
+        self.dc = DataCollector()
+
+    def test_env_var_password_redacted(self):
+        pod_dict = {
+            "spec": {
+                "containers": [
+                    {
+                        "name": "app",
+                        "env": [
+                            {"name": "DATABASE_PASSWORD", "value": "hunter2"},
+                            {"name": "LOG_LEVEL", "value": "info"},
+                        ],
+                    }
+                ]
+            }
+        }
+        self.dc._redact_manifest_secrets(pod_dict)
+        env = pod_dict["spec"]["containers"][0]["env"]
+        assert env[0]["value"] == "[REDACTED]"
+        assert env[1]["value"] == "info"
+
+    def test_env_var_assorted_secret_names_redacted(self):
+        secret_names = [
+            "API_KEY",
+            "APIKEY",
+            "MY_SECRET",
+            "AUTH_TOKEN",
+            "PRIVATE_KEY",
+            "AWS_CREDENTIALS",
+            "DB_PASSWD",
+            "USER_PWD",
+            "GITHUB_AUTH",
+            "service_password",  # lowercase
+        ]
+        env = [{"name": n, "value": "real-value"} for n in secret_names]
+        env.append({"name": "PORT", "value": "8080"})
+        pod_dict = {"spec": {"containers": [{"name": "c", "env": env}]}}
+
+        self.dc._redact_manifest_secrets(pod_dict)
+        out = pod_dict["spec"]["containers"][0]["env"]
+        for entry in out[:-1]:
+            assert entry["value"] == "[REDACTED]", f"{entry['name']} not redacted"
+        assert out[-1]["value"] == "8080"
+
+    def test_env_var_without_value_unchanged(self):
+        """Env entries that reference secrets via valueFrom must not be touched."""
+        pod_dict = {
+            "spec": {
+                "containers": [
+                    {
+                        "name": "app",
+                        "env": [
+                            {
+                                "name": "DB_PASSWORD",
+                                "value_from": {"secret_key_ref": {"name": "db"}},
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+        self.dc._redact_manifest_secrets(pod_dict)
+        env = pod_dict["spec"]["containers"][0]["env"][0]
+        assert "value" not in env
+        assert env["value_from"] == {"secret_key_ref": {"name": "db"}}
+
+    def test_init_container_env_redacted(self):
+        pod_dict = {
+            "spec": {
+                "init_containers": [
+                    {
+                        "name": "init",
+                        "env": [{"name": "TOKEN", "value": "abc"}],
+                    }
+                ]
+            }
+        }
+        self.dc._redact_manifest_secrets(pod_dict)
+        assert pod_dict["spec"]["init_containers"][0]["env"][0]["value"] == "[REDACTED]"
+
+    def test_vault_inject_annotation_redacted(self):
+        pod_dict = {
+            "metadata": {
+                "annotations": {
+                    "vault.hashicorp.com/agent-inject-secret-foo": ("secret/data/foo"),
+                    "app.kubernetes.io/name": "myapp",
+                }
+            }
+        }
+        self.dc._redact_manifest_secrets(pod_dict)
+        ann = pod_dict["metadata"]["annotations"]
+        assert ann["vault.hashicorp.com/agent-inject-secret-foo"] == "[REDACTED]"
+        assert ann["app.kubernetes.io/name"] == "myapp"
+
+    def test_annotation_key_containing_secret_redacted(self):
+        pod_dict = {
+            "metadata": {
+                "annotations": {
+                    "example.com/db-password": "p@ss",
+                    "example.com/auth-token": "t0ken",
+                    "kubectl.kubernetes.io/last-applied-configuration": "{}",
+                }
+            }
+        }
+        self.dc._redact_manifest_secrets(pod_dict)
+        ann = pod_dict["metadata"]["annotations"]
+        assert ann["example.com/db-password"] == "[REDACTED]"
+        assert ann["example.com/auth-token"] == "[REDACTED]"
+        assert ann["kubectl.kubernetes.io/last-applied-configuration"] == "{}"
+
+    def test_no_env_or_annotations_does_not_raise(self):
+        pod_dict = {"spec": {"containers": [{"name": "c"}]}, "metadata": {}}
+        # Should be a safe no-op.
+        self.dc._redact_manifest_secrets(pod_dict)
+        assert pod_dict["spec"]["containers"][0] == {"name": "c"}

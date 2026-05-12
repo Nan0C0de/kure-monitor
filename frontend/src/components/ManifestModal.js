@@ -1,5 +1,6 @@
 import React, { useRef, useMemo, useState } from 'react';
 import { X, Copy, Download, RefreshCw, Sparkles } from 'lucide-react';
+import useModalA11y from '../hooks/useModalA11y';
 
 // Keywords to look for in AI solutions that indicate manifest changes
 const MANIFEST_KEYWORDS = [
@@ -101,7 +102,10 @@ const ManifestModal = ({
   loading = false
 }) => {
   const textareaRef = useRef(null);
+  const dialogRef = useRef(null);
   const [localRetrying, setLocalRetrying] = useState(false);
+
+  useModalA11y({ isOpen, onClose, dialogRef });
 
   // Check if solution is a fallback (AI unavailable)
   const isFallbackSolution = solution && (
@@ -178,7 +182,13 @@ const ManifestModal = ({
         ></div>
 
         {/* Modal panel */}
-        <div className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title || 'Pod Manifest'}
+          className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${isDark ? 'bg-gray-800' : 'bg-white'}`}
+        >
           <div className={`px-4 pt-5 pb-4 sm:p-6 sm:pb-4 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
             {/* Header */}
             <div className="flex items-center justify-between mb-4">

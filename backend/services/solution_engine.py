@@ -22,56 +22,56 @@ class SolutionEngine:
     def _init_solutions(self):
         """Initialize hardcoded solutions for common Kubernetes pod issues (fallback)"""
         self.solutions = {
-            'ImagePullBackOff': {
-                'default': 'The pod cannot pull the container image. Check: 1) Image name and tag are correct, 2) Image exists in the registry, 3) Registry credentials are properly configured, 4) Network connectivity to registry.',
-                'patterns': {
-                    'repository does not exist': 'The image repository does not exist. Verify the image name and registry URL.',
-                    'pull access denied': 'Insufficient permissions to pull image. Check if imagePullSecrets are configured correctly.',
-                    'not found': 'Image or tag not found. Verify the image name and tag exist in the registry.'
-                }
+            "ImagePullBackOff": {
+                "default": "The pod cannot pull the container image. Check: 1) Image name and tag are correct, 2) Image exists in the registry, 3) Registry credentials are properly configured, 4) Network connectivity to registry.",
+                "patterns": {
+                    "repository does not exist": "The image repository does not exist. Verify the image name and registry URL.",
+                    "pull access denied": "Insufficient permissions to pull image. Check if imagePullSecrets are configured correctly.",
+                    "not found": "Image or tag not found. Verify the image name and tag exist in the registry.",
+                },
             },
-            'ErrImagePull': {
-                'default': 'Error pulling container image. Verify: 1) Image name syntax is correct, 2) Registry is accessible, 3) Authentication credentials if needed.',
+            "ErrImagePull": {
+                "default": "Error pulling container image. Verify: 1) Image name syntax is correct, 2) Registry is accessible, 3) Authentication credentials if needed.",
             },
-            'CrashLoopBackOff': {
-                'default': 'Container is crashing repeatedly. Check: 1) Application logs for errors, 2) Resource limits (CPU/Memory), 3) Environment variables and configuration, 4) Health check configuration.',
-                'patterns': {
-                    'exit code 125': 'Container failed to start. Check container configuration and command syntax.',
-                    'exit code 126': 'Container command not executable. Verify file permissions and executable path.',
-                    'exit code 127': 'Container command not found. Check if the command exists in the container.',
-                    'OOMKilled': 'Container killed due to out of memory. Increase memory limits or optimize application memory usage.'
-                }
+            "CrashLoopBackOff": {
+                "default": "Container is crashing repeatedly. Check: 1) Application logs for errors, 2) Resource limits (CPU/Memory), 3) Environment variables and configuration, 4) Health check configuration.",
+                "patterns": {
+                    "exit code 125": "Container failed to start. Check container configuration and command syntax.",
+                    "exit code 126": "Container command not executable. Verify file permissions and executable path.",
+                    "exit code 127": "Container command not found. Check if the command exists in the container.",
+                    "OOMKilled": "Container killed due to out of memory. Increase memory limits or optimize application memory usage.",
+                },
             },
-            'Pending': {
-                'default': 'Pod is stuck in pending state. Check: 1) Node resources (CPU/Memory), 2) Node selectors and taints, 3) Persistent volume availability, 4) Image pull issues.',
-                'patterns': {
-                    'Insufficient cpu': 'Not enough CPU resources available. Scale cluster or reduce resource requests.',
-                    'Insufficient memory': 'Not enough memory available. Scale cluster or reduce memory requests.',
-                    'No nodes available': 'No suitable nodes found. Check node selectors, taints, and tolerations.',
-                    'pod has unbound immediate PersistentVolumeClaims': 'Missing persistent volume. Create PV or check storage class configuration.',
-                    'FailedScheduling': 'Scheduler cannot place pod. Check node resources, taints/tolerations, and node selectors.'
-                }
+            "Pending": {
+                "default": "Pod is stuck in pending state. Check: 1) Node resources (CPU/Memory), 2) Node selectors and taints, 3) Persistent volume availability, 4) Image pull issues.",
+                "patterns": {
+                    "Insufficient cpu": "Not enough CPU resources available. Scale cluster or reduce resource requests.",
+                    "Insufficient memory": "Not enough memory available. Scale cluster or reduce memory requests.",
+                    "No nodes available": "No suitable nodes found. Check node selectors, taints, and tolerations.",
+                    "pod has unbound immediate PersistentVolumeClaims": "Missing persistent volume. Create PV or check storage class configuration.",
+                    "FailedScheduling": "Scheduler cannot place pod. Check node resources, taints/tolerations, and node selectors.",
+                },
             },
-            'FailedScheduling': {
-                'default': 'Pod cannot be scheduled to any node. Check: 1) Node resources (CPU/Memory), 2) Node selectors match available nodes, 3) Tolerations match node taints, 4) Affinity rules are satisfiable.',
-                'patterns': {
-                    'Insufficient cpu': 'Not enough CPU resources on nodes. Scale cluster, reduce resource requests, or wait for other pods to complete.',
-                    'Insufficient memory': 'Not enough memory on nodes. Scale cluster, reduce memory requests, or wait for other pods to complete.',
-                    'node(s) didn\'t match Pod\'s node affinity': 'No nodes match the pod\'s node selector or affinity rules. Update selectors or add matching nodes.',
-                    'node(s) had taint': 'Nodes have taints that pod does not tolerate. Add tolerations to pod spec or remove taints from nodes.',
-                    'persistentvolumeclaim': 'PVC not bound. Check PVC status and ensure storage class/PV is available.',
-                    '0/': 'No nodes available for scheduling. Check if nodes are Ready and have sufficient resources.'
-                }
+            "FailedScheduling": {
+                "default": "Pod cannot be scheduled to any node. Check: 1) Node resources (CPU/Memory), 2) Node selectors match available nodes, 3) Tolerations match node taints, 4) Affinity rules are satisfiable.",
+                "patterns": {
+                    "Insufficient cpu": "Not enough CPU resources on nodes. Scale cluster, reduce resource requests, or wait for other pods to complete.",
+                    "Insufficient memory": "Not enough memory on nodes. Scale cluster, reduce memory requests, or wait for other pods to complete.",
+                    "node(s) didn't match Pod's node affinity": "No nodes match the pod's node selector or affinity rules. Update selectors or add matching nodes.",
+                    "node(s) had taint": "Nodes have taints that pod does not tolerate. Add tolerations to pod spec or remove taints from nodes.",
+                    "persistentvolumeclaim": "PVC not bound. Check PVC status and ensure storage class/PV is available.",
+                    "0/": "No nodes available for scheduling. Check if nodes are Ready and have sufficient resources.",
+                },
             },
-            'CreateContainerConfigError': {
-                'default': 'Error creating container configuration. Check: 1) ConfigMap and Secret references, 2) Volume mount configurations, 3) Environment variable references.',
+            "CreateContainerConfigError": {
+                "default": "Error creating container configuration. Check: 1) ConfigMap and Secret references, 2) Volume mount configurations, 3) Environment variable references.",
             },
-            'InvalidImageName': {
-                'default': 'Invalid container image name format. Verify image name follows registry/repository:tag format.',
+            "InvalidImageName": {
+                "default": "Invalid container image name format. Verify image name follows registry/repository:tag format.",
             },
-            'Error': {
-                'default': 'Pod is in error state. Check pod events and logs for specific error details.',
-            }
+            "Error": {
+                "default": "Pod is in error state. Check pod events and logs for specific error details.",
+            },
         }
 
     async def initialize(self):
@@ -80,37 +80,66 @@ class SolutionEngine:
             try:
                 db_config = await self._db.get_llm_config()
                 if db_config:
-                    logger.info(f"Loading LLM config from database: provider={db_config['provider']}")
-                    self.llm_provider = LLMFactory.create_provider(
-                        provider_name=db_config['provider'],
-                        api_key=db_config['api_key'],
-                        model=db_config['model'],
-                        base_url=db_config.get('base_url')
+                    logger.info(
+                        f"Loading LLM config from database: provider={db_config['provider']}"
                     )
+                    new_provider = LLMFactory.create_provider(
+                        provider_name=db_config["provider"],
+                        api_key=db_config["api_key"],
+                        model=db_config["model"],
+                        base_url=db_config.get("base_url"),
+                    )
+                    await self._swap_llm_provider(new_provider)
                 else:
-                    logger.info("No LLM configuration found. Configure via Admin panel to enable AI solutions.")
+                    logger.info(
+                        "No LLM configuration found. Configure via Admin panel to enable AI solutions."
+                    )
             except Exception as e:
                 logger.warning(f"Failed to load LLM config from database: {e}")
 
-    async def reinitialize_llm(self, provider: str, api_key: str, model: str = None, base_url: str = None):
+    async def reinitialize_llm(
+        self, provider: str, api_key: str, model: str = None, base_url: str = None
+    ):
         """Reinitialize the LLM provider with new configuration"""
         try:
-            self.llm_provider = LLMFactory.create_provider(
-                provider_name=provider,
-                api_key=api_key,
-                model=model,
-                base_url=base_url
+            new_provider = LLMFactory.create_provider(
+                provider_name=provider, api_key=api_key, model=model, base_url=base_url
             )
+            await self._swap_llm_provider(new_provider)
             logger.info(f"LLM provider reinitialized: {provider}")
         except Exception as e:
             logger.error(f"Failed to reinitialize LLM provider: {e}")
             raise
 
-    async def get_solution(self, reason: str, message: Optional[str] = None,
-                     events: List[PodEvent] = None,
-                     container_statuses: List[ContainerStatus] = None,
-                     pod_context: Dict = None,
-                     use_llm: bool = True) -> str:
+    async def _swap_llm_provider(self, new_provider) -> None:
+        """Replace the current LLM provider, closing the old provider's session."""
+        old = self.llm_provider
+        self.llm_provider = new_provider
+        if old is not None and old is not new_provider:
+            try:
+                await old.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close previous LLM provider cleanly", exc_info=True
+                )
+
+    async def close(self) -> None:
+        """Close the currently configured LLM provider's resources, if any."""
+        if self.llm_provider is not None:
+            try:
+                await self.llm_provider.close()
+            except Exception:
+                logger.warning("Failed to close LLM provider cleanly", exc_info=True)
+
+    async def get_solution(
+        self,
+        reason: str,
+        message: Optional[str] = None,
+        events: List[PodEvent] = None,
+        container_statuses: List[ContainerStatus] = None,
+        pod_context: Dict = None,
+        use_llm: bool = True,
+    ) -> str:
         """Generate solution based on failure reason and additional context"""
 
         # Try LLM first if available
@@ -118,7 +147,9 @@ class SolutionEngine:
             provider_name = self.llm_provider.provider_name
             start_time = time.monotonic()
             try:
-                logger.info(f"Generating AI solution for {reason} using {provider_name}")
+                logger.info(
+                    f"Generating AI solution for {reason} using {provider_name}"
+                )
 
                 # Convert events to dict format for LLM
                 events_dict = []
@@ -127,7 +158,7 @@ class SolutionEngine:
                         {
                             "type": event.type,
                             "reason": event.reason,
-                            "message": event.message
+                            "message": event.message,
                         }
                         for event in events
                     ]
@@ -139,7 +170,7 @@ class SolutionEngine:
                         {
                             "name": status.name,
                             "restart_count": status.restart_count,
-                            "last_state": getattr(status, 'last_state', None)
+                            "last_state": getattr(status, "last_state", None),
                         }
                         for status in container_statuses
                     ]
@@ -149,13 +180,17 @@ class SolutionEngine:
                     failure_message=message,
                     events=events_dict,
                     container_statuses=container_statuses_dict,
-                    pod_context=pod_context
+                    pod_context=pod_context,
                 )
 
                 # Record success metrics
                 duration = time.monotonic() - start_time
-                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
-                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+                LLM_REQUESTS_TOTAL.labels(
+                    provider=provider_name, status="success"
+                ).inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
 
                 return llm_response.content
 
@@ -163,12 +198,18 @@ class SolutionEngine:
                 # Record error metrics
                 duration = time.monotonic() - start_time
                 LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
-                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
 
-                logger.error(f"LLM solution generation failed: {e}, falling back to hardcoded solutions")
-        
+                logger.error(
+                    f"LLM solution generation failed: {e}, falling back to hardcoded solutions"
+                )
+
         # Fallback to hardcoded solutions
-        fallback_solution = self._get_fallback_solution(reason, message, events, container_statuses)
+        fallback_solution = self._get_fallback_solution(
+            reason, message, events, container_statuses
+        )
         return f"AI solution temporarily unavailable. Here's basic troubleshooting:\n\n{fallback_solution}"
 
     async def get_log_aware_solution(
@@ -202,33 +243,41 @@ class SolutionEngine:
         if events:
             for event in events:
                 if isinstance(event, dict):
-                    events_dict.append({
-                        "type": event.get("type", "Unknown"),
-                        "reason": event.get("reason", ""),
-                        "message": event.get("message", ""),
-                    })
+                    events_dict.append(
+                        {
+                            "type": event.get("type", "Unknown"),
+                            "reason": event.get("reason", ""),
+                            "message": event.get("message", ""),
+                        }
+                    )
                 elif hasattr(event, "type"):
-                    events_dict.append({
-                        "type": event.type,
-                        "reason": event.reason,
-                        "message": event.message,
-                    })
+                    events_dict.append(
+                        {
+                            "type": event.type,
+                            "reason": event.reason,
+                            "message": event.message,
+                        }
+                    )
 
         statuses_dict: List[Dict] = []
         if container_statuses:
             for status in container_statuses:
                 if isinstance(status, dict):
-                    statuses_dict.append({
-                        "name": status.get("name", "Unknown"),
-                        "restart_count": status.get("restart_count", 0),
-                        "last_state": status.get("last_state"),
-                    })
+                    statuses_dict.append(
+                        {
+                            "name": status.get("name", "Unknown"),
+                            "restart_count": status.get("restart_count", 0),
+                            "last_state": status.get("last_state"),
+                        }
+                    )
                 elif hasattr(status, "name"):
-                    statuses_dict.append({
-                        "name": status.name,
-                        "restart_count": status.restart_count,
-                        "last_state": getattr(status, "last_state", None),
-                    })
+                    statuses_dict.append(
+                        {
+                            "name": status.name,
+                            "restart_count": status.restart_count,
+                            "last_state": getattr(status, "last_state", None),
+                        }
+                    )
 
         system_prompt = (
             "You are a Kubernetes expert. Use the previous container logs as the "
@@ -249,20 +298,23 @@ class SolutionEngine:
         )
 
         try:
-            llm_response = await self.llm_provider.generate_raw(system_prompt, user_prompt)
+            llm_response = await self.llm_provider.generate_raw(
+                system_prompt, user_prompt
+            )
             duration = time.monotonic() - start_time
             LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                duration
+            )
             return llm_response.content
         except Exception as e:
             duration = time.monotonic() - start_time
             LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
-            logger.error(f"Log-aware solution generation failed: {e}")
-            return (
-                "Failed to generate log-aware troubleshoot solution: "
-                f"{str(e)}"
+            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                duration
             )
+            logger.error(f"Log-aware solution generation failed: {e}")
+            return "Failed to generate log-aware troubleshoot solution: " f"{str(e)}"
 
     def _build_log_aware_prompt(
         self,
@@ -281,9 +333,11 @@ class SolutionEngine:
         if message:
             lines.append(f"- Failure Message: {message}")
         if pod_context:
-            lines.append(f"- Pod Name: {pod_context.get('pod_name') or pod_context.get('name', 'Unknown')}")
+            lines.append(
+                f"- Pod Name: {pod_context.get('pod_name') or pod_context.get('name', 'Unknown')}"
+            )
             lines.append(f"- Namespace: {pod_context.get('namespace', 'Unknown')}")
-            image = pod_context.get('image')
+            image = pod_context.get("image")
             if image:
                 lines.append(f"- Image: {image}")
 
@@ -311,10 +365,13 @@ class SolutionEngine:
         # Manifest (truncated)
         if manifest:
             truncated_manifest = manifest
-            if len(truncated_manifest.encode("utf-8", errors="replace")) > LLM_MANIFEST_MAX_BYTES:
-                truncated_manifest = truncated_manifest.encode("utf-8", errors="replace")[
-                    :LLM_MANIFEST_MAX_BYTES
-                ].decode("utf-8", errors="replace")
+            if (
+                len(truncated_manifest.encode("utf-8", errors="replace"))
+                > LLM_MANIFEST_MAX_BYTES
+            ):
+                truncated_manifest = truncated_manifest.encode(
+                    "utf-8", errors="replace"
+                )[:LLM_MANIFEST_MAX_BYTES].decode("utf-8", errors="replace")
                 truncated_manifest += "\n# ... manifest truncated ..."
             lines.append("")
             lines.append("## Pod Manifest")
@@ -334,11 +391,15 @@ class SolutionEngine:
                 if len(log_lines) > LLM_LOGS_TAIL_LINES:
                     log_lines = log_lines[-LLM_LOGS_TAIL_LINES:]
                 truncated_flag = (
-                    " (truncated)" if entry.get("truncated") or len(log_text.splitlines()) > LLM_LOGS_TAIL_LINES
+                    " (truncated)"
+                    if entry.get("truncated")
+                    or len(log_text.splitlines()) > LLM_LOGS_TAIL_LINES
                     else ""
                 )
                 lines.append("")
-                lines.append(f"### Container: {container_name} [{source}]{truncated_flag}")
+                lines.append(
+                    f"### Container: {container_name} [{source}]{truncated_flag}"
+                )
                 lines.append("```")
                 lines.append("\n".join(log_lines))
                 lines.append("```")
@@ -354,20 +415,24 @@ class SolutionEngine:
 
         return "\n".join(lines)
 
-    def _get_fallback_solution(self, reason: str, message: Optional[str] = None,
-                     events: List[PodEvent] = None,
-                     container_statuses: List[ContainerStatus] = None) -> str:
+    def _get_fallback_solution(
+        self,
+        reason: str,
+        message: Optional[str] = None,
+        events: List[PodEvent] = None,
+        container_statuses: List[ContainerStatus] = None,
+    ) -> str:
         """Generate fallback solution using hardcoded rules"""
-        
+
         # Get base solution
         if reason in self.solutions:
             solution_config = self.solutions[reason]
-            solution = solution_config['default']
+            solution = solution_config["default"]
 
             # Check for pattern-specific solutions
-            if 'patterns' in solution_config:
+            if "patterns" in solution_config:
                 pattern_solution = self._find_pattern_solution(
-                    solution_config['patterns'], message, events
+                    solution_config["patterns"], message, events
                 )
                 if pattern_solution:
                     solution = pattern_solution
@@ -381,9 +446,9 @@ class SolutionEngine:
 
         return solution
 
-    def _find_pattern_solution(self, patterns: Dict[str, str],
-                               message: Optional[str],
-                               events: List[PodEvent]) -> Optional[str]:
+    def _find_pattern_solution(
+        self, patterns: Dict[str, str], message: Optional[str], events: List[PodEvent]
+    ) -> Optional[str]:
         """Find specific solution based on error message patterns"""
         search_text = ""
 
@@ -400,39 +465,52 @@ class SolutionEngine:
 
         return None
 
-    def _enhance_solution_with_context(self, base_solution: str, reason: str,
-                                       message: Optional[str],
-                                       events: List[PodEvent],
-                                       container_statuses: List[ContainerStatus]) -> str:
+    def _enhance_solution_with_context(
+        self,
+        base_solution: str,
+        reason: str,
+        message: Optional[str],
+        events: List[PodEvent],
+        container_statuses: List[ContainerStatus],
+    ) -> str:
         """Add context-specific enhancements to the solution"""
         enhancements = []
 
         # Add specific commands or checks based on context
-        if reason == 'ImagePullBackOff':
+        if reason == "ImagePullBackOff":
             enhancements.append(
-                "Commands to check: 'kubectl describe pod <pod-name>' and 'docker pull <image>' on a node.")
+                "Commands to check: 'kubectl describe pod <pod-name>' and 'docker pull <image>' on a node."
+            )
 
-        elif reason == 'CrashLoopBackOff':
-            enhancements.append("Commands: 'kubectl logs <pod-name> --previous' to see crash logs.")
+        elif reason == "CrashLoopBackOff":
+            enhancements.append(
+                "Commands: 'kubectl logs <pod-name> --previous' to see crash logs."
+            )
 
             # Check for high restart count
             if container_statuses:
                 for status in container_statuses:
                     if status.restart_count > 5:
                         enhancements.append(
-                            f"Container '{status.name}' has restarted {status.restart_count} times - investigate application startup issues.")
+                            f"Container '{status.name}' has restarted {status.restart_count} times - investigate application startup issues."
+                        )
 
-        elif reason == 'Pending':
+        elif reason == "Pending":
             enhancements.append(
-                "Commands: 'kubectl describe pod <pod-name>' and 'kubectl get nodes' to check resources.")
+                "Commands: 'kubectl describe pod <pod-name>' and 'kubectl get nodes' to check resources."
+            )
 
         # Add event-based enhancements
         if events:
             for event in events:
-                if 'FailedScheduling' in event.reason:
-                    enhancements.append("Scheduling issue detected - check node capacity and pod requirements.")
-                elif 'FailedMount' in event.reason:
-                    enhancements.append("Volume mount issue - verify PVC and volume configuration.")
+                if "FailedScheduling" in event.reason:
+                    enhancements.append(
+                        "Scheduling issue detected - check node capacity and pod requirements."
+                    )
+                elif "FailedMount" in event.reason:
+                    enhancements.append(
+                        "Volume mount issue - verify PVC and volume configuration."
+                    )
 
         # Combine base solution with enhancements
         if enhancements:
@@ -440,8 +518,14 @@ class SolutionEngine:
 
         return base_solution
 
-    async def generate_pod_fix(self, manifest: str, failure_reason: str, failure_message: str,
-                               events: list, solution: str) -> dict:
+    async def generate_pod_fix(
+        self,
+        manifest: str,
+        failure_reason: str,
+        failure_message: str,
+        events: list,
+        solution: str,
+    ) -> dict:
         """Generate an AI-fixed pod manifest based on failure analysis.
 
         Returns:
@@ -449,9 +533,9 @@ class SolutionEngine:
         """
         if not self.llm_provider or not manifest:
             return {
-                'fixed_manifest': '',
-                'explanation': 'No LLM configured. Cannot generate a fixed manifest automatically.',
-                'is_fallback': True
+                "fixed_manifest": "",
+                "explanation": "No LLM configured. Cannot generate a fixed manifest automatically.",
+                "is_fallback": True,
             }
 
         system_prompt = """You are a Kubernetes expert. You will be given a Kubernetes Pod YAML manifest, a failure reason, events, and a suggested solution.
@@ -494,41 +578,47 @@ Please provide the fixed manifest and explanation."""
             provider_name = self.llm_provider.provider_name
             start_time = time.monotonic()
 
-            llm_response = await self.llm_provider.generate_raw(system_prompt, user_prompt)
+            llm_response = await self.llm_provider.generate_raw(
+                system_prompt, user_prompt
+            )
 
             duration = time.monotonic() - start_time
             LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                duration
+            )
 
             # Parse the response (same format as generate_security_fix)
             content = llm_response.content
-            fixed_manifest = ''
-            explanation = ''
+            fixed_manifest = ""
+            explanation = ""
 
             # Extract YAML block
-            yaml_match = re.search(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
+            yaml_match = re.search(r"```ya?ml\s*\n(.*?)```", content, re.DOTALL)
             if yaml_match:
                 fixed_manifest = yaml_match.group(1).strip()
 
             # Extract explanation
-            explanation_match = re.search(r'---EXPLANATION---\s*\n(.*?)$', content, re.DOTALL)
+            explanation_match = re.search(
+                r"---EXPLANATION---\s*\n(.*?)$", content, re.DOTALL
+            )
             if explanation_match:
                 explanation = explanation_match.group(1).strip()
             elif not yaml_match:
                 explanation = content
 
             return {
-                'fixed_manifest': fixed_manifest,
-                'explanation': explanation,
-                'is_fallback': False
+                "fixed_manifest": fixed_manifest,
+                "explanation": explanation,
+                "is_fallback": False,
             }
 
         except Exception as e:
             logger.error(f"Pod fix generation failed: {e}")
             return {
-                'fixed_manifest': '',
-                'explanation': f'Failed to generate fix: {str(e)}',
-                'is_fallback': True
+                "fixed_manifest": "",
+                "explanation": f"Failed to generate fix: {str(e)}",
+                "is_fallback": True,
             }
 
     def _format_events_for_prompt(self, events: list) -> str:
@@ -538,16 +628,26 @@ Please provide the fixed manifest and explanation."""
         lines = []
         for event in events[-10:]:
             if isinstance(event, dict):
-                lines.append(f"- {event.get('type', 'Unknown')} {event.get('reason', '')}: {event.get('message', '')}")
-            elif hasattr(event, 'type'):
+                lines.append(
+                    f"- {event.get('type', 'Unknown')} {event.get('reason', '')}: {event.get('message', '')}"
+                )
+            elif hasattr(event, "type"):
                 lines.append(f"- {event.type} {event.reason}: {event.message}")
             else:
                 lines.append(f"- {str(event)}")
         return "\n".join(lines)
 
-    async def generate_security_fix(self, manifest: str, title: str, description: str,
-                                     remediation: str, resource_type: str, resource_name: str,
-                                     namespace: str, severity: str) -> dict:
+    async def generate_security_fix(
+        self,
+        manifest: str,
+        title: str,
+        description: str,
+        remediation: str,
+        resource_type: str,
+        resource_name: str,
+        namespace: str,
+        severity: str,
+    ) -> dict:
         """Generate an AI-powered security fix for a Kubernetes resource manifest.
 
         Returns:
@@ -555,9 +655,9 @@ Please provide the fixed manifest and explanation."""
         """
         if not self.llm_provider or not manifest:
             return {
-                'fixed_manifest': '',
-                'explanation': remediation,
-                'is_fallback': True
+                "fixed_manifest": "",
+                "explanation": remediation,
+                "is_fallback": True,
             }
 
         system_prompt = """You are a Kubernetes security expert. You will be given a Kubernetes resource YAML manifest and a security finding.
@@ -597,24 +697,30 @@ Please provide the fixed manifest and explanation."""
             provider_name = self.llm_provider.provider_name
             start_time = time.monotonic()
 
-            llm_response = await self.llm_provider.generate_raw(system_prompt, user_prompt)
+            llm_response = await self.llm_provider.generate_raw(
+                system_prompt, user_prompt
+            )
 
             duration = time.monotonic() - start_time
             LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(duration)
+            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                duration
+            )
 
             # Parse the response
             content = llm_response.content
-            fixed_manifest = ''
+            fixed_manifest = ""
             explanation = remediation
 
             # Extract YAML block
-            yaml_match = re.search(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
+            yaml_match = re.search(r"```ya?ml\s*\n(.*?)```", content, re.DOTALL)
             if yaml_match:
                 fixed_manifest = yaml_match.group(1).strip()
 
             # Extract explanation
-            explanation_match = re.search(r'---EXPLANATION---\s*\n(.*?)$', content, re.DOTALL)
+            explanation_match = re.search(
+                r"---EXPLANATION---\s*\n(.*?)$", content, re.DOTALL
+            )
             if explanation_match:
                 explanation = explanation_match.group(1).strip()
             elif not yaml_match:
@@ -622,15 +728,15 @@ Please provide the fixed manifest and explanation."""
                 explanation = content
 
             return {
-                'fixed_manifest': fixed_manifest,
-                'explanation': explanation,
-                'is_fallback': False
+                "fixed_manifest": fixed_manifest,
+                "explanation": explanation,
+                "is_fallback": False,
             }
 
         except Exception as e:
             logger.error(f"Security fix generation failed: {e}")
             return {
-                'fixed_manifest': '',
-                'explanation': remediation,
-                'is_fallback': True
+                "fixed_manifest": "",
+                "explanation": remediation,
+                "is_fallback": True,
             }

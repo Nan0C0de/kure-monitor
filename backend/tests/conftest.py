@@ -19,9 +19,8 @@ from api.auth import (
     reset_auth_cache,
 )
 
-
 # Check if database is available
-DATABASE_AVAILABLE = bool(os.getenv('DATABASE_URL'))
+DATABASE_AVAILABLE = bool(os.getenv("DATABASE_URL"))
 
 
 @pytest.fixture(scope="session")
@@ -48,6 +47,7 @@ async def test_db():
         async with pg_db._acquire() as conn:
             await conn.execute("TRUNCATE invitations RESTART IDENTITY CASCADE")
             await conn.execute("TRUNCATE users RESTART IDENTITY CASCADE")
+            await conn.execute("TRUNCATE login_attempts")
             await conn.execute(
                 "DELETE FROM app_settings WHERE key IN ('service_token', 'session_secret')"
             )
@@ -95,7 +95,7 @@ async def app(test_db):
         db=test_db,
         solution_engine=mock_solution_engine,
         websocket_manager=websocket_manager,
-        notification_service=None
+        notification_service=None,
     )
     test_app.include_router(api_router)
 

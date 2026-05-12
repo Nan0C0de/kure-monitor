@@ -38,7 +38,7 @@ class WebSocketManager:
 
         Args:
             message_type: The message type string sent to clients.
-            data: The payload (dict, list, or Pydantic model with .dict()).
+            data: The payload (dict, list, or Pydantic model with .model_dump()).
             description: Human-readable label for log messages. Defaults to message_type.
             parallel: If True, send to all clients concurrently with timeouts.
         """
@@ -47,8 +47,8 @@ class WebSocketManager:
 
         desc = description or message_type
 
-        if hasattr(data, "dict"):
-            data = data.dict()
+        if hasattr(data, "model_dump"):
+            data = data.model_dump()
 
         if parallel:
             serialized = json.dumps({"type": message_type, "data": data}, default=str)
@@ -225,10 +225,12 @@ class WebSocketManager:
     # --- WebSocket endpoint ---
 
     async def websocket_endpoint(self, websocket: WebSocket):
-        """Authenticate WebSocket via user session cookie OR service-token query.
+        """Authenticate WebSocket via user session cookie OR service token.
 
         - Frontend: connects with the `kure_session` httpOnly cookie.
-        - Agent / scanner: connects with `?token=<service_token>`.
+        - Agent / scanner: connects with the `X-Service-Token` header
+          (preferred) or, for backwards compatibility, `?token=<service_token>`.
+          The header form avoids tokens landing in proxy/access logs.
         """
         db = getattr(websocket.app.state, "db", None)
         if db is None:
@@ -236,7 +238,9 @@ class WebSocketManager:
             return
 
         cookie_token = websocket.cookies.get(SESSION_COOKIE_NAME)
-        query_token = websocket.query_params.get("token")
+        # Prefer header; fall back to query param for legacy clients.
+        header_token = websocket.headers.get("x-service-token")
+        query_token = header_token or websocket.query_params.get("token")
 
         principal = await validate_ws_auth(
             cookie_token=cookie_token,

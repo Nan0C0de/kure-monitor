@@ -109,6 +109,15 @@ def create_app() -> FastAPI:
             await cleanup_task
         except asyncio.CancelledError:
             pass
+        # Close shared aiohttp sessions held by long-lived services.
+        try:
+            await solution_engine.close()
+        except Exception:
+            logger.warning("solution_engine.close() failed", exc_info=True)
+        try:
+            await notification_service.close()
+        except Exception:
+            logger.warning("notification_service.close() failed", exc_info=True)
         await db.close()
 
     # Create FastAPI app

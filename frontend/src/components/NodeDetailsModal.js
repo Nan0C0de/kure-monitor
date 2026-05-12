@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X, Server, Cpu, MemoryStick, HardDrive, CheckCircle, AlertTriangle, AlertCircle, Box } from 'lucide-react';
+import useModalA11y from '../hooks/useModalA11y';
 
 const NodeDetailsModal = ({ isOpen, onClose, node, isDark = false }) => {
+  const dialogRef = useRef(null);
+  useModalA11y({ isOpen: isOpen && !!node, onClose, dialogRef });
+
   if (!isOpen || !node) return null;
 
   const bgColor = isDark ? 'bg-gray-800' : 'bg-white';
@@ -131,7 +135,13 @@ const NodeDetailsModal = ({ isOpen, onClose, node, isDark = false }) => {
       <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
 
       {/* Modal */}
-      <div className={`relative w-full max-w-2xl max-h-[85vh] mx-4 rounded-lg shadow-xl overflow-hidden ${bgColor}`}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Node Details"
+        className={`relative w-full max-w-2xl max-h-[85vh] mx-4 rounded-lg shadow-xl overflow-hidden ${bgColor}`}
+      >
         {/* Header */}
         <div className={`px-6 py-4 border-b ${borderColor} flex items-center justify-between`}>
           <div className="flex items-center space-x-3">

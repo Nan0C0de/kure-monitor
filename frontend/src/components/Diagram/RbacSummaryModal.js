@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X, Key, User, Users } from 'lucide-react';
+import useModalA11y from '../../hooks/useModalA11y';
 
 /**
  * Modal that summarizes synthesized RBAC nodes (Permission, Subject:User,
@@ -15,6 +16,9 @@ const RbacSummaryModal = ({
   metadata,
   isDark = false,
 }) => {
+  const dialogRef = useRef(null);
+  useModalA11y({ isOpen, onClose, dialogRef });
+
   if (!isOpen) return null;
 
   const md = metadata || {};
@@ -30,13 +34,17 @@ const RbacSummaryModal = ({
     : 'inline-block text-xs font-medium px-2 py-0.5 rounded border bg-gray-100 border-gray-300 text-gray-800';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div
           className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
           onClick={onClose}
         />
         <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${kind} ${name}`}
           className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${
             isDark ? 'bg-gray-800' : 'bg-white'
           }`}

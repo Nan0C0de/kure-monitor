@@ -46,7 +46,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             logger.error(f"Failed to list namespaces: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
         return {"namespaces": namespaces}
 
     @router.get("/diagram/namespace/{ns}", response_model=DiagramResponse)
@@ -61,7 +61,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             logger.error(f"Failed to build namespace diagram for {ns}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/diagram/workloads/{ns}/{kind}")
     async def list_workloads(ns: str, kind: str):
@@ -86,7 +86,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             logger.error(f"Failed to list {normalised} in {ns}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
         return {"workloads": names}
 
     @router.get("/diagram/workload/{ns}/{kind}/{name}", response_model=DiagramResponse)
@@ -125,7 +125,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             logger.error(
                 f"Failed to build workload diagram for {ns}/{kind}/{name}: {e}"
             )
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/diagram/manifest/{ns}/{kind}/{name}")
     async def get_diagram_manifest(ns: str, kind: str, name: str):
@@ -169,7 +169,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             except ImportError:
                 pass
             logger.error(f"Failed to fetch manifest for {ns}/{normalised}/{name}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
         return {
             "manifest": manifest_yaml,
@@ -192,7 +192,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             logger.error(f"Failed to list roles/clusterroles: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/diagram/role/{namespace}/{name}", response_model=DiagramResponse)
     async def get_role_diagram(namespace: str, name: str):
@@ -216,7 +216,7 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             except ImportError:
                 pass
             logger.error(f"Failed to build role diagram for {namespace}/{name}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/diagram/clusterrole/{name}", response_model=DiagramResponse)
     async def get_cluster_role_diagram(name: str):
@@ -240,6 +240,6 @@ def create_diagram_router(deps: RouterDeps) -> APIRouter:
             except ImportError:
                 pass
             logger.error(f"Failed to build clusterrole diagram for {name}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     return router

@@ -178,6 +178,45 @@ describe("AdvicePanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("hasCompletedScan resets when scope changes", async () => {
+    // Start with no findings so the empty state renders.
+    api.getAdviceFindings.mockResolvedValue({ findings: [] });
+    // The run-scan response sets hasCompletedScan=true synchronously.
+    api.runAdviceScan.mockResolvedValueOnce({ findings: [], scan_id: "s1" });
+
+    render(<AdvicePanel canWrite={true} />);
+    // Initial empty state — never scanned.
+    expect(
+      await screen.findByText(
+        /Run a scan to surface scaling, startup, and capacity advice/i,
+      ),
+    ).toBeInTheDocument();
+
+    // Run a scan; after it resolves we should see the "looks healthy" copy.
+    fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
+    await waitFor(() => expect(api.runAdviceScan).toHaveBeenCalled());
+    expect(
+      await screen.findByText(/No improvements suggested/i),
+    ).toBeInTheDocument();
+
+    // Change scope: pick a namespace. This must reset the completed-scan
+    // flag and bring back the "Run a scan to surface…" prompt.
+    const nsSelect = document.getElementById("advice-scope-namespace");
+    expect(nsSelect).toBeTruthy();
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /Run a scan to surface scaling, startup, and capacity advice/i,
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(/No improvements suggested/i),
+    ).not.toBeInTheDocument();
+  });
+
   test("does not render coverage banner when no detectors are gated", async () => {
     // All enabled detectors are non-Hubble; gatedCount === 0 even though
     // Hubble is unavailable.

@@ -169,7 +169,7 @@ def build_router(deps: RouterDeps) -> APIRouter:
                 detail="Advice engine not configured",
             )
         scan_id = uuid.uuid4().hex
-        scope = body.dict()
+        scope = body.model_dump()
         logger.info("Advice scan starting (scan_id=%s, scope=%s)", scan_id, scope)
         try:
             await websocket_manager.broadcast_advice_scan_status(
@@ -195,7 +195,7 @@ def build_router(deps: RouterDeps) -> APIRouter:
                 )
             except Exception:
                 logger.exception("advice_scan_status 'failed' broadcast failed")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
         # Broadcast each new finding.
         for wire in persisted:

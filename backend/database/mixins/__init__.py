@@ -7,6 +7,7 @@ from .llm_config import LLMConfigMixin
 from .api_keys import ApiKeyMixin
 from .failure_logs import FailureLogsMixin
 from .users import UserMixin
+from .login_attempts import LoginAttemptsMixin
 
 __all__ = [
     "PodFailureMixin",
@@ -18,4 +19,5 @@ __all__ = [
     "ApiKeyMixin",
     "FailureLogsMixin",
     "UserMixin",
+    "LoginAttemptsMixin",
 ]

@@ -33,7 +33,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             raise HTTPException(status_code=502, detail=str(e))
         except Exception as e:
             logger.error(f"Error generating mirror preview for pod_id={pod_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.post("/mirror/deploy/{pod_id}", response_model=MirrorDeployResponse, dependencies=[Depends(require_write)])
     async def deploy_mirror_pod(pod_id: int, request: MirrorDeployRequest = MirrorDeployRequest()):
@@ -62,7 +62,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             raise HTTPException(status_code=502, detail=str(e))
         except Exception as e:
             logger.error(f"Error deploying mirror pod for pod_id={pod_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/mirror/status/{mirror_id}", response_model=MirrorStatusResponse)
     async def get_mirror_status(mirror_id: str):
@@ -77,7 +77,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             raise HTTPException(status_code=502, detail=str(e))
         except Exception as e:
             logger.error(f"Error getting mirror status for {mirror_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.delete("/mirror/{mirror_id}", dependencies=[Depends(require_write)])
     async def delete_mirror_pod(mirror_id: str):
@@ -92,7 +92,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             raise HTTPException(status_code=502, detail=str(e))
         except Exception as e:
             logger.error(f"Error deleting mirror pod {mirror_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/mirror/active", response_model=list[MirrorActiveItem])
     async def list_active_mirrors():
@@ -115,7 +115,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             ]
         except Exception as e:
             logger.error(f"Error listing active mirrors: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.get("/admin/settings/mirror-ttl", response_model=MirrorTTLSetting)
     async def get_mirror_ttl():
@@ -125,7 +125,7 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             return MirrorTTLSetting(seconds=ttl)
         except Exception as e:
             logger.error(f"Error getting mirror TTL: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.put("/admin/settings/mirror-ttl", response_model=MirrorTTLSetting, dependencies=[Depends(require_write)])
     async def set_mirror_ttl(request: MirrorTTLSetting):
@@ -143,6 +143,6 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
             raise
         except Exception as e:
             logger.error(f"Error setting mirror TTL: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     return router

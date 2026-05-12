@@ -428,32 +428,47 @@ const Dashboard = () => {
 
   // Load initial data
   useEffect(() => {
-    loadData();
-  }, []);
+    let cancelled = false;
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [activePods, findings, config, history, ignored] = await Promise.all([
-        api.getFailedPods(),
-        api.getSecurityFindings(),
-        api.getConfig(),
-        api.getPodHistory().catch(() => []),
-        api.getIgnoredPods().catch(() => [])
-      ]);
-      setPods(activePods);
-      setSecurityFindings(findings);
-      setAiEnabled(config.ai_enabled || false);
-      setPodHistory(history);
-      setIgnoredPods(ignored);
-      setError(null);
-    } catch (err) {
-      setError('Failed to load data');
-      console.error('Error loading data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const loadData = async () => {
+      try {
+        if (cancelled) return;
+        setLoading(true);
+        const [activePods, findings, config, history, ignored] = await Promise.all([
+          api.getFailedPods(),
+          api.getSecurityFindings(),
+          api.getConfig(),
+          api.getPodHistory().catch(() => []),
+          api.getIgnoredPods().catch(() => [])
+        ]);
+        if (cancelled) return;
+        setPods(activePods);
+        if (cancelled) return;
+        setSecurityFindings(findings);
+        if (cancelled) return;
+        setAiEnabled(config.ai_enabled || false);
+        if (cancelled) return;
+        setPodHistory(history);
+        if (cancelled) return;
+        setIgnoredPods(ignored);
+        if (cancelled) return;
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError('Failed to load data');
+        console.error('Error loading data:', err);
+      } finally {
+        if (cancelled) return;
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Trigger a full security rescan
   const handleSecurityRescan = useCallback(async () => {
@@ -622,26 +637,26 @@ const Dashboard = () => {
                   )}
                 </button>
                 <button
-                  onClick={() => setActiveTab('diagram')}
-                  className={`${
-                    activeTab === 'diagram'
-                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
-                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } mr-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
-                >
-                  <Network className="w-5 h-5" />
-                  <span>Diagram</span>
-                </button>
-                <button
                   onClick={() => setActiveTab('advice')}
                   className={`${
                     activeTab === 'advice'
                       ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
                       : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                  } mr-8 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                 >
                   <Lightbulb className="w-5 h-5" />
                   <span>Advice</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('diagram')}
+                  className={`${
+                    activeTab === 'diagram'
+                      ? isDark ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600'
+                      : isDark ? 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                >
+                  <Network className="w-5 h-5" />
+                  <span>Diagram</span>
                 </button>
               </div>
               {userRole === 'admin' && (

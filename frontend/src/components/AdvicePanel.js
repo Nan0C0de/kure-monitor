@@ -43,6 +43,14 @@ const AdvicePanel = ({
   const [hasCompletedScan, setHasCompletedScan] = useState(false);
   const activeScanIdRef = useRef(null);
 
+  // Keep a ref of showDismissed so the WS event effect (which intentionally
+  // only depends on wsEvent.seq) can read the current value without going
+  // stale between toggles.
+  const showDismissedRef = useRef(showDismissed);
+  useEffect(() => {
+    showDismissedRef.current = showDismissed;
+  }, [showDismissed]);
+
   // Export menu state.
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -74,6 +82,19 @@ const AdvicePanel = ({
   useEffect(() => {
     loadFindings();
   }, [loadFindings]);
+
+  // Reset the "scan completed" flag whenever the scope changes. Without this,
+  // after scanning namespace A, switching to namespace B would show
+  // "No improvements suggested — this scope looks healthy" even though B was
+  // never scanned. `showDismissed` is intentionally NOT a dep: it's view state.
+  useEffect(() => {
+    setHasCompletedScan(false);
+  }, [
+    scope.namespace,
+    scope.workload_kind,
+    scope.workload_name,
+    scope.pod_name,
+  ]);
 
   // ----- Detector coverage (for "FYI: Hubble unavailable" banner) -----
   useEffect(() => {
@@ -127,7 +148,7 @@ const AdvicePanel = ({
         }
         // If we're not showing dismissed and the incoming one is dismissed,
         // skip insertion. Otherwise prepend.
-        if (!showDismissed && data.dismissed) {
+        if (!showDismissedRef.current && data.dismissed) {
           return prev;
         }
         return [data, ...prev];

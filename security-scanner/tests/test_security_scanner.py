@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
@@ -439,3 +441,45 @@ class TestBackendClientAuth:
         assert captured["url"].endswith("/api/security/findings")
         assert captured["headers"].get("X-Service-Token") == "outbound-token"
         assert "Authorization" not in captured["headers"]
+
+
+class TestScanClusterConcurrency:
+    """scan_cluster must serialize via SecurityScanner._lock so a WS-triggered
+    rescan cannot interleave with the periodic scan (both delete-then-insert)."""
+
+    @pytest.mark.asyncio
+    async def test_scan_cluster_serializes_concurrent_callers(self):
+        scanner = _make_scanner()
+
+        call_order = []
+
+        async def fake_scan_pods():
+            call_order.append("start")
+            # Yield control so a second concurrent caller would interleave
+            # here if the lock were missing.
+            await asyncio.sleep(0.05)
+            call_order.append("end")
+
+        # Stub everything scan_cluster touches; only scan_pods records ordering.
+        scanner.exclusion_mgr.refresh_excluded_namespaces = AsyncMock(return_value=True)
+        scanner.exclusion_mgr.refresh_excluded_rules = AsyncMock(return_value=True)
+        scanner.pod_scanner.scan_pods = fake_scan_pods
+        scanner.pod_scanner.scan_service_accounts = AsyncMock()
+        scanner.pod_scanner.scan_seccomp_profiles = AsyncMock()
+        scanner.resource_scanner.scan_deployments = AsyncMock()
+        scanner.resource_scanner.scan_services = AsyncMock()
+        scanner.resource_scanner.scan_rbac = AsyncMock()
+        scanner.resource_scanner.scan_network_policies = AsyncMock()
+        scanner.resource_scanner.scan_pod_security_admission = AsyncMock()
+        scanner.resource_scanner.scan_ingresses = AsyncMock()
+        scanner.resource_scanner.scan_cluster_role_bindings = AsyncMock()
+        scanner.resource_scanner.scan_pod_disruption_budgets = AsyncMock()
+        scanner.resource_scanner.scan_resource_quotas = AsyncMock()
+        scanner.resource_scanner.scan_configmaps = AsyncMock()
+        scanner.resource_scanner.scan_cronjobs = AsyncMock()
+        scanner.resource_scanner.scan_persistent_volumes = AsyncMock()
+
+        await asyncio.gather(scanner.scan_cluster(), scanner.scan_cluster())
+
+        # If serialized: [start, end, start, end]. If raced: [start, start, ...].
+        assert call_order == ["start", "end", "start", "end"]

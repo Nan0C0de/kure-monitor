@@ -8,6 +8,7 @@ from typing import Dict, Optional
 
 try:
     from kubernetes import client, config
+
     K8S_AVAILABLE = True
 except ImportError:
     K8S_AVAILABLE = False
@@ -22,26 +23,38 @@ DEFAULT_MIRROR_TTL_SECONDS = 180
 
 # Metadata fields that are runtime/cluster-assigned and should be stripped
 _METADATA_FIELDS_TO_REMOVE = {
-    "creationTimestamp", "creation_timestamp",
-    "deletionTimestamp", "deletion_timestamp",
-    "deletionGracePeriodSeconds", "deletion_grace_period_seconds",
-    "generateName", "generate_name",
+    "creationTimestamp",
+    "creation_timestamp",
+    "deletionTimestamp",
+    "deletion_timestamp",
+    "deletionGracePeriodSeconds",
+    "deletion_grace_period_seconds",
+    "generateName",
+    "generate_name",
     "generation",
-    "resourceVersion", "resource_version",
-    "selfLink", "self_link",
+    "resourceVersion",
+    "resource_version",
+    "selfLink",
+    "self_link",
     "uid",
-    "managedFields", "managed_fields",
-    "ownerReferences", "owner_references",
+    "managedFields",
+    "managed_fields",
+    "ownerReferences",
+    "owner_references",
     "finalizers",
 }
 
 # Spec-level fields to always remove (scheduler/runtime assigned)
 _SPEC_FIELDS_TO_REMOVE = {
-    "nodeName", "node_name",
+    "nodeName",
+    "node_name",
     "priority",
-    "preemptionPolicy", "preemption_policy",
-    "enableServiceLinks", "enable_service_links",
-    "schedulerName", "scheduler_name",
+    "preemptionPolicy",
+    "preemption_policy",
+    "enableServiceLinks",
+    "enable_service_links",
+    "schedulerName",
+    "scheduler_name",
 }
 
 # Default tolerations auto-added by Kubernetes (should be stripped)
@@ -58,22 +71,32 @@ _AUTO_INJECTED_VOLUME_PREFIXES = (
 
 # Per-container fields to remove
 _CONTAINER_FIELDS_TO_REMOVE = {
-    "terminationMessagePath", "termination_message_path",
-    "terminationMessagePolicy", "termination_message_policy",
+    "terminationMessagePath",
+    "termination_message_path",
+    "terminationMessagePolicy",
+    "termination_message_policy",
 }
 
 # Status sub-fields (also covers top-level 'status' being removed entirely)
 _STATUS_FIELDS_TO_REMOVE = {
-    "podIP", "pod_ip",
-    "podIPs", "pod_ips",
-    "hostIP", "host_ip",
-    "hostIPs", "host_ips",
-    "startTime", "start_time",
+    "podIP",
+    "pod_ip",
+    "podIPs",
+    "pod_ips",
+    "hostIP",
+    "host_ip",
+    "hostIPs",
+    "host_ips",
+    "startTime",
+    "start_time",
     "phase",
     "conditions",
-    "containerStatuses", "container_statuses",
-    "initContainerStatuses", "init_container_statuses",
-    "qosClass", "qos_class",
+    "containerStatuses",
+    "container_statuses",
+    "initContainerStatuses",
+    "init_container_statuses",
+    "qosClass",
+    "qos_class",
 }
 
 
@@ -130,8 +153,10 @@ def _clean_manifest_dict(manifest_dict: dict) -> None:
         for key in ("tolerations",):
             if key in spec and isinstance(spec[key], list):
                 spec[key] = [
-                    t for t in spec[key]
-                    if not isinstance(t, dict) or t.get("key") not in _DEFAULT_TOLERATIONS
+                    t
+                    for t in spec[key]
+                    if not isinstance(t, dict)
+                    or t.get("key") not in _DEFAULT_TOLERATIONS
                 ]
                 if not spec[key]:
                     del spec[key]
@@ -140,9 +165,12 @@ def _clean_manifest_dict(manifest_dict: dict) -> None:
         for key in ("volumes",):
             if key in spec and isinstance(spec[key], list):
                 spec[key] = [
-                    v for v in spec[key]
-                    if not isinstance(v, dict) or not any(
-                        v.get("name", "").startswith(prefix) for prefix in _AUTO_INJECTED_VOLUME_PREFIXES
+                    v
+                    for v in spec[key]
+                    if not isinstance(v, dict)
+                    or not any(
+                        v.get("name", "").startswith(prefix)
+                        for prefix in _AUTO_INJECTED_VOLUME_PREFIXES
                     )
                 ]
                 if not spec[key]:
@@ -155,11 +183,16 @@ def _clean_manifest_dict(manifest_dict: dict) -> None:
                     container.pop(field, None)
                 # Remove volumeMounts referencing auto-injected volumes
                 for mounts_key in ("volumeMounts", "volume_mounts"):
-                    if mounts_key in container and isinstance(container[mounts_key], list):
+                    if mounts_key in container and isinstance(
+                        container[mounts_key], list
+                    ):
                         container[mounts_key] = [
-                            m for m in container[mounts_key]
-                            if not isinstance(m, dict) or not any(
-                                m.get("name", "").startswith(prefix) for prefix in _AUTO_INJECTED_VOLUME_PREFIXES
+                            m
+                            for m in container[mounts_key]
+                            if not isinstance(m, dict)
+                            or not any(
+                                m.get("name", "").startswith(prefix)
+                                for prefix in _AUTO_INJECTED_VOLUME_PREFIXES
                             )
                         ]
                         if not container[mounts_key]:
@@ -170,14 +203,21 @@ def _clean_manifest_dict(manifest_dict: dict) -> None:
             _clean_container(container)
 
         # Clean initContainers
-        for container in spec.get("initContainers", spec.get("init_containers", [])) or []:
+        for container in (
+            spec.get("initContainers", spec.get("init_containers", [])) or []
+        ):
             _clean_container(container)
 
 
 class MirrorService:
     """Service for creating, tracking, and auto-deleting mirror pods."""
 
-    def __init__(self, db: Database, solution_engine: SolutionEngine, websocket_manager: WebSocketManager):
+    def __init__(
+        self,
+        db: Database,
+        solution_engine: SolutionEngine,
+        websocket_manager: WebSocketManager,
+    ):
         self._db = db
         self._solution_engine = solution_engine
         self._websocket_manager = websocket_manager
@@ -201,7 +241,9 @@ class MirrorService:
                 config.load_kube_config()
                 logger.info("Mirror service: using local kubeconfig")
             except config.ConfigException:
-                raise RuntimeError("Could not configure Kubernetes client (tried in-cluster and kubeconfig)")
+                raise RuntimeError(
+                    "Could not configure Kubernetes client (tried in-cluster and kubeconfig)"
+                )
 
         self._k8s_core_v1 = client.CoreV1Api()
 
@@ -274,9 +316,10 @@ class MirrorService:
 
         # 2. Get original pod manifest from K8s API
         try:
-            original_pod = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._k8s_core_v1.read_namespaced_pod(name=original_name, namespace=namespace)
+            original_pod = await asyncio.to_thread(
+                self._k8s_core_v1.read_namespaced_pod,
+                name=original_name,
+                namespace=namespace,
             )
         except client.ApiException as e:
             if e.status == 404:
@@ -296,9 +339,7 @@ class MirrorService:
             for e in pod_failure.events:
                 if isinstance(e, dict):
                     events_list.append(e)
-                elif hasattr(e, 'dict'):
-                    events_list.append(e.dict())
-                elif hasattr(e, 'model_dump'):
+                elif hasattr(e, "model_dump"):
                     events_list.append(e.model_dump())
 
         # 4. Generate AI-fixed manifest
@@ -307,12 +348,17 @@ class MirrorService:
             failure_reason=pod_failure.failure_reason,
             failure_message=pod_failure.failure_message or "",
             events=events_list,
-            solution=pod_failure.solution
+            solution=pod_failure.solution,
         )
 
         return fix_result
 
-    async def create_mirror(self, pod_failure_id: int, ttl_seconds: Optional[int] = None, manifest: Optional[str] = None) -> dict:
+    async def create_mirror(
+        self,
+        pod_failure_id: int,
+        ttl_seconds: Optional[int] = None,
+        manifest: Optional[str] = None,
+    ) -> dict:
         """Create a mirror pod from a failing pod's data.
 
         Steps:
@@ -337,9 +383,10 @@ class MirrorService:
 
         # 2. Get original pod manifest from K8s API
         try:
-            original_pod = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._k8s_core_v1.read_namespaced_pod(name=original_name, namespace=namespace)
+            original_pod = await asyncio.to_thread(
+                self._k8s_core_v1.read_namespaced_pod,
+                name=original_name,
+                namespace=namespace,
             )
         except client.ApiException as e:
             if e.status == 404:
@@ -368,9 +415,7 @@ class MirrorService:
                 for e in pod_failure.events:
                     if isinstance(e, dict):
                         events_list.append(e)
-                    elif hasattr(e, 'dict'):
-                        events_list.append(e.dict())
-                    elif hasattr(e, 'model_dump'):
+                    elif hasattr(e, "model_dump"):
                         events_list.append(e.model_dump())
 
             fix_result = await self._solution_engine.generate_pod_fix(
@@ -378,7 +423,7 @@ class MirrorService:
                 failure_reason=pod_failure.failure_reason,
                 failure_message=pod_failure.failure_message or "",
                 events=events_list,
-                solution=pod_failure.solution
+                solution=pod_failure.solution,
             )
 
         # Determine the effective TTL
@@ -389,7 +434,9 @@ class MirrorService:
         mirror_id = str(uuid.uuid4())
         mirror_pod_name = f"{original_name}-kure-mirror"
         now = datetime.now(timezone.utc)
-        expires_at = datetime.fromtimestamp(now.timestamp() + ttl_seconds, tz=timezone.utc)
+        expires_at = datetime.fromtimestamp(
+            now.timestamp() + ttl_seconds, tz=timezone.utc
+        )
 
         # Parse fixed manifest if available, otherwise use cleaned original
         if fix_result["fixed_manifest"]:
@@ -410,19 +457,21 @@ class MirrorService:
             pod_failure_id=pod_failure_id,
             mirror_id=mirror_id,
             ttl_seconds=ttl_seconds,
-            created_at=now.isoformat()
+            created_at=now.isoformat(),
         )
 
         # 5. Deploy to Kubernetes
         try:
-            created_pod = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._k8s_core_v1.create_namespaced_pod(
-                    namespace=namespace,
-                    body=mirror_spec
-                )
+            created_pod = await asyncio.to_thread(
+                self._k8s_core_v1.create_namespaced_pod,
+                namespace=namespace,
+                body=mirror_spec,
             )
-            phase = created_pod.status.phase if created_pod.status and created_pod.status.phase else "Pending"
+            phase = (
+                created_pod.status.phase
+                if created_pod.status and created_pod.status.phase
+                else "Pending"
+            )
         except client.ApiException as e:
             raise RuntimeError(f"Failed to create mirror pod: {e.reason}")
 
@@ -449,13 +498,23 @@ class MirrorService:
         )
 
         # Broadcast mirror created event
-        await self._websocket_manager.broadcast_mirror_event("mirror_created", mirror_info)
+        await self._websocket_manager.broadcast_mirror_event(
+            "mirror_created", mirror_info
+        )
 
         return mirror_info
 
-    def _prepare_mirror_spec(self, spec: dict, mirror_pod_name: str, original_pod_name: str,
-                              namespace: str, pod_failure_id: int, mirror_id: str,
-                              ttl_seconds: int, created_at: str):
+    def _prepare_mirror_spec(
+        self,
+        spec: dict,
+        mirror_pod_name: str,
+        original_pod_name: str,
+        namespace: str,
+        pod_failure_id: int,
+        mirror_id: str,
+        ttl_seconds: int,
+        created_at: str,
+    ):
         """Modify a pod spec dict to be a standalone mirror pod."""
         # Ensure metadata exists
         if "metadata" not in spec:
@@ -520,9 +579,10 @@ class MirrorService:
         namespace = info["namespace"]
 
         try:
-            pod = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._k8s_core_v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+            pod = await asyncio.to_thread(
+                self._k8s_core_v1.read_namespaced_pod,
+                name=pod_name,
+                namespace=namespace,
             )
         except client.ApiException as e:
             if e.status == 404:
@@ -540,34 +600,44 @@ class MirrorService:
         conditions = []
         if pod.status and pod.status.conditions:
             for c in pod.status.conditions:
-                conditions.append({
-                    "type": c.type,
-                    "status": c.status,
-                    "reason": c.reason or "",
-                    "message": c.message or "",
-                    "last_transition_time": c.last_transition_time.isoformat() if c.last_transition_time else None,
-                })
+                conditions.append(
+                    {
+                        "type": c.type,
+                        "status": c.status,
+                        "reason": c.reason or "",
+                        "message": c.message or "",
+                        "last_transition_time": (
+                            c.last_transition_time.isoformat()
+                            if c.last_transition_time
+                            else None
+                        ),
+                    }
+                )
 
         # Collect recent events
         events = []
         try:
-            field_selector = f"involvedObject.name={pod_name},involvedObject.namespace={namespace}"
-            event_list = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._k8s_core_v1.list_namespaced_event(
-                    namespace=namespace,
-                    field_selector=field_selector,
-                    limit=20
-                )
+            field_selector = (
+                f"involvedObject.name={pod_name},involvedObject.namespace={namespace}"
+            )
+            event_list = await asyncio.to_thread(
+                self._k8s_core_v1.list_namespaced_event,
+                namespace=namespace,
+                field_selector=field_selector,
+                limit=20,
             )
             for ev in event_list.items:
-                events.append({
-                    "type": ev.type or "",
-                    "reason": ev.reason or "",
-                    "message": ev.message or "",
-                    "timestamp": ev.last_timestamp.isoformat() if ev.last_timestamp else None,
-                    "count": ev.count,
-                })
+                events.append(
+                    {
+                        "type": ev.type or "",
+                        "reason": ev.reason or "",
+                        "message": ev.message or "",
+                        "timestamp": (
+                            ev.last_timestamp.isoformat() if ev.last_timestamp else None
+                        ),
+                        "count": ev.count,
+                    }
+                )
         except Exception as e:
             logger.warning(f"Failed to fetch events for mirror pod {pod_name}: {e}")
 
@@ -594,13 +664,11 @@ class MirrorService:
         namespace = info["namespace"]
 
         try:
-            await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._k8s_core_v1.delete_namespaced_pod(
-                    name=pod_name,
-                    namespace=namespace,
-                    grace_period_seconds=0
-                )
+            await asyncio.to_thread(
+                self._k8s_core_v1.delete_namespaced_pod,
+                name=pod_name,
+                namespace=namespace,
+                grace_period_seconds=0,
             )
             logger.info(f"Deleted mirror pod: {pod_name} in {namespace}")
         except client.ApiException as e:
@@ -614,11 +682,14 @@ class MirrorService:
 
         # Broadcast mirror deleted event
         if removed_info:
-            await self._websocket_manager.broadcast_mirror_event("mirror_deleted", {
-                "mirror_id": mirror_id,
-                "mirror_pod_name": pod_name,
-                "namespace": namespace,
-            })
+            await self._websocket_manager.broadcast_mirror_event(
+                "mirror_deleted",
+                {
+                    "mirror_id": mirror_id,
+                    "mirror_pod_name": pod_name,
+                    "namespace": namespace,
+                },
+            )
 
         return True
 

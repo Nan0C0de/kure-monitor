@@ -8,10 +8,21 @@ from typing import Callable, Optional
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_url(url: str) -> str:
+    """Strip query string from a URL for safe logging (never leak tokens)."""
+    if not url:
+        return url
+    return url.split("?", 1)[0]
+
+
 class WebSocketClient:
     def __init__(self, backend_url: str):
         # Convert HTTP URL to WebSocket URL
-        ws_url = backend_url.replace('http://', 'ws://').replace('https://', 'wss://').rstrip('/')
+        ws_url = (
+            backend_url.replace("http://", "ws://")
+            .replace("https://", "wss://")
+            .rstrip("/")
+        )
         token = os.environ.get("SERVICE_TOKEN")
         if not token:
             logger.error(
@@ -19,7 +30,20 @@ class WebSocketClient:
                 "WebSocket connection will be rejected with 401 if the "
                 "backend requires authentication."
             )
-        self.ws_url = f"{ws_url}/ws?token={token}" if token else f"{ws_url}/ws"
+        # Send the service token via the X-Service-Token request header
+        # rather than a `?token=` query string so it never lands in proxy or
+        # access logs. Default true; set SCANNER_AUTH_VIA_HEADER=false to fall
+        # back to the legacy query-param form for compatibility with old
+        # backend builds.
+        self._auth_via_header = os.environ.get(
+            "SCANNER_AUTH_VIA_HEADER", "true"
+        ).lower() in ("1", "true", "yes")
+        self._token = token
+        self._base_ws_url = f"{ws_url}/ws"
+        if self._auth_via_header or not token:
+            self.ws_url = self._base_ws_url
+        else:
+            self.ws_url = f"{self._base_ws_url}?token={token}"
         self.on_namespace_change: Optional[Callable] = None
         self.on_rule_change: Optional[Callable] = None
         self.on_registry_change: Optional[Callable] = None
@@ -61,9 +85,16 @@ class WebSocketClient:
         self._running = True
         while self._running:
             try:
-                logger.info(f"Connecting to WebSocket: {self.ws_url}")
+                # Never log the full URL — it may contain ?token=... when
+                # SCANNER_AUTH_VIA_HEADER is unset (legacy backend mode).
+                logger.info(f"Connecting to WebSocket: {_sanitize_url(self.ws_url)}")
                 self._session = aiohttp.ClientSession()
-                self._ws = await self._session.ws_connect(self.ws_url, heartbeat=30)
+                ws_headers = {}
+                if self._auth_via_header and self._token:
+                    ws_headers["X-Service-Token"] = self._token
+                self._ws = await self._session.ws_connect(
+                    self.ws_url, heartbeat=30, headers=ws_headers or None
+                )
                 logger.info("WebSocket connected successfully")
 
                 # Start keepalive task
@@ -73,7 +104,9 @@ class WebSocketClient:
                 try:
                     async for msg in self._ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
-                            logger.debug(f"Received WebSocket message: {msg.data[:100]}...")
+                            logger.debug(
+                                f"Received WebSocket message: {msg.data[:100]}..."
+                            )
                             await self._handle_message(msg.data)
                         elif msg.type == aiohttp.WSMsgType.ERROR:
                             logger.error(f"WebSocket error: {self._ws.exception()}")
@@ -102,35 +135,39 @@ class WebSocketClient:
         """Handle incoming WebSocket message"""
         try:
             message = json.loads(data)
-            msg_type = message.get('type')
+            msg_type = message.get("type")
 
-            if msg_type == 'namespace_exclusion_change':
-                namespace = message['data'].get('namespace')
-                action = message['data'].get('action')
-                logger.info(f"Received namespace exclusion change: {namespace} -> {action}")
+            if msg_type == "namespace_exclusion_change":
+                namespace = message["data"].get("namespace")
+                action = message["data"].get("action")
+                logger.info(
+                    f"Received namespace exclusion change: {namespace} -> {action}"
+                )
 
                 if self.on_namespace_change:
                     await self.on_namespace_change(namespace, action)
 
-            elif msg_type == 'rule_exclusion_change':
-                rule_title = message['data'].get('rule_title')
-                namespace = message['data'].get('namespace')
-                action = message['data'].get('action')
+            elif msg_type == "rule_exclusion_change":
+                rule_title = message["data"].get("rule_title")
+                namespace = message["data"].get("namespace")
+                action = message["data"].get("action")
                 scope = f"namespace '{namespace}'" if namespace else "global"
-                logger.info(f"Received rule exclusion change: {rule_title} ({scope}) -> {action}")
+                logger.info(
+                    f"Received rule exclusion change: {rule_title} ({scope}) -> {action}"
+                )
 
                 if self.on_rule_change:
                     await self.on_rule_change(rule_title, action, namespace)
 
-            elif msg_type == 'trusted_registry_change':
-                registry = message['data'].get('registry')
-                action = message['data'].get('action')
+            elif msg_type == "trusted_registry_change":
+                registry = message["data"].get("registry")
+                action = message["data"].get("action")
                 logger.info(f"Received trusted registry change: {registry} -> {action}")
 
                 if self.on_registry_change:
                     await self.on_registry_change(registry, action)
 
-            elif msg_type == 'security_rescan_request':
+            elif msg_type == "security_rescan_request":
                 logger.info("Received manual security rescan request")
 
                 if self.on_rescan_request:

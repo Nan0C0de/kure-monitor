@@ -52,27 +52,27 @@ class GroqProvider(LLMProvider):
         }
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers=headers,
-                    json=payload
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(f"Groq API error {response.status}: {error_text}")
-                        raise Exception(f"Groq API error: {response.status}")
+            session = await self._get_session()
+            async with session.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(f"Groq API error {response.status}: {error_text}")
+                    raise Exception(f"Groq API error: {response.status}")
                     
-                    data = await response.json()
-                    content = data["choices"][0]["message"]["content"]
-                    tokens_used = data.get("usage", {}).get("total_tokens")
+                data = await response.json()
+                content = data["choices"][0]["message"]["content"]
+                tokens_used = data.get("usage", {}).get("total_tokens")
                     
-                    return LLMResponse(
-                        content=content,
-                        provider=self.provider_name,
-                        model=self.model,
-                        tokens_used=tokens_used
-                    )
+                return LLMResponse(
+                    content=content,
+                    provider=self.provider_name,
+                    model=self.model,
+                    tokens_used=tokens_used
+                )
         
         except Exception as e:
             logger.error(f"Error calling Groq API: {e}")
@@ -97,27 +97,27 @@ class GroqProvider(LLMProvider):
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers=headers,
-                    json=payload
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(f"Groq API error {response.status}: {error_text}")
-                        raise Exception(f"Groq API error: {response.status}")
+            session = await self._get_session()
+            async with session.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(f"Groq API error {response.status}: {error_text}")
+                    raise Exception(f"Groq API error: {response.status}")
 
-                    data = await response.json()
-                    content = data["choices"][0]["message"]["content"]
-                    tokens_used = data.get("usage", {}).get("total_tokens")
+                data = await response.json()
+                content = data["choices"][0]["message"]["content"]
+                tokens_used = data.get("usage", {}).get("total_tokens")
 
-                    return LLMResponse(
-                        content=content,
-                        provider=self.provider_name,
-                        model=self.model,
-                        tokens_used=tokens_used
-                    )
+                return LLMResponse(
+                    content=content,
+                    provider=self.provider_name,
+                    model=self.model,
+                    tokens_used=tokens_used
+                )
 
         except Exception as e:
             logger.error(f"Error calling Groq API (generate_raw): {e}")

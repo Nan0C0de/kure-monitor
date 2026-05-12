@@ -217,7 +217,7 @@ class AdviceEngine:
         # Persist and collect the wire-shape dicts to return.
         persisted: List[Dict[str, Any]] = []
         for finding in explained:
-            wire = finding.to_wire().dict()
+            wire = finding.to_wire().model_dump()
             try:
                 finding_id, is_new = await self.db.save_advice_finding(wire)
             except Exception:
