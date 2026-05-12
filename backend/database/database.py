@@ -46,6 +46,9 @@ class Database:
     async def update_pod_solution(self, failure_id, solution):
         return await self._db.update_pod_solution(failure_id, solution)
 
+    async def update_pod_auto_solution_mode(self, failure_id, mode):
+        return await self._db.update_pod_auto_solution_mode(failure_id, mode)
+
     async def update_pod_status(self, failure_id, status, resolution_note=None):
         return await self._db.update_pod_status(failure_id, status, resolution_note)
 

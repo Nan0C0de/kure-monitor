@@ -4,7 +4,7 @@ Uses a two-tier auth model:
 
 1. User sessions (JWT in httpOnly `kure_session` cookie):
    - Users authenticate with username/password and receive a signed JWT cookie.
-   - Three roles: 'admin', 'write', 'read'.
+   - Two roles: 'admin', 'member'.
    - Used for the dashboard/frontend and all user-facing endpoints.
 
 2. Service token (X-Service-Token header or ?token= query param):
@@ -241,8 +241,8 @@ async def _resolve_user_from_cookie(request: Request) -> Optional[dict]:
 # --- FastAPI dependencies ---
 
 
-async def require_user(request: Request) -> dict:
-    """Require any authenticated user. Returns user dict."""
+async def require_authenticated(request: Request) -> dict:
+    """Require any authenticated user (admin or member). Returns user dict."""
     user = await _resolve_user_from_cookie(request)
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -250,19 +250,16 @@ async def require_user(request: Request) -> dict:
     return user
 
 
-async def require_read(user: dict = Depends(require_user)) -> dict:
-    """Any authenticated user can read."""
-    return user
+# Legacy aliases. With the 2-role system, the only meaningful distinction is
+# admin vs. member, so every non-admin authenticated check collapses to
+# require_authenticated. These names are kept so existing route registrations
+# and test fixtures (dependency_overrides) keep working without churn.
+require_user = require_authenticated
+require_read = require_authenticated
+require_write = require_authenticated
 
 
-async def require_write(user: dict = Depends(require_user)) -> dict:
-    """Require role in {'write', 'admin'}."""
-    if user["role"] not in ("write", "admin"):
-        raise HTTPException(status_code=403, detail="Write access required")
-    return user
-
-
-async def require_admin(user: dict = Depends(require_user)) -> dict:
+async def require_admin(user: dict = Depends(require_authenticated)) -> dict:
     """Require role == 'admin'."""
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Mail, Plus, Trash2, Copy, CheckCircle, X, AlertCircle } from 'lucide-react';
 import { api } from '../../services/api';
 
-const ROLES = ['write', 'read'];
+const ROLES = ['member'];
 const DEFAULT_EXPIRES_HOURS = 72;
 
 const buildInviteUrl = (inviteUrlPath) => {
@@ -16,7 +16,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [newRole, setNewRole] = useState('read');
+  const [newRole, setNewRole] = useState('member');
   const [newExpires, setNewExpires] = useState(DEFAULT_EXPIRES_HOURS);
   const [permanent, setPermanent] = useState(true);
   const [createdInvite, setCreatedInvite] = useState(null);
@@ -38,7 +38,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
   }, [fetchInvitations]);
 
   const openModal = () => {
-    setNewRole('read');
+    setNewRole('member');
     setNewExpires(DEFAULT_EXPIRES_HOURS);
     setPermanent(true);
     setCreatedInvite(null);

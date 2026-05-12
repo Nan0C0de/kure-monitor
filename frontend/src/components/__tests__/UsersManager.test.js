@@ -26,7 +26,7 @@ jest.mock('../../contexts/AuthContext', () => ({
 
 const sampleUsers = [
   { id: 1, username: 'admin', role: 'admin', email: 'admin@example.com', created_at: '2025-01-01' },
-  { id: 2, username: 'bob', role: 'read', email: null, created_at: '2025-02-01' },
+  { id: 2, username: 'bob', role: 'member', email: null, created_at: '2025-02-01' },
 ];
 
 describe('UsersManager', () => {
@@ -63,10 +63,10 @@ describe('UsersManager', () => {
     await screen.findByText('bob');
 
     const select = screen.getByLabelText('Role for bob');
-    fireEvent.change(select, { target: { value: 'write' } });
+    fireEvent.change(select, { target: { value: 'admin' } });
 
     await waitFor(() => {
-      expect(updateUserRoleMock).toHaveBeenCalledWith(2, 'write');
+      expect(updateUserRoleMock).toHaveBeenCalledWith(2, 'admin');
     });
   });
 
@@ -81,7 +81,7 @@ describe('UsersManager', () => {
     await screen.findByText('bob');
 
     const select = screen.getByLabelText('Role for bob');
-    fireEvent.change(select, { target: { value: 'write' } });
+    fireEvent.change(select, { target: { value: 'admin' } });
 
     await waitFor(() => {
       expect(onError).toHaveBeenCalledWith('Cannot demote the last admin');

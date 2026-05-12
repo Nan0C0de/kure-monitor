@@ -1,4 +1,5 @@
 """Tests for the user-accounts + invitations + service-token auth system."""
+
 import os
 import pytest
 import pytest_asyncio
@@ -18,13 +19,10 @@ from api.routes import create_api_router
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
 
-
 DATABASE_AVAILABLE = bool(os.getenv("DATABASE_URL"))
 
 
-pytestmark = pytest.mark.skipif(
-    not DATABASE_AVAILABLE, reason="DATABASE_URL not set"
-)
+pytestmark = pytest.mark.skipif(not DATABASE_AVAILABLE, reason="DATABASE_URL not set")
 
 
 # ---------------------------------------------------------------------------
@@ -225,60 +223,52 @@ async def _invite_and_accept(admin_client, auth_app, role, username, password):
 
 
 @pytest.mark.asyncio
-async def test_role_enforcement_read_cannot_mutate(auth_app):
+async def test_role_enforcement_member_can_mutate_not_manage(auth_app):
+    """In the 2-role system, every authenticated user (admin or member) can
+    read AND mutate. Only admin-tier checks still gate behavior."""
     admin = await _setup_admin(auth_app)
     try:
-        await _invite_and_accept(admin, auth_app, "read", "readuser", "password123")
+        await _invite_and_accept(admin, auth_app, "member", "memberuser", "password123")
     finally:
         await admin.aclose()
 
-    # Login as the read user
-    read_client = await _login_as(auth_app, "readuser", "password123")
-    try:
-        # Read endpoints work
-        r = await read_client.get("/api/pods/failed")
-        assert r.status_code == 200
-
-        # Mutation endpoint (write-only) should 403
-        r = await read_client.delete("/api/pods/failed/999999")
-        assert r.status_code == 403
-
-        # Admin-only endpoint should 403
-        r = await read_client.get("/api/admin/users")
-        assert r.status_code == 403
-    finally:
-        await read_client.aclose()
-
-
-@pytest.mark.asyncio
-async def test_role_enforcement_write_can_mutate_not_manage(auth_app):
-    admin = await _setup_admin(auth_app)
-    try:
-        await _invite_and_accept(admin, auth_app, "write", "writeuser", "password123")
-    finally:
-        await admin.aclose()
-
-    write_client = await _login_as(auth_app, "writeuser", "password123")
+    member_client = await _login_as(auth_app, "memberuser", "password123")
     try:
         # Can read
-        r = await write_client.get("/api/pods/failed")
+        r = await member_client.get("/api/pods/failed")
         assert r.status_code == 200
 
         # Can call a write mutation (404 is fine — the point is we got past auth)
-        r = await write_client.delete("/api/pods/failed/999999")
+        r = await member_client.delete("/api/pods/failed/999999")
         assert r.status_code != 401 and r.status_code != 403
 
         # Cannot manage users
-        r = await write_client.get("/api/admin/users")
+        r = await member_client.get("/api/admin/users")
         assert r.status_code == 403
 
-        r = await write_client.post(
+        r = await member_client.post(
             "/api/admin/invitations",
-            json={"role": "read"},
+            json={"role": "member"},
         )
         assert r.status_code == 403
     finally:
-        await write_client.aclose()
+        await member_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_invitation_rejects_legacy_roles(auth_app):
+    """The legacy 'read' and 'write' roles are no longer valid — the API
+    must reject invitations created with those role strings."""
+    admin = await _setup_admin(auth_app)
+    try:
+        for legacy_role in ("read", "write"):
+            r = await admin.post(
+                "/api/admin/invitations",
+                json={"role": legacy_role},
+            )
+            assert r.status_code == 400, (legacy_role, r.text)
+    finally:
+        await admin.aclose()
 
 
 @pytest.mark.asyncio
@@ -293,7 +283,7 @@ async def test_role_enforcement_admin_can_do_everything(auth_app):
 
         r = await admin.post(
             "/api/admin/invitations",
-            json={"role": "write"},
+            json={"role": "member"},
         )
         assert r.status_code == 200
 
@@ -314,7 +304,7 @@ async def test_invitation_create_use_once(auth_app):
     try:
         inv = await admin.post(
             "/api/admin/invitations",
-            json={"role": "write"},
+            json={"role": "member"},
         )
         assert inv.status_code == 200
         token = inv.json()["token"]
@@ -322,14 +312,18 @@ async def test_invitation_create_use_once(auth_app):
         # Lookup works
         lookup = await admin.get(f"/api/auth/invitation/{token}")
         assert lookup.status_code == 200
-        assert lookup.json()["role"] == "write"
+        assert lookup.json()["role"] == "member"
 
         # Accept as a new user
         transport = ASGITransport(app=auth_app)
         async with AsyncClient(transport=transport, base_url="http://test") as c:
             ok = await c.post(
                 "/api/auth/accept-invitation",
-                json={"token": token, "username": "newwrite", "password": "password123"},
+                json={
+                    "token": token,
+                    "username": "newmember",
+                    "password": "password123",
+                },
             )
             assert ok.status_code == 200
 
@@ -351,12 +345,13 @@ async def test_invitation_expired(auth_app, test_db):
         # Insert an already-expired invitation directly
         import secrets
         from datetime import datetime, timezone, timedelta
+
         token = secrets.token_urlsafe(32)
         async with test_db._db._acquire() as conn:
             await conn.execute(
                 """
                 INSERT INTO invitations (token, role, expires_at)
-                VALUES ($1, 'read', $2)
+                VALUES ($1, 'member', $2)
                 """,
                 token,
                 datetime.now(timezone.utc) - timedelta(hours=1),
@@ -374,7 +369,7 @@ async def test_invitation_revoke(auth_app):
     try:
         inv = await admin.post(
             "/api/admin/invitations",
-            json={"role": "read"},
+            json={"role": "member"},
         )
         assert inv.status_code == 200
         inv_id = inv.json()["id"]
@@ -399,7 +394,7 @@ async def test_invitation_permanent_no_expiry(auth_app):
     try:
         inv = await admin.post(
             "/api/admin/invitations",
-            json={"role": "read", "expires_in_hours": None},
+            json={"role": "member", "expires_in_hours": None},
         )
         assert inv.status_code == 200, inv.text
         body = inv.json()
@@ -422,7 +417,11 @@ async def test_invitation_permanent_no_expiry(auth_app):
         async with AsyncClient(transport=transport, base_url="http://test") as c:
             ok = await c.post(
                 "/api/auth/accept-invitation",
-                json={"token": token, "username": "permuser", "password": "password123"},
+                json={
+                    "token": token,
+                    "username": "permuser",
+                    "password": "password123",
+                },
             )
             assert ok.status_code == 200, ok.text
     finally:
@@ -436,7 +435,7 @@ async def test_invitation_long_expiry_above_old_cap(auth_app):
     try:
         inv = await admin.post(
             "/api/admin/invitations",
-            json={"role": "read", "expires_in_hours": 8760},
+            json={"role": "member", "expires_in_hours": 8760},
         )
         assert inv.status_code == 200, inv.text
         assert inv.json()["expires_at"] is not None
@@ -528,14 +527,16 @@ async def test_cannot_delete_last_admin(auth_app):
 async def test_cannot_demote_last_admin(auth_app):
     admin = await _setup_admin(auth_app)
     try:
-        # Create another admin via invitation path won't work (invitations are write/read only).
-        # Directly test: demoting self returns 400 "cannot change own role"
+        # Create another admin via invitation path won't work (invitations
+        # can be admin or member, but the canonical path uses 'member' for
+        # non-admins). Directly test: demoting self returns 400
+        # "cannot change own role".
         users = (await admin.get("/api/admin/users")).json()
         admin_id = users[0]["id"]
 
         r = await admin.patch(
             f"/api/admin/users/{admin_id}",
-            json={"role": "write"},
+            json={"role": "member"},
         )
         assert r.status_code == 400
     finally:
@@ -549,6 +550,7 @@ async def test_cannot_delete_last_admin_even_by_other_admin(auth_app, test_db):
     try:
         # Create a second admin directly in DB (bypassing invitation restrictions)
         from api.auth import hash_password
+
         await test_db.create_user(
             username="admin2",
             password_hash=hash_password("password123"),
@@ -579,6 +581,7 @@ async def test_cannot_delete_last_admin_even_by_other_admin(auth_app, test_db):
 async def test_ws_auth_rejects_when_no_token(auth_app):
     """Plain WS connect with no cookie & no token is rejected."""
     from httpx_ws import aconnect_ws  # optional; if not installed we skip
+
     pytest.skip("Tested via Starlette TestClient below")
 
 

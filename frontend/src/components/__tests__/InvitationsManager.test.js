@@ -37,14 +37,14 @@ describe('InvitationsManager', () => {
     getInvitationsMock.mockResolvedValueOnce([]);
     createInvitationMock.mockResolvedValueOnce({
       id: 1,
-      role: 'read',
+      role: 'member',
       invite_url_path: '/invite/some-token-xyz',
     });
     // After create, refresh list
     getInvitationsMock.mockResolvedValueOnce([
       {
         id: 1,
-        role: 'read',
+        role: 'member',
         created_at: '2025-01-01T00:00:00Z',
         expires_at: '2025-01-04T00:00:00Z',
         created_by: 'admin',
@@ -60,7 +60,7 @@ describe('InvitationsManager', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     await waitFor(() => {
-      expect(createInvitationMock).toHaveBeenCalledWith({ role: 'read', expiresInHours: null });
+      expect(createInvitationMock).toHaveBeenCalledWith({ role: 'member', expiresInHours: null });
     });
 
     // Success view with the URL.
@@ -94,7 +94,7 @@ describe('InvitationsManager', () => {
     getInvitationsMock.mockResolvedValueOnce([]);
     createInvitationMock.mockResolvedValueOnce({
       id: 2,
-      role: 'write',
+      role: 'member',
       invite_url_path: '/invite/some-token',
     });
     getInvitationsMock.mockResolvedValueOnce([]);
@@ -110,13 +110,10 @@ describe('InvitationsManager', () => {
     expect(hoursInput).not.toBeDisabled();
     fireEvent.change(hoursInput, { target: { value: '168' } });
 
-    // Role select is the only combobox in the modal.
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'write' } });
-
     fireEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     await waitFor(() => {
-      expect(createInvitationMock).toHaveBeenCalledWith({ role: 'write', expiresInHours: 168 });
+      expect(createInvitationMock).toHaveBeenCalledWith({ role: 'member', expiresInHours: 168 });
     });
   });
 
@@ -124,14 +121,14 @@ describe('InvitationsManager', () => {
     getInvitationsMock.mockResolvedValueOnce([
       {
         id: 99,
-        role: 'read',
+        role: 'member',
         created_at: '2026-01-01T00:00:00Z',
         expires_at: null,
         created_by: 'admin',
       },
     ]);
     render(<InvitationsManager isDark={false} onError={jest.fn()} onSuccess={jest.fn()} />);
-    await screen.findByText('read');
+    await screen.findByText('member');
     expect(screen.getByText('Never')).toBeInTheDocument();
   });
 
@@ -139,7 +136,7 @@ describe('InvitationsManager', () => {
     getInvitationsMock.mockResolvedValueOnce([
       {
         id: 42,
-        role: 'write',
+        role: 'member',
         created_at: '2025-01-01T00:00:00Z',
         expires_at: '2025-01-04T00:00:00Z',
         created_by: 'admin',
@@ -151,7 +148,7 @@ describe('InvitationsManager', () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
     render(<InvitationsManager isDark={false} onError={jest.fn()} onSuccess={jest.fn()} />);
 
-    await screen.findByText('write');
+    await screen.findByText('member');
 
     fireEvent.click(screen.getByLabelText(/revoke invitation/i));
 

@@ -37,13 +37,13 @@ describe('InviteAccept', () => {
   });
 
   test('shows registration form on 200', async () => {
-    getInvitationMock.mockResolvedValueOnce({ role: 'write', expires_at: '2099-01-01T00:00:00Z' });
+    getInvitationMock.mockResolvedValueOnce({ role: 'member', expires_at: '2099-01-01T00:00:00Z' });
     renderInvite();
 
     await waitFor(() => {
       expect(screen.getByText(/You have been invited as a/i)).toBeInTheDocument();
     });
-    expect(screen.getByLabelText(/^role$/i)).toHaveValue('write');
+    expect(screen.getByLabelText(/^role$/i)).toHaveValue('member');
     expect(screen.getByLabelText(/^username$/i)).toBeInTheDocument();
   });
 

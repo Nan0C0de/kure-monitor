@@ -15,7 +15,7 @@ import { exportAsCSV, exportAsJSON, exportAsPDF } from '../utils/exportFindings'
 const Dashboard = () => {
   const { user, userRole, logout } = useAuth();
   const navigate = useNavigate();
-  const canWrite = userRole === 'admin' || userRole === 'write';
+  const canWrite = userRole === 'admin' || userRole === 'member';
   const [activeTab, setActiveTab] = useState('monitoring');
   const [pods, setPods] = useState([]);
   const [securityFindings, setSecurityFindings] = useState([]);
@@ -582,15 +582,6 @@ const Dashboard = () => {
                 <p className={`text-sm ${isDark ? 'text-red-200' : 'text-red-800'}`}>{error}</p>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Read-only banner for read-role users */}
-        {userRole === 'read' && (
-          <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-            isDark ? 'bg-blue-900/30 border-blue-800 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'
-          }`} role="status">
-            Read-only access — contact an admin to change your role.
           </div>
         )}
 

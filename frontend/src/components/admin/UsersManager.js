@@ -3,7 +3,7 @@ import { Users as UsersIcon, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
-const ROLES = ['admin', 'write', 'read'];
+const ROLES = ['admin', 'member'];
 
 const UsersManager = ({ isDark, onError, onSuccess }) => {
   const { user: currentUser } = useAuth();

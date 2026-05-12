@@ -1,4 +1,5 @@
 """Admin-only user + invitation management routes."""
+
 import logging
 import secrets
 from typing import Optional
@@ -13,11 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateRoleRequest(BaseModel):
-    role: str = Field(..., description="One of 'admin', 'write', 'read'")
+    role: str = Field(..., description="One of 'admin', 'member'")
 
 
 class CreateInvitationRequest(BaseModel):
-    role: str = Field(..., description="One of 'write', 'read'")
+    role: str = Field(..., description="One of 'admin', 'member'")
     # None means the invitation never expires (still revocable by admin).
     expires_in_hours: Optional[int] = Field(72, ge=1)
 
@@ -51,7 +52,7 @@ def create_users_router(deps: RouterDeps) -> APIRouter:
         body: UpdateRoleRequest,
         current: dict = Depends(require_admin),
     ):
-        if body.role not in ("admin", "write", "read"):
+        if body.role not in ("admin", "member"):
             raise HTTPException(status_code=400, detail="Invalid role")
 
         if user_id == current["id"]:
@@ -107,10 +108,10 @@ def create_users_router(deps: RouterDeps) -> APIRouter:
         body: CreateInvitationRequest,
         current: dict = Depends(require_admin),
     ):
-        if body.role not in ("write", "read"):
+        if body.role not in ("admin", "member"):
             raise HTTPException(
                 status_code=400,
-                detail="Invitation role must be 'write' or 'read'",
+                detail="Invitation role must be 'admin' or 'member'",
             )
 
         token = secrets.token_urlsafe(32)

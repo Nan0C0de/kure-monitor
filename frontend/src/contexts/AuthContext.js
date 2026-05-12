@@ -117,11 +117,11 @@ export function useAuth() {
 
 /**
  * Convenience hook for components that want to know if the current user
- * is allowed to perform mutations. `read`-role users should not see write UI.
+ * is allowed to perform mutations. Only `admin` and `member` roles can write.
  */
 export function useCanWrite() {
   const { userRole } = useAuth();
-  return userRole === 'admin' || userRole === 'write';
+  return userRole === 'admin' || userRole === 'member';
 }
 
 export function useIsAdmin() {

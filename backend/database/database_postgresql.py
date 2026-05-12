@@ -430,7 +430,7 @@ class PostgreSQLDatabase(
                         username VARCHAR(64) UNIQUE NOT NULL,
                         password_hash VARCHAR(255) NOT NULL,
                         email VARCHAR(255),
-                        role VARCHAR(16) NOT NULL CHECK (role IN ('admin', 'write', 'read')),
+                        role VARCHAR(16) NOT NULL CHECK (role IN ('admin', 'member')),
                         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
                     )
@@ -445,7 +445,7 @@ class PostgreSQLDatabase(
                     CREATE TABLE IF NOT EXISTS invitations (
                         id SERIAL PRIMARY KEY,
                         token VARCHAR(64) UNIQUE NOT NULL,
-                        role VARCHAR(16) NOT NULL CHECK (role IN ('write', 'read')),
+                        role VARCHAR(16) NOT NULL CHECK (role IN ('admin', 'member')),
                         created_by INT REFERENCES users(id) ON DELETE SET NULL,
                         expires_at TIMESTAMPTZ,
                         used_at TIMESTAMPTZ,
@@ -460,6 +460,34 @@ class PostgreSQLDatabase(
                 """)
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token)
+                """)
+
+                # Migration: consolidate 3-role system ('admin','write','read')
+                # into a 2-role system ('admin','member'). Existing 'read' and
+                # 'write' users (and pending invitations) are promoted to
+                # 'member'. Idempotent: dropping the (potentially old) CHECK
+                # constraint, running the UPDATE, and re-adding the new CHECK
+                # constraint all use DROP IF EXISTS / DROP-then-ADD so reruns
+                # against an already-migrated DB are no-ops.
+                await conn.execute("""
+                    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check
+                """)
+                await conn.execute("""
+                    UPDATE users SET role = 'member' WHERE role IN ('read', 'write')
+                """)
+                await conn.execute("""
+                    ALTER TABLE users ADD CONSTRAINT users_role_check
+                    CHECK (role IN ('admin', 'member'))
+                """)
+                await conn.execute("""
+                    ALTER TABLE invitations DROP CONSTRAINT IF EXISTS invitations_role_check
+                """)
+                await conn.execute("""
+                    UPDATE invitations SET role = 'member' WHERE role IN ('read', 'write')
+                """)
+                await conn.execute("""
+                    ALTER TABLE invitations ADD CONSTRAINT invitations_role_check
+                    CHECK (role IN ('admin', 'member'))
                 """)
 
                 # Login rate-limit state shared across backend replicas.

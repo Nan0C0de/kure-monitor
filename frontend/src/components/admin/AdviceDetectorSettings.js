@@ -240,7 +240,7 @@ const AdviceDetectorSettings = ({ isDark = false, onError, onSuccess }) => {
                         ? d.enabled
                           ? 'Click to disable'
                           : 'Click to enable'
-                        : 'Read-only role'
+                        : 'You do not have permission'
                     }
                   >
                     <input
