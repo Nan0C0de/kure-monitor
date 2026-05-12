@@ -63,11 +63,19 @@ const AdvicePanel = ({
   const [detectorCoverage, setDetectorCoverage] = useState(null);
 
   // ----- Loading findings -----
+  // Filter the findings list to the currently-picked scope. Initial mount
+  // with no scope falls through to the unfiltered list (every active finding
+  // cluster-wide). The moment the user picks a namespace/workload, the
+  // request narrows — so switching from namespace A to namespace B doesn't
+  // leave A's findings visible.
   const loadFindings = useCallback(async () => {
     try {
       setLoading(true);
       const params = {};
       if (showDismissed) params.include_dismissed = true;
+      if (scope.namespace) params.namespace = scope.namespace;
+      if (scope.workload_kind) params.resource_kind = scope.workload_kind;
+      if (scope.workload_name) params.resource_name = scope.workload_name;
       const res = await api.getAdviceFindings(params);
       setFindings(res?.findings || []);
       setError(null);
@@ -77,7 +85,12 @@ const AdvicePanel = ({
     } finally {
       setLoading(false);
     }
-  }, [showDismissed]);
+  }, [
+    showDismissed,
+    scope.namespace,
+    scope.workload_kind,
+    scope.workload_name,
+  ]);
 
   useEffect(() => {
     loadFindings();

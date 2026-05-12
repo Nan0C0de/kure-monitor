@@ -217,6 +217,37 @@ describe("AdvicePanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("switching namespace refetches with the new scope and clears stale findings", async () => {
+    const findingA = { ...sampleFinding, id: 10, namespace: "data", title: "Finding A" };
+    const findingB = { ...sampleFinding, id: 20, namespace: "web", title: "Finding B" };
+    // Initial mount: no scope → unfiltered call returns finding A.
+    api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingA] });
+    // After picking 'data': call with namespace=data still returns A.
+    api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingA] });
+    // After picking 'web': call with namespace=web returns B, NOT A.
+    api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingB] });
+
+    render(<AdvicePanel canWrite={true} />);
+    expect(await screen.findByText("Finding A")).toBeInTheDocument();
+
+    const nsSelect = document.getElementById("advice-scope-namespace");
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    await waitFor(() =>
+      expect(api.getAdviceFindings).toHaveBeenCalledWith({ namespace: "data" }),
+    );
+
+    fireEvent.change(nsSelect, { target: { value: "web" } });
+    await waitFor(() =>
+      expect(api.getAdviceFindings).toHaveBeenCalledWith({ namespace: "web" }),
+    );
+
+    // The previous namespace's finding must be gone after the scope switch.
+    await waitFor(() =>
+      expect(screen.queryByText("Finding A")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Finding B")).toBeInTheDocument();
+  });
+
   test("does not render coverage banner when no detectors are gated", async () => {
     // All enabled detectors are non-Hubble; gatedCount === 0 even though
     // Hubble is unavailable.
