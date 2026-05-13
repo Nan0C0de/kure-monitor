@@ -26,7 +26,7 @@ from llm_providers.base import LLMProvider
 from .detector_settings import DetectorSettingsService
 from .detectors import ALL_DETECTORS
 from .explainer import LLMExplainer
-from .findings import Finding, WorkloadContext
+from .findings import Finding, Severity, WorkloadContext
 from .hubble import HubbleClient, StubHubbleClient
 
 logger = logging.getLogger(__name__)
@@ -197,26 +197,14 @@ class AdviceEngine:
             if produced:
                 raw_findings.extend(produced)
 
-        # Decorate with LLM explanations, sequentially. Re-read provider on
-        # every scan so config changes propagate without restarts.
-        explainer = LLMExplainer(self._llm_provider_getter())
-        explained: List[Finding] = []
-        for finding in raw_findings:
-            try:
-                explained.append(await explainer.explain(finding))
-            except Exception:
-                # LLMExplainer.explain is already "never raises", but guard
-                # defensively so an unexpected bug doesn't drop the finding.
-                logger.exception(
-                    "AdviceEngine: explainer crashed for finding %s/%s",
-                    finding.detector_id,
-                    finding.resource_name,
-                )
-                explained.append(finding)
+        # NOTE: LLM explanations are deferred to view-time (see
+        # ``explain_finding`` below + ``POST /api/advice/findings/{id}/explain``).
+        # Scans persist findings with ``explanation=None`` and the frontend
+        # requests an explanation on demand when the user opens a finding.
 
         # Persist and collect the wire-shape dicts to return.
         persisted: List[Dict[str, Any]] = []
-        for finding in explained:
+        for finding in raw_findings:
             wire = finding.to_wire().model_dump()
             try:
                 finding_id, is_new = await self.db.save_advice_finding(wire)
@@ -231,6 +219,83 @@ class AdviceEngine:
             wire["is_new"] = is_new
             persisted.append(wire)
         return persisted
+
+    # ----------------------------------------------------------------- explain
+
+    async def explain_finding(self, finding_id: int) -> Optional[Dict[str, Any]]:
+        """Generate (or return cached) explanation for a single finding.
+
+        Read-modify-write flow:
+
+        1. Load row by ``finding_id``. Returns ``None`` if missing.
+        2. If ``explanation`` is already populated and non-empty, return the
+           existing row dict (no LLM call -- idempotent).
+        3. Otherwise reconstruct a :class:`Finding` from the row, run the
+           :class:`LLMExplainer`, and persist the new explanation via
+           :meth:`db.update_advice_finding_explanation`.
+        4. Return the (possibly updated) wire-shape dict.
+
+        If the explainer returns the finding unchanged (no provider, LLM
+        error, or empty content), nothing is persisted and the row is
+        returned as-is. The frontend surfaces the "no explanation" state.
+        """
+        row = await self.db.get_advice_finding_by_id(finding_id)
+        if not row:
+            return None
+
+        existing = row.get("explanation")
+        if existing and existing.strip():
+            return row
+
+        try:
+            severity = Severity(row.get("severity"))
+        except ValueError:
+            severity = Severity.LOW
+
+        finding = Finding(
+            detector_id=row["detector_id"],
+            severity=severity,
+            category=row["category"],
+            title=row["title"],
+            summary=row["summary"],
+            resource_kind=row["resource_kind"],
+            resource_name=row["resource_name"],
+            namespace=row["namespace"],
+            evidence=row.get("evidence") or {},
+            recommended_change=row.get("recommended_change") or "",
+            confidence=float(row.get("confidence") or 0.0),
+            explanation=None,
+        )
+
+        explainer = LLMExplainer(self._llm_provider_getter())
+        try:
+            explained = await explainer.explain(finding)
+        except Exception:
+            logger.exception(
+                "AdviceEngine: explainer crashed for finding id=%s", finding_id
+            )
+            return row
+
+        if not explained.explanation:
+            # Explainer was a no-op (no provider, LLM error, empty content).
+            return row
+
+        try:
+            await self.db.update_advice_finding_explanation(
+                finding_id, explained.explanation
+            )
+        except Exception:
+            logger.exception(
+                "AdviceEngine: update_advice_finding_explanation failed for id=%s",
+                finding_id,
+            )
+            # Fall through and return the row with the in-memory explanation
+            # so the caller still sees the freshly generated text.
+            row["explanation"] = explained.explanation
+            return row
+
+        row["explanation"] = explained.explanation
+        return row
 
     # ------------------------------------------------------------------ context
 

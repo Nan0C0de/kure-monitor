@@ -39,7 +39,7 @@ except ImportError:  # pragma: no cover - pydantic v1 fallback
 from models.models import AdviceFinding
 from services.advice.detectors import ALL_DETECTORS
 
-from .auth import require_write
+from .auth import require_authenticated, require_write
 from .deps import RouterDeps
 
 logger = logging.getLogger(__name__)
@@ -346,6 +346,24 @@ def build_router(deps: RouterDeps) -> APIRouter:
     async def get_advice_finding(finding_id: int):
         row = await db.get_advice_finding_by_id(finding_id)
         if not row:
+            raise HTTPException(status_code=404, detail="Advice finding not found")
+        return _row_to_advice_finding(row)
+
+    @router.post(
+        "/findings/{finding_id}/explain",
+        dependencies=[Depends(require_authenticated)],
+    )
+    async def explain_finding(finding_id: int):
+        """Generate (or fetch cached) LLM explanation for one finding.
+
+        Idempotent: if ``explanation`` is already populated, the existing
+        row is returned without invoking the LLM. Otherwise the explainer
+        runs and the result is persisted.
+        """
+        if advice_engine is None:
+            raise HTTPException(status_code=503, detail="Advice engine not configured")
+        row = await advice_engine.explain_finding(finding_id)
+        if row is None:
             raise HTTPException(status_code=404, detail="Advice finding not found")
         return _row_to_advice_finding(row)
 

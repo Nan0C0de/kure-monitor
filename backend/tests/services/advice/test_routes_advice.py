@@ -30,9 +30,15 @@ class _FakeAdviceEngine:
         self.calls: List[Dict[str, Any]] = []
         self._next_id = 1000
         self.canned: List[Dict[str, Any]] = []
+        self.explain_mock: Optional[Any] = None
 
     def queue(self, finding: Dict[str, Any]) -> None:
         self.canned.append(finding)
+
+    async def explain_finding(self, finding_id: int):
+        if self.explain_mock is None:
+            return None
+        return await self.explain_mock(finding_id)
 
     async def scan(
         self,
@@ -243,3 +249,71 @@ async def test_get_single_finding(advice_app, clean_advice_table):
 
     resp = await client.get("/api/advice/findings/999999")
     assert resp.status_code == 404
+
+
+class TestExplainEndpoint:
+    """``POST /api/advice/findings/{id}/explain`` -- on-demand LLM explanation."""
+
+    @pytest.mark.asyncio
+    async def test_404_when_finding_missing(self, advice_app, clean_advice_table):
+        client, fake_engine, _db = advice_app
+        fake_engine.explain_mock = AsyncMock(return_value=None)
+
+        resp = await client.post("/api/advice/findings/424242/explain")
+        assert resp.status_code == 404
+        fake_engine.explain_mock.assert_awaited_once_with(424242)
+
+    @pytest.mark.asyncio
+    async def test_idempotent_when_explanation_present(
+        self, advice_app, clean_advice_table
+    ):
+        client, fake_engine, _db = advice_app
+        cached_row = _wire_finding(id=42, namespace="ns1")
+        cached_row["explanation"] = "## cached\nstuff"
+        cached_row.pop("is_new", None)
+        fake_engine.explain_mock = AsyncMock(return_value=cached_row)
+
+        resp = await client.post("/api/advice/findings/42/explain")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["explanation"] == "## cached\nstuff"
+        assert body["id"] == 42
+        # Engine was invoked exactly once with the right id.
+        fake_engine.explain_mock.assert_awaited_once_with(42)
+
+    @pytest.mark.asyncio
+    async def test_generates_and_returns_new_explanation(
+        self, advice_app, clean_advice_table
+    ):
+        client, fake_engine, _db = advice_app
+        updated_row = _wire_finding(id=77, namespace="ns1")
+        updated_row["explanation"] = "## Why this matters\nfresh"
+        updated_row.pop("is_new", None)
+        fake_engine.explain_mock = AsyncMock(return_value=updated_row)
+
+        resp = await client.post("/api/advice/findings/77/explain")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["id"] == 77
+        assert body["explanation"] == "## Why this matters\nfresh"
+        assert body["detector_id"] == "static-test"
+        assert body["resource_name"] == "api"
+        fake_engine.explain_mock.assert_awaited_once_with(77)
+
+    @pytest.mark.asyncio
+    async def test_returns_unchanged_when_explainer_noop(
+        self, advice_app, clean_advice_table
+    ):
+        """No LLM provider / empty response -> row returned with explanation=None."""
+        client, fake_engine, _db = advice_app
+        unchanged_row = _wire_finding(id=88, namespace="ns1")
+        unchanged_row.pop("is_new", None)
+        # explanation stays None
+        fake_engine.explain_mock = AsyncMock(return_value=unchanged_row)
+
+        resp = await client.post("/api/advice/findings/88/explain")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["id"] == 88
+        assert body["explanation"] is None
+        fake_engine.explain_mock.assert_awaited_once_with(88)

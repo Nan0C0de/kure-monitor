@@ -74,6 +74,23 @@ class _FakeDB:
         self.rows.append(new)
         return new["id"], True
 
+    async def get_advice_finding_by_id(
+        self, finding_id: int
+    ) -> Optional[Dict[str, Any]]:
+        for row in self.rows:
+            if row.get("id") == finding_id:
+                return dict(row)
+        return None
+
+    async def update_advice_finding_explanation(
+        self, finding_id: int, explanation: str
+    ) -> bool:
+        for row in self.rows:
+            if row.get("id") == finding_id:
+                row["explanation"] = explanation
+                return True
+        return False
+
 
 class _FakeTopology:
     """Fake :class:`TopologyService` returning canned namespace contexts."""
@@ -221,7 +238,8 @@ async def test_workload_scope_passes_kind_and_name_to_clear(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_provider_set_attaches_explanation(monkeypatch):
+async def test_scan_does_not_invoke_llm_provider(monkeypatch):
+    """LLM explanation is deferred to view-time; scan must not call provider."""
     _patch_detectors(monkeypatch, [_StaticDetector])
     db = _FakeDB()
     topology = _FakeTopology(_empty_ns_ctx())
@@ -229,8 +247,10 @@ async def test_provider_set_attaches_explanation(monkeypatch):
     eng = AdviceEngine(db, topology, llm_provider_getter=lambda: provider)
 
     result = await eng.scan(namespace="default")
-    assert result[0]["explanation"] == "## Why this matters\nbecause reasons"
-    assert provider.calls, "explainer should call provider.generate_raw"
+    # Scanned findings are persisted with explanation=None; the explainer
+    # runs lazily via POST /api/advice/findings/{id}/explain.
+    assert result[0]["explanation"] is None
+    assert provider.calls == [], "scan must not invoke the LLM provider"
 
 
 @pytest.mark.asyncio
@@ -246,8 +266,8 @@ async def test_detector_exception_does_not_stop_scan(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_provider_getter_called_per_scan(monkeypatch):
-    """Provider config changes must take effect without restart."""
+async def test_scan_does_not_call_provider_getter(monkeypatch):
+    """Scan must not resolve the LLM provider; that happens at explain-time."""
     _patch_detectors(monkeypatch, [_StaticDetector])
     db = _FakeDB()
     topology = _FakeTopology(_empty_ns_ctx())
@@ -261,4 +281,75 @@ async def test_provider_getter_called_per_scan(monkeypatch):
     eng = AdviceEngine(db, topology, llm_provider_getter=getter)
     await eng.scan(namespace="default")
     await eng.scan(namespace="default")
-    assert calls["n"] == 2
+    assert calls["n"] == 0
+
+
+# ----------------------------------------------------------- explain_finding
+
+
+@pytest.mark.asyncio
+async def test_explain_finding_returns_none_when_missing(monkeypatch):
+    _patch_detectors(monkeypatch, [_StaticDetector])
+    db = _FakeDB()
+    topology = _FakeTopology(_empty_ns_ctx())
+    eng = AdviceEngine(db, topology, llm_provider_getter=lambda: None)
+
+    result = await eng.explain_finding(999)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_explain_finding_invokes_provider_and_persists(monkeypatch):
+    _patch_detectors(monkeypatch, [_StaticDetector])
+    db = _FakeDB()
+    topology = _FakeTopology(_empty_ns_ctx())
+    provider = _FakeProvider(content="## Why this matters\nbecause reasons")
+    eng = AdviceEngine(db, topology, llm_provider_getter=lambda: provider)
+
+    persisted = await eng.scan(namespace="default")
+    fid = persisted[0]["id"]
+    assert persisted[0]["explanation"] is None
+
+    row = await eng.explain_finding(fid)
+    assert row is not None
+    assert row["explanation"] == "## Why this matters\nbecause reasons"
+    assert provider.calls, "explainer must call provider.generate_raw"
+    # Persisted back to the row.
+    stored = await db.get_advice_finding_by_id(fid)
+    assert stored["explanation"] == "## Why this matters\nbecause reasons"
+
+
+@pytest.mark.asyncio
+async def test_explain_finding_idempotent_when_explanation_present(monkeypatch):
+    _patch_detectors(monkeypatch, [_StaticDetector])
+    db = _FakeDB()
+    topology = _FakeTopology(_empty_ns_ctx())
+    provider = _FakeProvider(content="should-not-be-called")
+    eng = AdviceEngine(db, topology, llm_provider_getter=lambda: provider)
+
+    persisted = await eng.scan(namespace="default")
+    fid = persisted[0]["id"]
+    # Pre-populate explanation directly on the row.
+    db.rows[0]["explanation"] = "## cached\nexisting text"
+
+    row = await eng.explain_finding(fid)
+    assert row["explanation"] == "## cached\nexisting text"
+    assert provider.calls == [], "provider must NOT be called when cached"
+
+
+@pytest.mark.asyncio
+async def test_explain_finding_no_provider_returns_row_unchanged(monkeypatch):
+    _patch_detectors(monkeypatch, [_StaticDetector])
+    db = _FakeDB()
+    topology = _FakeTopology(_empty_ns_ctx())
+    eng = AdviceEngine(db, topology, llm_provider_getter=lambda: None)
+
+    persisted = await eng.scan(namespace="default")
+    fid = persisted[0]["id"]
+
+    row = await eng.explain_finding(fid)
+    assert row is not None
+    assert row["explanation"] is None
+    # Nothing persisted either.
+    stored = await db.get_advice_finding_by_id(fid)
+    assert stored["explanation"] is None

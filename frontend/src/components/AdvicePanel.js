@@ -63,17 +63,24 @@ const AdvicePanel = ({
   const [detectorCoverage, setDetectorCoverage] = useState(null);
 
   // ----- Loading findings -----
-  // Filter the findings list to the currently-picked scope. Initial mount
-  // with no scope falls through to the unfiltered list (every active finding
-  // cluster-wide). The moment the user picks a namespace/workload, the
-  // request narrows — so switching from namespace A to namespace B doesn't
-  // leave A's findings visible.
+  // Filter the findings list to the currently-picked scope. When no namespace
+  // is selected we intentionally do NOT fetch cluster-wide — the panel shows
+  // a "Select a namespace" empty state instead. This avoids surfacing a huge
+  // cluster-wide list on first mount and keeps the panel narrowly scoped to
+  // the user's intent. Clearing the namespace also wipes any previously
+  // loaded findings so stale rows don't linger.
   const loadFindings = useCallback(async () => {
+    if (!scope.namespace) {
+      setFindings([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const params = {};
       if (showDismissed) params.include_dismissed = true;
-      if (scope.namespace) params.namespace = scope.namespace;
+      params.namespace = scope.namespace;
       if (scope.workload_kind) params.resource_kind = scope.workload_kind;
       if (scope.workload_name) params.resource_name = scope.workload_name;
       const res = await api.getAdviceFindings(params);
@@ -305,6 +312,16 @@ const AdvicePanel = ({
       // Roll back on failure.
       setFindings(prevFindings);
     }
+  };
+
+  // Bubbled up from a card after a successful lazy explanation fetch. Keep the
+  // canonical findings list in sync so re-renders (filter toggles, etc.) don't
+  // lose the freshly-generated explanation.
+  const handleExplained = (updated) => {
+    if (!updated || updated.id == null) return;
+    setFindings((prev) =>
+      prev.map((f) => (f.id === updated.id ? { ...f, ...updated } : f)),
+    );
   };
 
   const handleRestore = async (finding) => {
@@ -665,7 +682,30 @@ const AdvicePanel = ({
       )}
 
       {/* Findings list */}
-      {loading ? (
+      {!scope.namespace ? (
+        <div
+          data-testid="advice-select-namespace-empty"
+          className="py-12 text-center"
+        >
+          <Lightbulb
+            className={`w-12 h-12 mx-auto mb-3 ${
+              isDark ? "text-gray-600" : "text-gray-400"
+            }`}
+          />
+          <h3
+            className={`text-base font-medium mb-1 ${
+              isDark ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
+            Select a namespace
+          </h3>
+          <p
+            className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}
+          >
+            Select a namespace to view AI Advice findings.
+          </p>
+        </div>
+      ) : loading ? (
         <div className="py-12 text-center">
           <div className="inline-flex items-center space-x-2">
             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -710,6 +750,7 @@ const AdvicePanel = ({
               canWrite={canWrite}
               onDismiss={handleDismiss}
               onRestore={handleRestore}
+              onExplained={handleExplained}
             />
           ))}
         </div>

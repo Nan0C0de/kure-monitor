@@ -183,6 +183,28 @@ class AdviceFindingMixin:
                 return None
             return _row_to_dict(row)
 
+    async def update_advice_finding_explanation(
+        self, finding_id: int, explanation: str
+    ) -> bool:
+        """Persist a freshly generated LLM explanation onto an existing row.
+
+        Used by the on-demand ``POST /api/advice/findings/{id}/explain``
+        endpoint -- scans no longer populate this field.
+
+        Returns True if a row was updated.
+        """
+        async with self._acquire() as conn:
+            result = await conn.execute(
+                "UPDATE advice_findings SET explanation = $1 WHERE id = $2",
+                explanation,
+                finding_id,
+            )
+            try:
+                count = int(result.split()[-1])
+            except (ValueError, IndexError):
+                count = 0
+            return count > 0
+
     async def dismiss_advice_finding(self, finding_id: int) -> bool:
         """Mark an advice finding as dismissed. Returns True if a row was updated."""
         async with self._acquire() as conn:

@@ -790,6 +790,23 @@ export const api = {
     return response.json();
   },
 
+  // Lazily generate (or fetch a cached) LLM explanation for a finding.
+  // Idempotent on the backend — calling again on a finding whose explanation
+  // is already populated is cheap.
+  explainAdviceFinding: async (findingId) => {
+    const response = await authFetch(
+      `${API_BASE}/api/advice/findings/${findingId}/explain`,
+      { method: 'POST' },
+    );
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      const err = new Error(msg);
+      err.status = response.status;
+      throw err;
+    }
+    return response.json();
+  },
+
   // Advice detector configuration
   getAdviceDetectors: async () => {
     const response = await authFetch(`${API_BASE}/api/advice/detectors`);

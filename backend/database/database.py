@@ -105,6 +105,9 @@ class Database:
     async def get_advice_finding_by_id(self, finding_id):
         return await self._db.get_advice_finding_by_id(finding_id)
 
+    async def update_advice_finding_explanation(self, finding_id, explanation):
+        return await self._db.update_advice_finding_explanation(finding_id, explanation)
+
     async def dismiss_advice_finding(self, finding_id):
         return await self._db.dismiss_advice_finding(finding_id)
 

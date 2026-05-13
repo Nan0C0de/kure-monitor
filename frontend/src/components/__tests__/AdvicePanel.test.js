@@ -51,9 +51,31 @@ describe("AdvicePanel", () => {
     });
   });
 
-  test("loads and renders findings on mount", async () => {
+  test("loads and renders findings after a namespace is picked", async () => {
     render(<AdvicePanel canWrite={true} />);
-    await waitFor(() => expect(api.getAdviceFindings).toHaveBeenCalledWith({}));
+    // No fetch on mount — panel waits for a namespace.
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("advice-select-namespace-empty"),
+      ).toBeInTheDocument(),
+    );
+    expect(api.getAdviceFindings).not.toHaveBeenCalled();
+
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    await waitFor(() =>
+      expect(api.getAdviceFindings).toHaveBeenCalledWith({ namespace: "data" }),
+    );
     expect(
       await screen.findByText("Startup IO amplification"),
     ).toBeInTheDocument();
@@ -61,23 +83,48 @@ describe("AdvicePanel", () => {
 
   test("toggling show-dismissed re-fetches with include_dismissed", async () => {
     render(<AdvicePanel canWrite={true} />);
-    await waitFor(() => expect(api.getAdviceFindings).toHaveBeenCalledWith({}));
+    // Pick a namespace first so the panel actually fetches.
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    await waitFor(() =>
+      expect(api.getAdviceFindings).toHaveBeenCalledWith({ namespace: "data" }),
+    );
     fireEvent.click(screen.getByLabelText(/Show dismissed/i));
     await waitFor(() =>
       expect(api.getAdviceFindings).toHaveBeenCalledWith({
         include_dismissed: true,
+        namespace: "data",
       }),
     );
   });
 
   test("Run scan button posts to runAdviceScan", async () => {
     render(<AdvicePanel canWrite={true} />);
-    await screen.findByText("Startup IO amplification");
     // Picking a namespace alone now auto-scans; wait for that first call,
     // then narrow the scope to a workload kind (which suppresses auto-scan)
     // and assert the explicit button click triggers a second call with the
     // narrower scope.
-    const nsSelect = document.getElementById("advice-scope-namespace");
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
     fireEvent.change(nsSelect, { target: { value: "data" } });
     await waitFor(() =>
       expect(api.runAdviceScan).toHaveBeenCalledWith(
@@ -105,10 +152,24 @@ describe("AdvicePanel", () => {
 
   test("auto-scans when a namespace is picked with no workload", async () => {
     render(<AdvicePanel canWrite={true} />);
-    await screen.findByText("Startup IO amplification");
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("advice-select-namespace-empty"),
+      ).toBeInTheDocument(),
+    );
     expect(api.runAdviceScan).not.toHaveBeenCalled();
 
-    const nsSelect = document.getElementById("advice-scope-namespace");
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
     fireEvent.change(nsSelect, { target: { value: "data" } });
 
     await waitFor(() =>
@@ -120,10 +181,19 @@ describe("AdvicePanel", () => {
 
   test("does not auto-scan when a workload is picked", async () => {
     render(<AdvicePanel canWrite={true} />);
-    await screen.findByText("Startup IO amplification");
 
     // Pick a namespace — auto-scan fires once.
-    const nsSelect = document.getElementById("advice-scope-namespace");
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
     fireEvent.change(nsSelect, { target: { value: "data" } });
     await waitFor(() => expect(api.runAdviceScan).toHaveBeenCalledTimes(1));
 
@@ -143,9 +213,18 @@ describe("AdvicePanel", () => {
 
   test("auto-scans again when namespace changes with no workload selected", async () => {
     render(<AdvicePanel canWrite={true} />);
-    await screen.findByText("Startup IO amplification");
 
-    const nsSelect = document.getElementById("advice-scope-namespace");
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
     fireEvent.change(nsSelect, { target: { value: "data" } });
     await waitFor(() =>
       expect(api.runAdviceScan).toHaveBeenCalledWith(
@@ -163,8 +242,7 @@ describe("AdvicePanel", () => {
 
   test("Run scan button is disabled until a namespace is picked", async () => {
     render(<AdvicePanel canWrite={true} />);
-    await screen.findByText("Startup IO amplification");
-    const btn = screen.getByRole("button", { name: /Run scan/i });
+    const btn = await screen.findByRole("button", { name: /Run scan/i });
     expect(btn).toBeDisabled();
     expect(screen.getByTestId("advice-run-scan-hint")).toHaveTextContent(
       /Pick a namespace to run a scan/i,
@@ -173,14 +251,30 @@ describe("AdvicePanel", () => {
     fireEvent.click(btn);
     expect(api.runAdviceScan).not.toHaveBeenCalled();
 
-    const nsSelect = document.getElementById("advice-scope-namespace");
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
     fireEvent.change(nsSelect, { target: { value: "data" } });
     await waitFor(() => expect(btn).not.toBeDisabled());
   });
 
   test("Run scan button hidden when canWrite is false", async () => {
     render(<AdvicePanel canWrite={false} />);
-    await screen.findByText("Startup IO amplification");
+    // The panel renders the select-a-namespace empty state; Run scan should
+    // not appear at all (no canWrite).
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("advice-select-namespace-empty"),
+      ).toBeInTheDocument(),
+    );
     expect(
       screen.queryByRole("button", { name: /Run scan/i }),
     ).not.toBeInTheDocument();
@@ -188,6 +282,19 @@ describe("AdvicePanel", () => {
 
   test("WS advice_scan_status started shows banner", async () => {
     const { rerender } = render(<AdvicePanel canWrite={true} wsEvent={null} />);
+    // Pick a namespace so findings load.
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
+    fireEvent.change(nsSelect, { target: { value: "data" } });
     await screen.findByText("Startup IO amplification");
     rerender(
       <AdvicePanel
@@ -210,6 +317,19 @@ describe("AdvicePanel", () => {
 
   test("WS advice_finding_deleted removes the finding", async () => {
     const { rerender } = render(<AdvicePanel canWrite={true} wsEvent={null} />);
+    // Pick a namespace so findings load.
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
+    fireEvent.change(nsSelect, { target: { value: "data" } });
     await screen.findByText("Startup IO amplification");
     rerender(
       <AdvicePanel
@@ -235,9 +355,76 @@ describe("AdvicePanel", () => {
   });
 
   test("empty state when no findings", async () => {
-    api.getAdviceFindings.mockResolvedValueOnce({ findings: [] });
+    api.getAdviceFindings.mockResolvedValue({ findings: [] });
+    // Make the auto-scan a no-op so the panel stays in the pre-scan empty
+    // state long enough to assert the "No advice findings" copy. Without
+    // this, the auto-scan resolves synchronously, flips hasCompletedScan,
+    // and the heading swaps to "No improvements suggested".
+    api.runAdviceScan.mockImplementation(() => new Promise(() => {}));
     render(<AdvicePanel canWrite={true} />);
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
+    fireEvent.change(nsSelect, { target: { value: "data" } });
     expect(await screen.findByText(/No advice findings/i)).toBeInTheDocument();
+  });
+
+  test("no findings or fetch when namespace is unselected", async () => {
+    render(<AdvicePanel canWrite={true} />);
+    // Wait a tick so any potential mount-effect fetches would have fired.
+    await Promise.resolve();
+    await Promise.resolve();
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("advice-select-namespace-empty"),
+      ).toBeInTheDocument(),
+    );
+    expect(api.getAdviceFindings).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/Select a namespace to view AI Advice findings/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Startup IO amplification"),
+    ).not.toBeInTheDocument();
+  });
+
+  test("clearing the namespace clears findings", async () => {
+    render(<AdvicePanel canWrite={true} />);
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    // Finding A renders once the namespace-scoped fetch resolves.
+    expect(
+      await screen.findByText("Startup IO amplification"),
+    ).toBeInTheDocument();
+
+    // Clear the namespace — empty-state copy comes back, finding is gone.
+    fireEvent.change(nsSelect, { target: { value: "" } });
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("advice-select-namespace-empty"),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText("Startup IO amplification"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Select a namespace to view AI Advice findings/i),
+    ).toBeInTheDocument();
   });
 
   test("renders detector coverage banner when Hubble is unavailable and gates detectors", async () => {
@@ -274,8 +461,12 @@ describe("AdvicePanel", () => {
       hubble_status: { available: true, reason: "ok", flow_count: 5 },
     });
     render(<AdvicePanel canWrite={true} />);
-    // Wait for the findings to load so we know the panel has settled.
-    await screen.findByText("Startup IO amplification");
+    // Wait for the panel to settle (empty-namespace state is fine here).
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("advice-select-namespace-empty"),
+      ).toBeInTheDocument(),
+    );
     expect(
       screen.queryByTestId("advice-detector-coverage-banner"),
     ).not.toBeInTheDocument();
@@ -287,11 +478,9 @@ describe("AdvicePanel", () => {
     api.runAdviceScan.mockResolvedValue({ findings: [], scan_id: "s1" });
 
     render(<AdvicePanel canWrite={true} />);
-    // Initial empty state — never scanned.
+    // Initial empty state — no namespace selected yet.
     expect(
-      await screen.findByText(
-        /Run a scan to surface scaling, startup, and capacity advice/i,
-      ),
+      await screen.findByTestId("advice-select-namespace-empty"),
     ).toBeInTheDocument();
 
     // Pick a namespace — this auto-scans; once it resolves we should see
@@ -336,21 +525,29 @@ describe("AdvicePanel", () => {
       namespace: "web",
       title: "Finding B",
     };
-    // Initial mount: no scope → unfiltered call returns finding A.
+    // First scoped fetch (namespace=data) returns A.
     api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingA] });
-    // After picking 'data': call with namespace=data still returns A.
-    api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingA] });
-    // After picking 'web': call with namespace=web returns B, NOT A.
+    // Second scoped fetch (namespace=web) returns B, NOT A.
     api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingB] });
 
     render(<AdvicePanel canWrite={true} />);
-    expect(await screen.findByText("Finding A")).toBeInTheDocument();
 
-    const nsSelect = document.getElementById("advice-scope-namespace");
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      // Wait until the namespace options have actually rendered — without
+      // this, `fireEvent.change` to a value not yet present in the <option>
+      // list is silently ignored by the DOM and the test wedges.
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
     fireEvent.change(nsSelect, { target: { value: "data" } });
     await waitFor(() =>
       expect(api.getAdviceFindings).toHaveBeenCalledWith({ namespace: "data" }),
     );
+    expect(await screen.findByText("Finding A")).toBeInTheDocument();
 
     fireEvent.change(nsSelect, { target: { value: "web" } });
     await waitFor(() =>
@@ -379,7 +576,11 @@ describe("AdvicePanel", () => {
       },
     });
     render(<AdvicePanel canWrite={true} />);
-    await screen.findByText("Startup IO amplification");
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("advice-select-namespace-empty"),
+      ).toBeInTheDocument(),
+    );
     expect(
       screen.queryByTestId("advice-detector-coverage-banner"),
     ).not.toBeInTheDocument();
