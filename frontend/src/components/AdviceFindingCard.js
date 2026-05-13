@@ -108,6 +108,19 @@ const AdviceFindingCard = ({
             </span>
           </span>
 
+          {finding.namespace && (
+            <span
+              className={`inline-block px-2 py-0.5 rounded font-mono text-xs ${
+                isDark
+                  ? "bg-gray-700 text-gray-300 border border-gray-600"
+                  : "bg-gray-100 text-gray-700 border border-gray-200"
+              }`}
+              title="Namespace"
+            >
+              ns: {finding.namespace}
+            </span>
+          )}
+
           <span
             className={`inline-block px-2 py-0.5 rounded font-mono text-xs ${
               isDark
@@ -171,8 +184,7 @@ const AdviceFindingCard = ({
         >
           <span className="font-medium">
             {finding.resource_kind}/{finding.resource_name}
-          </span>{" "}
-          in <span className="font-mono">{finding.namespace}</span>
+          </span>
         </p>
 
         {/* Summary */}
