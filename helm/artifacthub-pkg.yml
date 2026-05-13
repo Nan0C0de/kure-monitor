@@ -1,23 +1,23 @@
 # Artifact Hub package metadata file
-version: 2.3.4
+version: 2.4.0
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
-createdAt: 2026-05-10T00:00:00Z
+createdAt: 2026-05-13T00:00:00Z
 description: |
-  Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks: privileged containers, dangerous capabilities, missing seccomp/AppArmor profiles, RBAC issues, untrusted registries, and more. No Prometheus dependency required.
+  Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks and the new AI Advice tab — 23 proactive detectors that spot architectural mismatches (scaling, reliability, networking, data, config, capacity, scheduling, supply-chain, startup) across two layers. No Prometheus dependency required.
 license: Apache-2.0
 homeURL: https://github.com/Nan0C0de/kure-monitor
-appVersion: "2.3.4"
+appVersion: "2.4.0"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/nan0c0de/kure-monitor/agent:2.3.4
+    image: ghcr.io/nan0c0de/kure-monitor/agent:2.4.0
   - name: kure-monitor-backend
-    image: ghcr.io/nan0c0de/kure-monitor/backend:2.3.4
+    image: ghcr.io/nan0c0de/kure-monitor/backend:2.4.0
   - name: kure-monitor-frontend
-    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.3.4
+    image: ghcr.io/nan0c0de/kure-monitor/frontend:2.4.0
   - name: kure-monitor-security-scanner
-    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.3.4
+    image: ghcr.io/nan0c0de/kure-monitor/security-scanner:2.4.0
 operator: false
 deprecated: false
 prerelease: false
@@ -29,6 +29,8 @@ keywords:
   - pod-failures
   - security-scanning
   - ai-powered
+  - ai-advice
+  - architectural-detectors
 links:
   - name: Chart Source
     url: https://github.com/Nan0C0de/kure-monitor/tree/main/helm
@@ -40,17 +42,27 @@ maintainers:
 provider:
   name: Nan0C0de
 changes:
+  - kind: added
+    description: "AI Advice tab — 23 proactive architectural-mismatch detectors across two layers. 20 work without extra infra; 3-4 require Cilium Hubble (stub client; UI shows a Needs Hubble badge)."
+  - kind: added
+    description: "Detector Settings admin modal: per-detector enable/disable, grouped by category, with search and bulk actions. Findings export to JSON or CSV. Lazy-rendered findings list."
   - kind: changed
-    description: "Default LLM provider switched from Ollama to Groq. New users land on Groq pre-selected in the AI Configuration panel."
+    description: "LLM-cost optimization: scans persist findings with explanation=null and lazily generate explanations on card expand via POST /api/advice/findings/{id}/explain (cached, idempotent)."
   - kind: changed
-    description: "Model lists refreshed across all providers (May 2026 latest). OpenAI: GPT-5.5 / GPT-5.5 Mini (default) / GPT-5.4 Mini. Anthropic: Claude Opus 4.7 / Sonnet 4.6 (default) / Haiku 4.5. Gemini: 3.1 Pro / 3 Flash (default) / 3.1 Flash Lite. Groq: Llama 4 Maverick / Llama 4 Scout (default) / GPT-OSS 120B / Kimi K2. Ollama: Llama 4 Scout (default) / Llama 3.3 / Qwen 3. GitHub Copilot: openai/gpt-5.5 / openai/gpt-5.5-mini (default) / anthropic/claude-sonnet-4-6."
+    description: "PostgreSQL resources renamed with kure-monitor- prefix. Existing PVC is orphaned (rebuild-empty migration plan)."
+  - kind: changed
+    description: "Role consolidation: admin/write/read -> admin/member. Idempotent migration auto-maps existing users on first boot."
+  - kind: changed
+    description: "Login rate limiting moved from in-memory dict to DB-backed login_attempts table so replicas share state."
+  - kind: changed
+    description: "Agent WebSocket auth defaults to X-Service-Token header instead of ?token= query param. Exponential backoff with jitter on WS reconnects."
 install: |
   ```bash
   helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 2.3.4 \
+  helm install kure-monitor kure-monitor/kure --version 2.4.0 \
     --create-namespace --namespace kure-system \
     --set postgresql.password="$(openssl rand -hex 24)"
 

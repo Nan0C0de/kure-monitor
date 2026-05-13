@@ -12,6 +12,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > historical context for upgrades from prior versions; substitute
 > `helm upgrade` for the equivalent action.
 
+## [2.4.0] - 2026-05-13
+
+Headline feature: **AI Advice** — a new dashboard tab that proactively detects
+architectural mismatches across two layers. 23 detectors ship out of the box
+covering scaling, reliability, networking, data, config, capacity, scheduling,
+supply-chain, and startup categories. Scans are LLM-cost-optimised: findings
+are persisted with `explanation: null` and the LLM is only called when a user
+expands a card (then the explanation is cached, so re-expand never re-calls).
+
+This release also renames the PostgreSQL resources with the `kure-monitor-`
+prefix, consolidates the three-role system (`admin`/`write`/`read`) down to
+two (`admin`/`member`) via an idempotent migration, and tightens the agent's
+WebSocket auth and reconnect behaviour. No API-level breaking changes.
+
+### Added
+
+- **AI Advice tab.** A new "Advice" tab in the dashboard, scoped per
+  namespace (and optionally per workload / pod). Selecting a namespace
+  auto-runs a scan; narrowing to a workload requires an explicit
+  **Run scan** click.
+- **23 detectors out of the box** — 7 original + 16 added in this release —
+  across categories: scaling, reliability, networking, data, config,
+  capacity, scheduling, supply-chain, startup.
+- **Layer-1 detectors (20 of 23)** work without any extra infrastructure;
+  they read manifests already available via the backend's existing K8s
+  permissions.
+- **Layer-2 detectors (3-4 of 23)** require Cilium Hubble
+  (e.g. `fan-out-pattern`, `websocket-on-deployment`, `all-to-all-replicas`,
+  `ephemeral-processes`). The Hubble client is currently a stub; the panel
+  shows a **Needs Hubble** badge on those detectors and a coverage banner
+  when Hubble is unavailable.
+- **Detector Settings admin modal.** Enable/disable any detector, grouped
+  by category, with search and bulk **Enable all** / **Disable all** /
+  **Reset to defaults**. Hubble-gated detectors are visually marked and
+  their toggles disable when Hubble is unavailable.
+- **Findings export** to JSON or CSV.
+- **Lazy rendering** on the findings list: first 5 cards render initially,
+  `IntersectionObserver` loads 5 more as you scroll, with a **Load more**
+  link as a fallback.
+- New example manifests under `examples/`: `ai-advice-demo.yaml` (one
+  Deployment that trips 4 detectors in a single scan), regenerated
+  `security-scan-tests.yaml` covering 10 distinct security rules, plus
+  `test-insecure-pod.yaml` / `test-recovery.yaml`.
+- New top-level docs: `docs/AI-ADVICE.md` and `docs/AI-ADVICE-LAYER2.md`
+  (Hubble deep-dive). New website release-notes page
+  `website/src/content/docs/release-notes/2-4-0.md`.
+
+### Changed
+
+- **LLM cost optimisation for AI Advice.** Scans run only the detectors and
+  persist findings with `explanation: null`. Cards collapse by default;
+  expanding a card lazily calls
+  `POST /api/advice/findings/{id}/explain`, which generates the explanation
+  and caches it on the finding. The call is idempotent — re-expanding never
+  re-invokes the LLM.
+- **Anti-invention prompt constraints** on the AI Advice explainer: the
+  prompt forbids inventing replica counts, image names, container names,
+  ports, or labels that are not present in the finding's `evidence` dict.
+- **PostgreSQL resources renamed** with the `kure-monitor-` prefix:
+  StatefulSet, Service, Secret, and ConfigMap now use
+  e.g. `kure-monitor-postgresql`. `helm upgrade` handles the rename; the
+  old PVC is orphaned (rebuild-empty migration plan — no data carries over).
+- **Role consolidation.** The three-role system (`admin`/`write`/`read`)
+  is collapsed to two (`admin`/`member`). The DB migration is idempotent;
+  existing `read`/`write` users are auto-mapped to `member` on first boot.
+  No manual action required.
+- **Login rate limiting is now DB-backed** (`login_attempts` table) instead
+  of an in-memory dict, so all backend replicas share state.
+- **Service-token rotation paths cleaned up.** The `SERVICE_TOKEN` env var
+  is the source of truth and overwrites the DB row on boot if the two
+  differ.
+- **Agent WebSocket auth defaults to the `X-Service-Token` header**
+  instead of `?token=` query param, so the secret never lands in proxy or
+  access logs. Falls back to query-param with
+  `AGENT_AUTH_VIA_HEADER=false` / `SCANNER_AUTH_VIA_HEADER=false` for
+  compatibility with older backend builds.
+- **Agent WebSocket reconnects** now use exponential backoff with jitter.
+  Tunable via `AGENT_WS_RECONNECT_MAX_SECONDS` and
+  `AGENT_WS_HEARTBEAT_SECONDS` env vars.
+- **Defensive cleanup across all four services** (backend, agent,
+  security-scanner, frontend): Pydantic v2 migration, `asyncio.to_thread`
+  + `asyncio.Lock` + `asyncio.wait_for` timeouts on K8s API calls, shared
+  `aiohttp.ClientSession`, async shutdown lifecycle in the scanner.
+- **Frontend modal accessibility.** Several modals adopted a shared
+  `useModalA11y` hook: `role=dialog`, `aria-modal`, focus trap, Escape to
+  close, backdrop click to close.
+- **Tab order.** AI Advice slots into the dashboard nav as
+  Monitoring -> Security -> **Advice** -> Diagram -> Admin (Advice and
+  Diagram swapped order).
+- **Docs / install path.** Installation is **Helm-only** for end-users —
+  the website and this CHANGELOG no longer point at raw `k8s/` manifests.
+  CI still uses `k8s/` internally; that's expected.
+
+### Operator action
+
+- **Upgrading from 2.3.x:** the PostgreSQL rename means the old
+  `kure-postgresql` StatefulSet / Service / Secret / ConfigMap are no
+  longer managed by the chart. `helm upgrade` will reconcile to the new
+  `kure-monitor-postgresql` names; the old PVC is orphaned and can be
+  deleted at your convenience. Data does not carry over — this is the
+  accepted "rebuild empty" migration plan.
+- **Users with `read` or `write` roles** are auto-mapped to `member` on
+  first backend boot. No manual action needed.
+- **Hubble is optional.** If you want the Layer-2 Advice detectors to
+  produce findings, install Cilium Hubble. Without it those detectors
+  stay greyed out with a **Needs Hubble** badge; the other 20 detectors
+  work normally.
+
 ## [2.3.4] - 2026-05-10
 
 This release refreshes the LLM-provider experience: the **default provider for

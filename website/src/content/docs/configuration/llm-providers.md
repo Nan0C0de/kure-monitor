@@ -5,7 +5,9 @@ description: Supported LLM providers, default models, and recommendations for Ku
 
 Kure Monitor uses an LLM to generate contextual fixes for pod failures and security findings. The provider is configured **after install** from the **Admin Panel → AI Configuration** — no API keys at install time.
 
-> **2.3.4** — the AI Configuration panel now defaults to **Groq** for new installations (was Ollama). Existing installs are unaffected; this only changes the initial pre-selection. Model catalogs across all six providers were also refreshed to current (May 2026) latest models.
+> **2.4.0** — the LLM is now also used by the new **AI Advice** tab. Explanations for advice findings are generated lazily on card expand (one LLM call per finding, cached) so a scan with N findings does not cost N requests up front. The advice explainer prompt is constrained to only reference data present in the finding's `evidence` dict — no invented replica counts, image names, ports, or labels.
+>
+> **2.3.4** — the AI Configuration panel defaults to **Groq** for new installations (was Ollama). Existing installs are unaffected; this only changes the initial pre-selection. Model catalogs across all six providers were refreshed to current (May 2026) latest models.
 
 ## Supported providers
 

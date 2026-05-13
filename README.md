@@ -45,6 +45,19 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
+## What's New in v2.4.0
+
+- **New: AI Advice tab** - A new "Advice" tab in the dashboard, scoped per namespace (and optionally per workload / pod). Selecting a namespace auto-runs a scan; narrowing to a workload requires an explicit **Run scan** click. **23 detectors** ship out of the box across scaling, reliability, networking, data, config, capacity, scheduling, supply-chain, and startup categories — 7 original + 16 added in this release. Findings can be exported to JSON or CSV.
+- **Two layers of detection** - **Layer 1 (20 of 23)** is manifest-only and works with the backend's existing K8s permissions. **Layer 2 (3-4 of 23)** requires Cilium Hubble (`fan-out-pattern`, `websocket-on-deployment`, `all-to-all-replicas`, `ephemeral-processes`). The Hubble client is currently a stub; the panel shows a **Needs Hubble** badge on those detectors and a coverage banner at the top.
+- **LLM cost optimisation** - Scans persist findings with `explanation: null`. Cards collapse by default; expanding a card lazily calls `POST /api/advice/findings/{id}/explain`, which generates and caches the explanation (idempotent — re-expand never re-calls). The explainer prompt is constrained against invention: no replica counts, image names, container names, ports, or labels that are not in the finding's `evidence` dict.
+- **Detector Settings admin modal** - Enable/disable any detector, grouped by category, with search and bulk **Enable all** / **Disable all** / **Reset to defaults**. Hubble-gated detectors are visually marked and their toggles disable when Hubble is unavailable.
+- **PostgreSQL resources renamed** - StatefulSet, Service, Secret, and ConfigMap now use the `kure-monitor-` prefix (e.g. `kure-monitor-postgresql`). **Operator action:** `helm upgrade` handles the rename. The old PVC is orphaned and can be deleted; data does not carry over (rebuild-empty migration).
+- **Role consolidation** - The three-role system (`admin` / `write` / `read`) collapsed to two (`admin` / `member`). The DB migration is idempotent — existing `read` / `write` users are auto-mapped to `member` on first backend boot. No manual action needed.
+- **Login rate limiting is now DB-backed** (`login_attempts` table) so all backend replicas share state.
+- **Agent WebSocket auth defaults to `X-Service-Token` header** instead of `?token=` query param, so the secret never lands in proxy / access logs. Falls back to query-param with `AGENT_AUTH_VIA_HEADER=false` / `SCANNER_AUTH_VIA_HEADER=false`. Agent WS reconnects now use exponential backoff with jitter (`AGENT_WS_RECONNECT_MAX_SECONDS`, `AGENT_WS_HEARTBEAT_SECONDS`).
+- **Defensive cleanup across all four services** - Pydantic v2 migration, `asyncio.to_thread` / `asyncio.Lock` / `asyncio.wait_for` on K8s API calls, shared `aiohttp.ClientSession`, async shutdown lifecycle in the scanner. Several frontend modals adopted a shared `useModalA11y` hook (role=dialog, aria-modal, focus trap, Escape close, backdrop click close).
+- **Tab order** - Monitoring → Security → **Advice** → Diagram → Admin.
+
 ## What's New in v2.3.4
 
 - **Default LLM provider is now Groq** - The AI Configuration panel now lands new users on Groq pre-selected (was Ollama). Existing installations are unaffected; provider stays whatever you have configured.
