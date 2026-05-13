@@ -85,7 +85,7 @@ async def test_list_detectors_returns_all_seven(detectors_app, clean_settings):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert "detectors" in body
-    assert len(body["detectors"]) == len(ALL_DETECTORS) == 7
+    assert len(body["detectors"]) == len(ALL_DETECTORS) == 23
     ids = {d["id"] for d in body["detectors"]}
     assert "fan-out-pattern" in ids
     assert "ephemeral-processes" in ids

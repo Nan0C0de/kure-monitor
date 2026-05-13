@@ -5,6 +5,13 @@ All notable changes to Kure Monitor are documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Note:** The `k8s/` (raw Kubernetes manifests) and `examples/` (pod-failure
+> test cases) directories have been removed. Deploy via Helm only — see the
+> [Installation guide](docs/MIGRATING-2.2-TO-2.3.md) or the website. Older
+> entries below that reference `kubectl apply -f k8s/...` are preserved as
+> historical context for upgrades from prior versions; substitute
+> `helm upgrade` for the equivalent action.
+
 ## [2.3.4] - 2026-05-10
 
 This release refreshes the LLM-provider experience: the **default provider for

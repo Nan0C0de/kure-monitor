@@ -59,7 +59,7 @@ The result is cached in-memory on the backend with a **15s TTL**, so repeated da
 
 The backend **intentionally does not have read access to Secrets**.
 
-- The ClusterRole granted to the `kure-backend` ServiceAccount in `helm/templates/rbac.yaml` and `k8s/rbac.yaml` does **not** include `secrets`.
+- The ClusterRole granted to the `kure-backend` ServiceAccount in `helm/templates/rbac.yaml` does **not** include `secrets`.
 - The `GET /api/diagram/manifest/{ns}/{kind}/{name}` endpoint hard-rejects any request where `kind=Secret` and returns HTTP 403.
 - Secret nodes are still drawn on the graph because they are derived purely from workload spec references (`envFrom`, `env.valueFrom`, volume mounts) — nothing in the Secret object itself is read.
 - The frontend handles the 403 by rendering a "no read access by design" info banner in the manifest panel instead of fetching.
@@ -68,7 +68,7 @@ This is a deliberate design choice. If you want a tool that surfaces Secret valu
 
 ## RBAC required
 
-The Diagram feature relies on the backend ServiceAccount being able to list / get the resources it graphs. As of **2.3.3**, the chart and raw manifests grant:
+The Diagram feature relies on the backend ServiceAccount being able to list / get the resources it graphs. As of **2.3.3**, the Helm chart grants:
 
 - **`""` (core)** — `namespaces` (list); `services`, `endpoints`, `configmaps`, `persistentvolumeclaims` (get, list); `serviceaccounts` (get).
 - **`apps`** — `deployments`, `replicasets`, `statefulsets`, `daemonsets` (get, list).
@@ -78,7 +78,7 @@ The Diagram feature relies on the backend ServiceAccount being able to list / ge
 - **`autoscaling`** — `horizontalpodautoscalers` (get, list).
 - **`rbac.authorization.k8s.io`** — `roles`, `clusterroles`, `rolebindings`, `clusterrolebindings` (get, list). **Added in 2.3.3** for the Roles mode.
 
-If you upgrade an existing 2.3.0 or 2.3.2 install in-place **without** running `helm upgrade` (or `kubectl apply -f k8s/rbac.yaml`), the backend will get HTTP 403 from the API server when the Diagram tab is opened (for a 2.3.2 → 2.3.3 upgrade, only the Roles mode will fail — the existing modes keep working). Reapply RBAC after upgrade.
+If you upgrade an existing 2.3.0 or 2.3.2 install in-place **without** running `helm upgrade`, the backend will get HTTP 403 from the API server when the Diagram tab is opened (for a 2.3.2 → 2.3.3 upgrade, only the Roles mode will fail — the existing modes keep working). Reapply RBAC after upgrade.
 
 ## API reference
 

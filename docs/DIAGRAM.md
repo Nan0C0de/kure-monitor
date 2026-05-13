@@ -96,8 +96,7 @@ repeated dashboard interactions don't hammer the API server.
 The backend **intentionally does not have read access to Secrets**.
 
 - The ClusterRole granted to the `kure-backend` ServiceAccount in
-  `helm/templates/rbac.yaml` and `k8s/rbac.yaml` does **not** include
-  `secrets`.
+  `helm/templates/rbac.yaml` does **not** include `secrets`.
 - The `GET /api/diagram/manifest/{ns}/{kind}/{name}` endpoint hard-rejects
   any request where `kind=Secret` and returns HTTP 403.
 - Secret nodes are still drawn on the graph because they are derived
@@ -112,8 +111,8 @@ Secret values, Kure Monitor is not it.
 ## RBAC required
 
 The Diagram feature relies on the backend ServiceAccount being able to
-list / get the resources it graphs. As of **2.3.3** the chart and raw
-manifests grant:
+list / get the resources it graphs. As of **2.3.3** the Helm chart
+grants:
 
 - `core` (`""`): `namespaces` (list); `services / endpoints /
   configmaps / persistentvolumeclaims` (get, list); `serviceaccounts`
@@ -129,8 +128,8 @@ manifests grant:
   mode.
 
 If you upgrade an existing 2.3.0 or 2.3.2 install in-place **without**
-running `helm upgrade` (or `kubectl apply -f k8s/rbac.yaml`), the backend
-will get HTTP 403 from the API server when the Diagram tab is opened
+running `helm upgrade`, the backend will get HTTP 403 from the API
+server when the Diagram tab is opened
 (or, for a 2.3.2 -> 2.3.3 upgrade, only the Roles mode will fail with
 403 -- the existing modes keep working). Reapply RBAC after upgrade.
 

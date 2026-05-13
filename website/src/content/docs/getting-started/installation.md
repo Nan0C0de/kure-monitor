@@ -1,18 +1,18 @@
 ---
 title: Installation
-description: Install Kure Monitor on your Kubernetes cluster with Helm or raw kubectl manifests, with cloud-specific notes for EKS, GKE, AKS, Minikube, and Kind.
+description: Install Kure Monitor on your Kubernetes cluster with Helm, with cloud-specific notes for EKS, GKE, AKS, Minikube, and Kind.
 ---
 
-This guide covers all methods to install Kure Monitor on your Kubernetes cluster.
+This guide covers how to install Kure Monitor on your Kubernetes cluster. Kure ships as a Helm chart; raw `k8s/` manifests are no longer maintained.
 
 ## Prerequisites
 
 - Kubernetes cluster (1.20+)
 - `kubectl` configured to access your cluster
-- Helm 3.x (for the Helm path)
+- Helm 3.x
 - Cluster admin permissions
 
-## Method 1: Helm (recommended)
+## Helm install
 
 ### Add the repository
 
@@ -49,19 +49,6 @@ helm install kure-monitor ./helm \
   --namespace kure-system \
   --create-namespace \
   --set postgresql.password="$(openssl rand -hex 24)"
-```
-
-## Method 2: kubectl manifests
-
-For environments without Helm:
-
-```bash
-git clone https://github.com/Nan0C0de/kure-monitor.git
-cd kure-monitor
-
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/secrets.yaml   # edit values first
-kubectl apply -f k8s/
 ```
 
 ## Post-install
