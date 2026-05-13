@@ -204,36 +204,90 @@ const AdvicePanel = ({
   }, [wsEvent]);
 
   // ----- Actions -----
-  const handleRunScan = async () => {
-    if (scanRequesting) return;
-    setScanRequesting(true);
-    setScanError(null);
-    try {
-      const res = await api.runAdviceScan(scope);
-      // Backend returns scan_id and immediate findings; WS will deliver
-      // upserts and a completion event. If WS never tells us "started" first
-      // (race), the response itself is a strong signal — but we let WS drive
-      // the banner. If findings arrived synchronously, merge them in.
-      if (res?.findings && Array.isArray(res.findings)) {
-        setFindings((prev) => {
-          const byId = new Map(prev.map((f) => [f.id, f]));
-          for (const f of res.findings) {
-            byId.set(f.id, { ...(byId.get(f.id) || {}), ...f });
-          }
-          return Array.from(byId.values());
-        });
-        // The sync response is also "scan completed" evidence; the WS event
-        // sets this too, but the response wins races against slow sockets.
-        setHasCompletedScan(true);
+  // Track in-flight scan to avoid double-firing the auto-scan effect for the
+  // same scope (StrictMode double-invocation, fast re-renders, etc.). The
+  // `scanRequesting` state guard catches sequential calls; this ref catches
+  // calls within the same render cycle before state has settled.
+  const scanInFlightRef = useRef(false);
+
+  const runScan = useCallback(
+    async (scopeArg) => {
+      const s = scopeArg || scope;
+      if (scanInFlightRef.current) return;
+      if (scanRequesting) return;
+      // Backend requires a namespace; guard the call so we never POST without
+      // one (would 422). The button is also disabled in this state.
+      if (!s.namespace) return;
+      scanInFlightRef.current = true;
+      setScanRequesting(true);
+      setScanError(null);
+      try {
+        const res = await api.runAdviceScan(s);
+        // Backend returns scan_id and immediate findings; WS will deliver
+        // upserts and a completion event. If WS never tells us "started" first
+        // (race), the response itself is a strong signal — but we let WS drive
+        // the banner. If findings arrived synchronously, merge them in.
+        if (res?.findings && Array.isArray(res.findings)) {
+          setFindings((prev) => {
+            const byId = new Map(prev.map((f) => [f.id, f]));
+            for (const f of res.findings) {
+              byId.set(f.id, { ...(byId.get(f.id) || {}), ...f });
+            }
+            return Array.from(byId.values());
+          });
+          // The sync response is also "scan completed" evidence; the WS event
+          // sets this too, but the response wins races against slow sockets.
+          setHasCompletedScan(true);
+        }
+      } catch (err) {
+        console.error("Failed to run advice scan:", err);
+        setScanError(err?.message || "Failed to start scan");
+        setScanStatus("failed");
+      } finally {
+        scanInFlightRef.current = false;
+        setScanRequesting(false);
       }
-    } catch (err) {
-      console.error("Failed to run advice scan:", err);
-      setScanError(err?.message || "Failed to start scan");
-      setScanStatus("failed");
-    } finally {
-      setScanRequesting(false);
+    },
+    [scope, scanRequesting],
+  );
+
+  const handleRunScan = () => runScan();
+
+  // Auto-scan when the user picks a namespace AND no workload/pod is selected.
+  // Narrowing further (workload/pod) requires an explicit "Run scan" click —
+  // we don't want surprise scans on every dropdown twiddle. Initial mount
+  // (no namespace) is also a no-op.
+  useEffect(() => {
+    if (!scope.namespace) return undefined;
+    if (scope.workload_kind || scope.workload_name || scope.pod_name) {
+      return undefined;
     }
-  };
+    if (scanRequesting || scanStatus === "started") return undefined;
+    let cancelled = false;
+    // Defer to a microtask so a synchronous unmount during the same tick
+    // (test teardown, fast re-renders) can flip the cancelled flag first.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      runScan({
+        namespace: scope.namespace,
+        workload_kind: undefined,
+        workload_name: undefined,
+        pod_name: undefined,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // We deliberately depend only on the scope fields — adding `runScan` would
+    // re-fire on every scanRequesting flip, looping. The guards above are
+    // sufficient to prevent double-fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    scope.namespace,
+    scope.workload_kind,
+    scope.workload_name,
+    scope.pod_name,
+  ]);
 
   const handleDismiss = async (finding) => {
     // Optimistic: remove from the visible list (if not showing dismissed) or
@@ -271,10 +325,7 @@ const AdvicePanel = ({
   useEffect(() => {
     if (!exportMenuOpen) return undefined;
     const handleClick = (e) => {
-      if (
-        exportMenuRef.current &&
-        !exportMenuRef.current.contains(e.target)
-      ) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
         setExportMenuOpen(false);
       }
     };
@@ -365,9 +416,7 @@ const AdvicePanel = ({
             <button
               type="button"
               onClick={() => setExportMenuOpen((v) => !v)}
-              disabled={
-                exporting || loading || sortedFindings.length === 0
-              }
+              disabled={exporting || loading || sortedFindings.length === 0}
               aria-haspopup="menu"
               aria-expanded={exportMenuOpen}
               title={
@@ -444,8 +493,8 @@ const AdvicePanel = ({
             />
             <span>
               {detectorCoverage.activeEnabled} of{" "}
-              {detectorCoverage.totalEnabled} detectors active. Install Cilium
-              + Hubble to unlock {detectorCoverage.gatedCount} network-flow
+              {detectorCoverage.totalEnabled} detectors active. Install Cilium +
+              Hubble to unlock {detectorCoverage.gatedCount} network-flow
               detector
               {detectorCoverage.gatedCount === 1 ? "" : "s"}.{" "}
               <a
@@ -478,17 +527,30 @@ const AdvicePanel = ({
           isDark={isDark}
           disabled={scanRequesting || scanStatus === "started"}
         />
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-3 flex items-center justify-between gap-3">
           <span
             className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
             Scope: <span className="font-mono">{scopeSummary()}</span>
+            {canWrite && !scope.namespace && (
+              <span
+                data-testid="advice-run-scan-hint"
+                className={`ml-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
+                Pick a namespace to run a scan.
+              </span>
+            )}
           </span>
           {canWrite && (
             <button
               type="button"
               onClick={handleRunScan}
-              disabled={scanRequesting || scanStatus === "started"}
+              disabled={
+                scanRequesting || scanStatus === "started" || !scope.namespace
+              }
+              title={
+                !scope.namespace ? "Pick a namespace to run a scan." : undefined
+              }
               className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 isDark
                   ? "border-blue-600 bg-blue-700 hover:bg-blue-600 text-white"

@@ -73,8 +73,109 @@ describe("AdvicePanel", () => {
   test("Run scan button posts to runAdviceScan", async () => {
     render(<AdvicePanel canWrite={true} />);
     await screen.findByText("Startup IO amplification");
+    // Picking a namespace alone now auto-scans; wait for that first call,
+    // then narrow the scope to a workload kind (which suppresses auto-scan)
+    // and assert the explicit button click triggers a second call with the
+    // narrower scope.
+    const nsSelect = document.getElementById("advice-scope-namespace");
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    await waitFor(() =>
+      expect(api.runAdviceScan).toHaveBeenCalledWith(
+        expect.objectContaining({ namespace: "data" }),
+      ),
+    );
+    expect(api.runAdviceScan).toHaveBeenCalledTimes(1);
+
+    const kindSelect = document.getElementById("advice-scope-kind");
+    fireEvent.change(kindSelect, { target: { value: "Deployment" } });
+    // Picking a workload kind must NOT auto-scan.
+    expect(api.runAdviceScan).toHaveBeenCalledTimes(1);
+
     fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
-    await waitFor(() => expect(api.runAdviceScan).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(api.runAdviceScan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          namespace: "data",
+          workload_kind: "Deployment",
+        }),
+      ),
+    );
+    expect(api.runAdviceScan).toHaveBeenCalledTimes(2);
+  });
+
+  test("auto-scans when a namespace is picked with no workload", async () => {
+    render(<AdvicePanel canWrite={true} />);
+    await screen.findByText("Startup IO amplification");
+    expect(api.runAdviceScan).not.toHaveBeenCalled();
+
+    const nsSelect = document.getElementById("advice-scope-namespace");
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+
+    await waitFor(() =>
+      expect(api.runAdviceScan).toHaveBeenCalledWith(
+        expect.objectContaining({ namespace: "data" }),
+      ),
+    );
+  });
+
+  test("does not auto-scan when a workload is picked", async () => {
+    render(<AdvicePanel canWrite={true} />);
+    await screen.findByText("Startup IO amplification");
+
+    // Pick a namespace — auto-scan fires once.
+    const nsSelect = document.getElementById("advice-scope-namespace");
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    await waitFor(() => expect(api.runAdviceScan).toHaveBeenCalledTimes(1));
+
+    // Narrow to a workload kind — must NOT trigger a second auto-scan.
+    const kindSelect = document.getElementById("advice-scope-kind");
+    fireEvent.change(kindSelect, { target: { value: "Deployment" } });
+
+    // Give any pending microtasks a chance to flush.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(api.runAdviceScan).toHaveBeenCalledTimes(1);
+
+    // Now an explicit button click must fire the scan.
+    fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
+    await waitFor(() => expect(api.runAdviceScan).toHaveBeenCalledTimes(2));
+  });
+
+  test("auto-scans again when namespace changes with no workload selected", async () => {
+    render(<AdvicePanel canWrite={true} />);
+    await screen.findByText("Startup IO amplification");
+
+    const nsSelect = document.getElementById("advice-scope-namespace");
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    await waitFor(() =>
+      expect(api.runAdviceScan).toHaveBeenCalledWith(
+        expect.objectContaining({ namespace: "data" }),
+      ),
+    );
+
+    fireEvent.change(nsSelect, { target: { value: "web" } });
+    await waitFor(() =>
+      expect(api.runAdviceScan).toHaveBeenCalledWith(
+        expect.objectContaining({ namespace: "web" }),
+      ),
+    );
+  });
+
+  test("Run scan button is disabled until a namespace is picked", async () => {
+    render(<AdvicePanel canWrite={true} />);
+    await screen.findByText("Startup IO amplification");
+    const btn = screen.getByRole("button", { name: /Run scan/i });
+    expect(btn).toBeDisabled();
+    expect(screen.getByTestId("advice-run-scan-hint")).toHaveTextContent(
+      /Pick a namespace to run a scan/i,
+    );
+    // Clicking the disabled button must not call the API.
+    fireEvent.click(btn);
+    expect(api.runAdviceScan).not.toHaveBeenCalled();
+
+    const nsSelect = document.getElementById("advice-scope-namespace");
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    await waitFor(() => expect(btn).not.toBeDisabled());
   });
 
   test("Run scan button hidden when canWrite is false", async () => {
@@ -152,12 +253,14 @@ describe("AdvicePanel", () => {
         { id: "f", enabled: true, requires_hubble: true },
         { id: "g", enabled: true, requires_hubble: true },
       ],
-      hubble_status: { available: false, reason: "not configured", flow_count: 0 },
+      hubble_status: {
+        available: false,
+        reason: "not configured",
+        flow_count: 0,
+      },
     });
     render(<AdvicePanel canWrite={true} />);
-    const banner = await screen.findByTestId(
-      "advice-detector-coverage-banner",
-    );
+    const banner = await screen.findByTestId("advice-detector-coverage-banner");
     expect(banner).toHaveTextContent(/4 of 7 detectors active/);
     expect(banner).toHaveTextContent(/3 network-flow detectors/);
   });
@@ -181,8 +284,7 @@ describe("AdvicePanel", () => {
   test("hasCompletedScan resets when scope changes", async () => {
     // Start with no findings so the empty state renders.
     api.getAdviceFindings.mockResolvedValue({ findings: [] });
-    // The run-scan response sets hasCompletedScan=true synchronously.
-    api.runAdviceScan.mockResolvedValueOnce({ findings: [], scan_id: "s1" });
+    api.runAdviceScan.mockResolvedValue({ findings: [], scan_id: "s1" });
 
     render(<AdvicePanel canWrite={true} />);
     // Initial empty state — never scanned.
@@ -192,18 +294,22 @@ describe("AdvicePanel", () => {
       ),
     ).toBeInTheDocument();
 
-    // Run a scan; after it resolves we should see the "looks healthy" copy.
-    fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
+    // Pick a namespace — this auto-scans; once it resolves we should see
+    // the "looks healthy" copy.
+    const nsSelect = document.getElementById("advice-scope-namespace");
+    expect(nsSelect).toBeTruthy();
+    fireEvent.change(nsSelect, { target: { value: "data" } });
     await waitFor(() => expect(api.runAdviceScan).toHaveBeenCalled());
     expect(
       await screen.findByText(/No improvements suggested/i),
     ).toBeInTheDocument();
 
-    // Change scope: pick a namespace. This must reset the completed-scan
-    // flag and bring back the "Run a scan to surface…" prompt.
-    const nsSelect = document.getElementById("advice-scope-namespace");
-    expect(nsSelect).toBeTruthy();
-    fireEvent.change(nsSelect, { target: { value: "data" } });
+    // Narrow scope: pick a workload kind. This must reset the
+    // completed-scan flag and bring back the "Run a scan to surface…" prompt.
+    // Picking a workload kind does NOT auto-scan (per the auto-scan rules),
+    // so the reset is observable.
+    const kindSelect = document.getElementById("advice-scope-kind");
+    fireEvent.change(kindSelect, { target: { value: "Deployment" } });
 
     await waitFor(() =>
       expect(
@@ -218,8 +324,18 @@ describe("AdvicePanel", () => {
   });
 
   test("switching namespace refetches with the new scope and clears stale findings", async () => {
-    const findingA = { ...sampleFinding, id: 10, namespace: "data", title: "Finding A" };
-    const findingB = { ...sampleFinding, id: 20, namespace: "web", title: "Finding B" };
+    const findingA = {
+      ...sampleFinding,
+      id: 10,
+      namespace: "data",
+      title: "Finding A",
+    };
+    const findingB = {
+      ...sampleFinding,
+      id: 20,
+      namespace: "web",
+      title: "Finding B",
+    };
     // Initial mount: no scope → unfiltered call returns finding A.
     api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingA] });
     // After picking 'data': call with namespace=data still returns A.
@@ -256,7 +372,11 @@ describe("AdvicePanel", () => {
         { id: "a", enabled: true, requires_hubble: false },
         { id: "b", enabled: true, requires_hubble: false },
       ],
-      hubble_status: { available: false, reason: "not configured", flow_count: 0 },
+      hubble_status: {
+        available: false,
+        reason: "not configured",
+        flow_count: 0,
+      },
     });
     render(<AdvicePanel canWrite={true} />);
     await screen.findByText("Startup IO amplification");
