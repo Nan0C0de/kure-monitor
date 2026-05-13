@@ -57,6 +57,13 @@ const AdvicePanel = ({
   const [exportError, setExportError] = useState(null);
   const exportMenuRef = useRef(null);
 
+  // Infinite scroll / lazy rendering: render the first N findings, load 5 more
+  // when the sentinel scrolls into view. Pagination is purely client-side —
+  // the backend returns the full list and we slice it.
+  const PAGE_SIZE = 5;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef(null);
+
   // Detector coverage banner state.
   // Populated from /api/advice/detectors on mount; silently swallows errors so
   // a failed fetch never breaks the panel.
@@ -385,6 +392,65 @@ const AdvicePanel = ({
       return (b.id || 0) - (a.id || 0);
     });
   }, [findings]);
+
+  // Reset pagination whenever the scope changes, the show-dismissed toggle
+  // flips, or a scan completes. Without this, switching from a namespace with
+  // 12 findings to one with 3 would leave visibleCount stuck at 5+ and the
+  // "Showing 5 of 3" footer would render nonsense.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [
+    scope.namespace,
+    scope.workload_kind,
+    scope.workload_name,
+    scope.pod_name,
+    showDismissed,
+    hasCompletedScan,
+  ]);
+
+  // Also clamp visibleCount when the findings list shrinks (e.g. a WS delete
+  // event drops items below the current window). We never want the footer to
+  // claim more visible than actually exist.
+  useEffect(() => {
+    setVisibleCount((c) => {
+      if (sortedFindings.length === 0) return PAGE_SIZE;
+      if (c > sortedFindings.length) return sortedFindings.length;
+      return c;
+    });
+  }, [sortedFindings.length]);
+
+  const visibleFindings = React.useMemo(
+    () => sortedFindings.slice(0, visibleCount),
+    [sortedFindings, visibleCount],
+  );
+  const hasMore = visibleCount < sortedFindings.length;
+
+  // IntersectionObserver: when the sentinel scrolls within 200px of the
+  // viewport, bump the visible count by PAGE_SIZE. Re-runs when the sentinel
+  // ref or the total list size changes.
+  useEffect(() => {
+    if (!hasMore) return undefined;
+    const node = sentinelRef.current;
+    if (!node) return undefined;
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setVisibleCount((c) =>
+              Math.min(sortedFindings.length, c + PAGE_SIZE),
+            );
+          }
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, sortedFindings.length]);
+
+  const handleLoadMore = () =>
+    setVisibleCount((c) => Math.min(sortedFindings.length, c + PAGE_SIZE));
 
   const scopeSummary = () => {
     const parts = [];
@@ -742,7 +808,7 @@ const AdvicePanel = ({
         </div>
       ) : (
         <div className="space-y-3">
-          {sortedFindings.map((finding) => (
+          {visibleFindings.map((finding) => (
             <AdviceFindingCard
               key={finding.id}
               finding={finding}
@@ -753,6 +819,47 @@ const AdvicePanel = ({
               onExplained={handleExplained}
             />
           ))}
+          {hasMore && (
+            <>
+              <div
+                ref={sentinelRef}
+                data-testid="advice-findings-sentinel"
+                aria-hidden="true"
+              />
+              <div
+                data-testid="advice-findings-pagination-footer"
+                className={`flex items-center justify-between pt-2 text-xs ${
+                  isDark ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                <span>
+                  Showing {visibleFindings.length} of {sortedFindings.length}{" "}
+                  findings
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  className={`underline ${
+                    isDark
+                      ? "text-blue-300 hover:text-blue-200"
+                      : "text-blue-600 hover:text-blue-700"
+                  }`}
+                >
+                  Load more
+                </button>
+              </div>
+            </>
+          )}
+          {!hasMore && sortedFindings.length > PAGE_SIZE && (
+            <div
+              data-testid="advice-findings-pagination-footer"
+              className={`pt-2 text-xs text-center ${
+                isDark ? "text-gray-500" : "text-gray-400"
+              }`}
+            >
+              All {sortedFindings.length} findings shown
+            </div>
+          )}
         </div>
       )}
     </div>

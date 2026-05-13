@@ -561,6 +561,130 @@ describe("AdvicePanel", () => {
     expect(screen.getByText("Finding B")).toBeInTheDocument();
   });
 
+  describe("infinite scroll / pagination", () => {
+    const makeFindings = (count, namespace = "data") =>
+      Array.from({ length: count }, (_, i) => ({
+        ...sampleFinding,
+        id: 1000 + i,
+        namespace,
+        title: `Finding ${namespace} ${i + 1}`,
+      }));
+
+    test("renders only the first 5 findings initially with a Showing X of Y footer", async () => {
+      api.getAdviceFindings.mockResolvedValue({ findings: makeFindings(12) });
+      render(<AdvicePanel canWrite={true} />);
+
+      const nsSelect = await waitFor(() => {
+        const el = document.getElementById("advice-scope-namespace");
+        if (!el) throw new Error("namespace select not ready");
+        if (!el.querySelector('option[value="data"]')) {
+          throw new Error("namespace options not yet loaded");
+        }
+        return el;
+      });
+      fireEvent.change(nsSelect, { target: { value: "data" } });
+
+      // Findings sort by severity then by id desc within same severity, so
+      // "Finding data 12" (highest id) renders first and "Finding data 8" is
+      // the 5th. "Finding data 7" and below are paginated out.
+      expect(await screen.findByText("Finding data 12")).toBeInTheDocument();
+      expect(screen.getByText("Finding data 8")).toBeInTheDocument();
+      expect(screen.queryByText("Finding data 7")).not.toBeInTheDocument();
+      expect(screen.queryByText("Finding data 1")).not.toBeInTheDocument();
+      // Footer shows progress.
+      expect(
+        screen.getByTestId("advice-findings-pagination-footer"),
+      ).toHaveTextContent(/Showing 5 of 12 findings/i);
+    });
+
+    test("clicking Load more reveals the next page until all findings are shown", async () => {
+      api.getAdviceFindings.mockResolvedValue({ findings: makeFindings(12) });
+      render(<AdvicePanel canWrite={true} />);
+
+      const nsSelect = await waitFor(() => {
+        const el = document.getElementById("advice-scope-namespace");
+        if (!el) throw new Error("namespace select not ready");
+        if (!el.querySelector('option[value="data"]')) {
+          throw new Error("namespace options not yet loaded");
+        }
+        return el;
+      });
+      fireEvent.change(nsSelect, { target: { value: "data" } });
+
+      // Initial state: 5 of 12 (highest ids 12..8 render first).
+      await screen.findByText("Finding data 12");
+      const footer = screen.getByTestId("advice-findings-pagination-footer");
+      expect(footer).toHaveTextContent(/Showing 5 of 12 findings/i);
+
+      // Click "Load more" — 10 of 12.
+      // IntersectionObserver itself is annoying to test in jsdom (no real
+      // scroll/layout) so we exercise the click fallback path here. The
+      // observer code uses the same setVisibleCount updater, so this covers
+      // the state transition.
+      fireEvent.click(screen.getByRole("button", { name: /Load more/i }));
+      await waitFor(() =>
+        expect(
+          screen.getByTestId("advice-findings-pagination-footer"),
+        ).toHaveTextContent(/Showing 10 of 12 findings/i),
+      );
+      // After page 2 we see ids 12..3, so "Finding data 3" is visible but
+      // "Finding data 2" is not yet.
+      expect(screen.getByText("Finding data 3")).toBeInTheDocument();
+      expect(screen.queryByText("Finding data 2")).not.toBeInTheDocument();
+
+      // Click again — all 12.
+      fireEvent.click(screen.getByRole("button", { name: /Load more/i }));
+      await waitFor(() =>
+        expect(
+          screen.getByTestId("advice-findings-pagination-footer"),
+        ).toHaveTextContent(/All 12 findings shown/i),
+      );
+      expect(screen.getByText("Finding data 1")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Load more/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    test("switching namespace resets visible count (no Showing 5 of 3)", async () => {
+      // First scoped fetch: data with 12 findings.
+      api.getAdviceFindings.mockResolvedValueOnce({
+        findings: makeFindings(12, "data"),
+      });
+      // Second scoped fetch: web with 3 findings.
+      api.getAdviceFindings.mockResolvedValueOnce({
+        findings: makeFindings(3, "web"),
+      });
+
+      render(<AdvicePanel canWrite={true} />);
+
+      const nsSelect = await waitFor(() => {
+        const el = document.getElementById("advice-scope-namespace");
+        if (!el) throw new Error("namespace select not ready");
+        if (!el.querySelector('option[value="data"]')) {
+          throw new Error("namespace options not yet loaded");
+        }
+        return el;
+      });
+      fireEvent.change(nsSelect, { target: { value: "data" } });
+      await screen.findByText("Finding data 12");
+      expect(
+        screen.getByTestId("advice-findings-pagination-footer"),
+      ).toHaveTextContent(/Showing 5 of 12 findings/i);
+
+      // Switch to "web" — only 3 findings, so the footer should disappear
+      // entirely (no "Showing 5 of 3" weirdness) and all three should render.
+      fireEvent.change(nsSelect, { target: { value: "web" } });
+      await screen.findByText("Finding web 3");
+      expect(screen.getByText("Finding web 2")).toBeInTheDocument();
+      expect(screen.getByText("Finding web 1")).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("advice-findings-pagination-footer"),
+      ).not.toBeInTheDocument();
+      // The previous namespace's findings should be gone.
+      expect(screen.queryByText("Finding data 12")).not.toBeInTheDocument();
+    });
+  });
+
   test("does not render coverage banner when no detectors are gated", async () => {
     // All enabled detectors are non-Hubble; gatedCount === 0 even though
     // Hubble is unavailable.
