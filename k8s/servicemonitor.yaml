@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kure-monitor-backend
+  namespace: kure-system
+  labels:
+    app: kure-backend
+    release: kind-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: kure-backend
+  endpoints:
+  - targetPort: 8000
+    path: /metrics
+    interval: 30s

@@ -1,0 +1,145 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kure-postgresql-secret
+  namespace: kure-system
+type: Opaque
+stringData:
+  POSTGRES_DB: "kure"
+  POSTGRES_USER: "kure_user"
+  POSTGRES_PASSWORD: "kure_password_change_in_production"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kure-postgresql-config
+  namespace: kure-system
+data:
+  POSTGRES_DB: "kure"
+  POSTGRES_USER: "kure_user"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kure-monitor-postgresql
+  namespace: kure-system
+  labels:
+    app: kure-postgresql
+spec:
+  serviceName: kure-monitor-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kure-postgresql
+  template:
+    metadata:
+      labels:
+        app: kure-postgresql
+    spec:
+      serviceAccountName: kure-postgresql
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: postgresql
+        image: postgres:17-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        envFrom:
+        - configMapRef:
+            name: kure-postgresql-config
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kure-postgresql-secret
+              key: POSTGRES_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgresql-storage
+          mountPath: /var/lib/postgresql/data
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
+        - name: postgres-run
+          mountPath: /var/run/postgresql
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - exec pg_isready -U "kure_user" -d "kure" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - exec pg_isready -U "kure_user" -d "kure" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
+      - name: postgres-run
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: postgresql-storage
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kure-monitor-postgresql
+  namespace: kure-system
+  labels:
+    app: kure-postgresql
+spec:
+  selector:
+    app: kure-postgresql
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
