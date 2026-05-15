@@ -8,6 +8,12 @@ Kure is a Kubernetes health monitoring tool that helps you understand **why** yo
 
 ![Kure Monitor Demo](docs/images/demo.gif)
 
+### AI Advice
+
+Scan running, healthy workloads — and cluster flows — for architectural mismatches a passing readiness probe will never surface. Kure suggests concrete improvements, each with rule-based evidence and a plain-language explanation of *why* it matters.
+
+![AI Advice](docs/images/ai-advice.gif)
+
 ### Mirror Pod Testing
 
 Deploy a temporary copy of a failing pod. Manually edit the manifest and deploy temporary pod to check if everything is working.

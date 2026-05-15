@@ -8,6 +8,8 @@ detectors over the live cluster state. Each finding includes the
 detector's rule-based evidence and an optional LLM-generated explanation
 that walks through *why* the pattern is a smell and what to do about it.
 
+![AI Advice demo](images/ai-advice.gif)
+
 AI Advice is the **proactive** counterpart to Kure's existing pod-failure
 solutions, which are reactive and only fire on broken pods. AI Advice
 looks at pods that are *passing* their liveness/readiness checks and
