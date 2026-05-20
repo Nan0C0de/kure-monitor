@@ -5,6 +5,8 @@ description: A tour of every feature in Kure Monitor — pod monitoring, securit
 
 Kure Monitor's dashboard is organized into tabs. Each tab is documented in detail below.
 
+All four features can be individually enabled or disabled at install time via the `features.*` Helm values — see [Helm Values → Feature toggles](/kure-monitor/configuration/helm-values/#feature-toggles). Disabling a feature hides its tab and, for Pod Monitoring and Security Scanning, also skips deploying the corresponding workloads and RBAC.
+
 | Feature | What it does |
 |---------|--------------|
 | [Pod Monitoring](/kure-monitor/features/pod-monitoring/) | Real-time failure detection (CrashLoopBackOff, ImagePullBackOff, OOMKilled, Pending, FailedScheduling, FailedMount) with AI-generated solutions and live logs |

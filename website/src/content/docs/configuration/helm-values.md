@@ -5,16 +5,39 @@ description: Complete reference for every Helm value supported by the Kure Monit
 
 Reference for every Helm value in the Kure Monitor chart. For canonical defaults see [`helm/values.yaml`](https://github.com/Nan0C0de/kure-monitor/blob/main/helm/values.yaml) and [`helm/README.md`](https://github.com/Nan0C0de/kure-monitor/blob/main/helm/README.md).
 
-## Agent
+## Feature toggles
 
-The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API for pod failures.
+Each of the four dashboard features can be individually enabled or
+disabled. All four default to `true`. Disabling a feature hides its tab
+in the dashboard and, where applicable, skips deploying its dedicated
+workloads / RBAC / NetworkPolicies.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `agent.enabled` | Enable the pod monitoring agent | `true` |
+| `features.podMonitoring` | Enable Pod Monitoring. When `false`, the agent DaemonSet and its RBAC are not deployed, and the Monitoring tab is hidden. | `true` |
+| `features.securityScan` | Enable Security Scanning. When `false`, the security-scanner Deployment and its RBAC are not deployed, and the Security tab is hidden. | `true` |
+| `features.diagram` | Enable the Topology Diagram tab. UI-only toggle — backend APIs remain available; the Diagram tab is hidden when `false`. | `true` |
+| `features.aiAdvice` | Enable the AI Advice tab. UI-only toggle — backend `/api/advice/*` routes remain available; the Advice tab is hidden when `false`. | `true` |
+
+Example — only run pod monitoring, skip everything else:
+
+```yaml
+features:
+  podMonitoring: true
+  securityScan: false
+  diagram: false
+  aiAdvice: false
+```
+
+## Agent
+
+The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API for pod failures. Deployed only when `features.podMonitoring=true`.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
 | `agent.pendingGracePeriod` | Seconds before pending pods are flagged | `120` |
 | `agent.image.repository` | Agent image repository | `ghcr.io/nan0c0de/kure-monitor/agent` |
-| `agent.image.tag` | Agent image tag | `2.4.0` |
+| `agent.image.tag` | Agent image tag | `2.4.1` |
 | `agent.resources.requests.cpu` | CPU request | `100m` |
 | `agent.resources.requests.memory` | Memory request | `128Mi` |
 | `agent.resources.limits.cpu` | CPU limit | `500m` |
@@ -22,10 +45,11 @@ The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API 
 
 ## Security Scanner
 
+Deployed only when `features.securityScan=true`.
+
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `securityScanner.enabled` | Enable security scanning | `true` |
-| `securityScanner.image.tag` | Scanner image tag | `2.4.0` |
+| `securityScanner.image.tag` | Scanner image tag | `2.4.1` |
 | `securityScanner.resources.requests.cpu` | CPU request | `100m` |
 | `securityScanner.resources.requests.memory` | Memory request | `128Mi` |
 
@@ -34,7 +58,7 @@ The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `backend.replicaCount` | Number of replicas | `1` |
-| `backend.image.tag` | Backend image tag | `2.4.0` |
+| `backend.image.tag` | Backend image tag | `2.4.1` |
 | `backend.service.type` | Service type | `ClusterIP` |
 | `backend.service.port` | Service port | `8000` |
 | `backend.resources.requests.cpu` | CPU request | `200m` |
@@ -47,7 +71,7 @@ The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `frontend.replicaCount` | Number of replicas | `1` |
-| `frontend.image.tag` | Frontend image tag | `2.4.0` |
+| `frontend.image.tag` | Frontend image tag | `2.4.1` |
 | `frontend.service.type` | Service type | `ClusterIP` |
 | `frontend.service.port` | Service port | `8080` |
 | `frontend.service.nodePort` | NodePort (if `type=NodePort`) | `""` |

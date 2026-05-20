@@ -3,8 +3,8 @@ name: kure
 description: Kubernetes failure diagnosis tool with AI-powered troubleshooting
 type: application
 kubeVersion: ">=1.20.0-0"
-version: 2.4.0
-appVersion: "2.4.0"
+version: 2.4.1
+appVersion: "2.4.1"
 keywords:
   - kubernetes
   - monitoring
@@ -24,25 +24,7 @@ annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
     - kind: added
-      description: "New AI Advice tab with 23 detectors (scaling, reliability, networking, data, config, capacity, scheduling, supply-chain, startup). 20 work out of the box; 3-4 Hubble-gated detectors are stubbed pending the real gRPC client."
-    - kind: added
-      description: "Detector Settings admin modal: per-detector enable/disable, grouped by category, with search, bulk Enable all / Disable all / Reset to defaults. Hubble-gated detectors are visually marked."
-    - kind: added
-      description: "Findings export to JSON or CSV. Lazy rendering on the findings list (initial 5 cards + IntersectionObserver / Load more)."
-    - kind: changed
-      description: "LLM-cost optimization: scans persist findings with explanation=null. Cards collapse by default; expanding lazily calls POST /api/advice/findings/{id}/explain and caches the explanation (idempotent)."
-    - kind: changed
-      description: "PostgreSQL resources renamed with kure-monitor- prefix (StatefulSet, Service, Secret, ConfigMap). Existing 2.3.x installs: helm upgrade handles the rename; old PVC is orphaned (rebuild-empty migration plan)."
-    - kind: changed
-      description: "Role consolidation: admin/write/read collapsed to admin/member. Idempotent DB migration auto-maps existing read/write users to member on first boot."
-    - kind: changed
-      description: "Login rate limiting moved from in-memory dict to DB-backed login_attempts table so replicas share state."
-    - kind: changed
-      description: "Agent WebSocket auth defaults to X-Service-Token header (was ?token= query param) so secrets never land in proxy logs. Exponential backoff with jitter on WS reconnects."
-    - kind: changed
-      description: "AI Advice tab is now part of the navigation order: Monitoring -> Security -> Advice -> Diagram -> Admin."
-    - kind: changed
-      description: "Defensive cleanup across all four services (backend, agent, security-scanner, frontend): Pydantic v2, asyncio.to_thread / Lock / wait_for on K8s API calls, shared aiohttp ClientSession, async shutdown lifecycle in the scanner."
+      description: "Optional feature toggles. The four dashboard features (Pod Monitoring, Security Scan, Diagram, AI Advice) can now be enabled/disabled individually via the new helm features.* values. All four default to true so existing deployments are unaffected. Disabling a feature hides its dashboard tab and skips deploying any workloads/RBAC/NetworkPolicies dedicated to it."
   artifacthub.io/category: monitoring-logging
   artifacthub.io/displayName: Kure - Kubernetes Failure Diagnosis
   artifacthub.io/license: Apache-2.0
@@ -62,7 +44,7 @@ annotations:
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
     # Install Kure Monitor
-    helm install kure-monitor kure-monitor/kure --version 2.4.0 \
+    helm install kure-monitor kure-monitor/kure --version 2.4.1 \
       --create-namespace --namespace kure-system \
       --set postgresql.password="$(openssl rand -hex 24)"
 

@@ -12,6 +12,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > historical context for upgrades from prior versions; substitute
 > `helm upgrade` for the equivalent action.
 
+## [2.4.1] - 2026-05-20
+
+Headline feature: **optional feature toggles**. The four dashboard features
+(Pod Monitoring, Security Scan, Diagram, AI Advice) can now be enabled or
+disabled individually via Helm values. All four default to `true`, so existing
+deployments behave identically. Disabling a feature hides its dashboard tab
+and, where applicable, skips deploying any workloads, RBAC, and
+NetworkPolicies dedicated to it.
+
+No breaking changes. No RBAC updates. No schema migrations. Drop-in upgrade.
+
+### Added
+
+- **`features.*` Helm values** in `helm/values.yaml` (and matching schema
+  entry in `helm/values.schema.json`):
+
+  ```yaml
+  features:
+    podMonitoring: true   # kure-agent DaemonSet + its RBAC/NetworkPolicy + Pod Monitoring tab
+    securityScan: true    # kure-security-scanner Deployment + its RBAC/NetworkPolicy + Security Scan tab
+    diagram: true         # Diagram tab (topology view; backend keeps the API)
+    aiAdvice: true        # Advice tab (AI advisor; backend keeps the API)
+  ```
+
+- **Chart templates gated on the matching flag.**
+  - `helm/templates/agent-daemonset.yaml` wrapped in
+    `{{- if .Values.features.podMonitoring }}`.
+  - `helm/templates/security-scanner-deployment.yaml` wrapped in
+    `{{- if .Values.features.securityScan }}`.
+  - `helm/templates/rbac.yaml` gates the agent and security-scanner
+    ServiceAccounts / ClusterRoles / ClusterRoleBindings behind their
+    respective feature flags.
+  - `helm/templates/network-policies.yaml` gates the agent and
+    security-scanner NetworkPolicies behind their flags, as well as the
+    backend ingress rules that exist only to admit traffic from those
+    workloads.
+
+- **Backend `/api/config` reports the feature set.** The endpoint now
+  returns a `features` dict (`podMonitoring`, `securityScan`, `diagram`,
+  `aiAdvice`) so the dashboard can render the correct set of tabs without
+  a separate round-trip. Backed by four new `FEATURE_*` settings in
+  `backend/core/config.py` (all default `true`); the
+  `backend-deployment.yaml` template wires the matching env vars through
+  from `.Values.features.*`.
+
+- **Frontend hides disabled tabs.** `Dashboard.js` reads the `features`
+  dict from `/api/config` on load and skips rendering any tab whose flag
+  is `false`. If the currently selected tab is disabled, it falls back to
+  the first enabled tab.
+
+### Notes
+
+- **No breaking changes.** No RBAC updates, no schema migration, no Helm
+  values rename. `helm upgrade` is sufficient. Installations that don't
+  override `features.*` are bit-identical (apart from the new
+  `FEATURE_*` env vars on the backend pod) to a 2.4.0 install.
+- **Image tags** for `agent`, `security-scanner`, `backend`, and
+  `frontend` move from `2.4.0` to `2.4.1`. Helm values default to the
+  matching chart version.
+- **Helm only.** The raw `k8s/` manifests were removed in 2.4.0; this
+  release continues to ship via Helm exclusively.
+
 ## [2.4.0] - 2026-05-13
 
 Headline feature: **AI Advice** — a new dashboard tab that proactively detects
@@ -416,6 +478,9 @@ the upgrade guide.
 - **BREAKING**: removed `auth.apiKey` in favor of the bootstrap Secret model
   (fully overhauled in 2.3.0)
 
+[2.4.1]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.4.1
+[2.4.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.4.0
+[2.3.4]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.4
 [2.3.3]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.3
 [2.3.2]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.2
 [2.3.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.0

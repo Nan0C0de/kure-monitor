@@ -51,6 +51,19 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
+## What's New in v2.4.1
+
+- **Optional feature toggles** - The four dashboard features can now be enabled or disabled individually via Helm values. All four default to `true`, so existing deployments behave identically — opt in to slim things down by setting any of these to `false`:
+  ```yaml
+  features:
+    podMonitoring: true   # gates the agent DaemonSet + its RBAC/NetworkPolicy + Pod Monitoring tab
+    securityScan: true    # gates the security-scanner Deployment + its RBAC/NetworkPolicy + Security Scan tab
+    diagram: true         # gates the Diagram tab (backend keeps the API)
+    aiAdvice: true        # gates the Advice tab (backend keeps the API)
+  ```
+  Disabling a feature hides its dashboard tab and, where applicable, skips deploying the workloads, RBAC, and NetworkPolicies dedicated to it. The backend keeps its APIs for the Diagram and Advice features so re-enabling is just a Helm value flip.
+- **No breaking changes.** Drop-in upgrade; no operator action required.
+
 ## What's New in v2.4.0
 
 - **New: AI Advice tab** - A new "Advice" tab in the dashboard, scoped per namespace (and optionally per workload / pod). Selecting a namespace auto-runs a scan; narrowing to a workload requires an explicit **Run scan** click. **23 detectors** ship out of the box across scaling, reliability, networking, data, config, capacity, scheduling, supply-chain, and startup categories — 7 original + 16 added in this release. Findings can be exported to JSON or CSV.
