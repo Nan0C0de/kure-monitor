@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 import logging
 
+from core import config as app_config
 from database.database import Database
 from services.solution_engine import SolutionEngine
 from services.websocket import WebSocketManager
@@ -73,6 +74,12 @@ def create_api_router(
                 if solution_engine.llm_provider
                 else None
             ),
+            "features": {
+                "pod_monitoring": app_config.FEATURE_POD_MONITORING,
+                "security_scan": app_config.FEATURE_SECURITY_SCAN,
+                "diagram": app_config.FEATURE_DIAGRAM,
+                "ai_advice": app_config.FEATURE_AI_ADVICE,
+            },
         }
 
     authed.include_router(create_pod_router(deps))

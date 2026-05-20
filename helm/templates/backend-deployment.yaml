@@ -76,6 +76,14 @@ spec:
           value: "{{ .Values.agent.failureLogs.enabled }}"
         - name: FAILURE_LOGS_MAX_LINES
           value: "{{ .Values.agent.failureLogs.maxLines }}"
+        - name: FEATURE_POD_MONITORING
+          value: "{{ .Values.features.podMonitoring }}"
+        - name: FEATURE_SECURITY_SCAN
+          value: "{{ .Values.features.securityScan }}"
+        - name: FEATURE_DIAGRAM
+          value: "{{ .Values.features.diagram }}"
+        - name: FEATURE_AI_ADVICE
+          value: "{{ .Values.features.aiAdvice }}"
         - name: SERVICE_TOKEN
           valueFrom:
             secretKeyRef:

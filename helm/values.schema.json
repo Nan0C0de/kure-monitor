@@ -28,6 +28,16 @@
         }
       }
     },
+    "features": {
+      "type": "object",
+      "description": "Feature toggles. Disabling a feature hides its dashboard tab and skips deploying any workloads dedicated to that feature.",
+      "properties": {
+        "podMonitoring": { "type": "boolean", "default": true },
+        "securityScan":  { "type": "boolean", "default": true },
+        "diagram":       { "type": "boolean", "default": true },
+        "aiAdvice":      { "type": "boolean", "default": true }
+      }
+    },
     "agent": {
       "type": "object",
       "properties": {

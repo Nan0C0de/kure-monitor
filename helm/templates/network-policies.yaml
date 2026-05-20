@@ -24,6 +24,7 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
+  {{- if .Values.features.podMonitoring }}
   # Allow traffic from agent
   - from:
     - podSelector:
@@ -33,6 +34,8 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
+  {{- end }}
+  {{- if .Values.features.securityScan }}
   # Allow traffic from security-scanner
   - from:
     - podSelector:
@@ -42,6 +45,7 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
+  {{- end }}
   {{- if .Values.prometheus.enabled }}
   # Allow Prometheus scraping
   - from:
@@ -144,6 +148,7 @@ spec:
     - protocol: TCP
       port: 8000
 
+{{- if .Values.features.podMonitoring }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -183,7 +188,9 @@ spec:
       port: 443
     - protocol: TCP
       port: 6443
+{{- end }}
 
+{{- if .Values.features.securityScan }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -223,6 +230,7 @@ spec:
       port: 443
     - protocol: TCP
       port: 6443
+{{- end }}
 
 {{- if not .Values.postgresql.external }}
 ---

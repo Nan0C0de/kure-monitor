@@ -1,4 +1,4 @@
-{{- if .Values.agent.rbac.create }}
+{{- if and .Values.features.podMonitoring .Values.agent.rbac.create }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -55,7 +55,7 @@ subjects:
   namespace: {{ .Release.Namespace }}
 {{- end }}
 ---
-{{- if .Values.securityScanner.rbac.create }}
+{{- if and .Values.features.securityScan .Values.securityScanner.rbac.create }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

@@ -25,3 +25,11 @@ LLM_LOGS_TAIL_LINES: int = int(os.getenv("LLM_LOGS_TAIL_LINES", "200"))
 
 # Maximum YAML manifest size included in the log-aware LLM prompt (bytes).
 LLM_MANIFEST_MAX_BYTES: int = int(os.getenv("LLM_MANIFEST_MAX_BYTES", str(8 * 1024)))
+
+# Feature toggles. Surfaced to the frontend via /api/config so each tab
+# can be hidden when the operator disables that feature in Helm values.
+# Default ON so existing deployments behave identically.
+FEATURE_POD_MONITORING: bool = _env_bool("FEATURE_POD_MONITORING", "true")
+FEATURE_SECURITY_SCAN: bool = _env_bool("FEATURE_SECURITY_SCAN", "true")
+FEATURE_DIAGRAM: bool = _env_bool("FEATURE_DIAGRAM", "true")
+FEATURE_AI_ADVICE: bool = _env_bool("FEATURE_AI_ADVICE", "true")

@@ -8,6 +8,20 @@ global:
   imageRegistry: ""
   imagePullSecrets: []
 
+# Feature toggles. All features are enabled by default. Set to false to
+# disable a feature: the matching tab is hidden in the dashboard, and any
+# workloads dedicated to that feature are not deployed.
+#
+#   podMonitoring → kure-agent DaemonSet + its RBAC/NetworkPolicy + Pod Monitoring tab
+#   securityScan  → kure-security-scanner Deployment + its RBAC/NetworkPolicy + Security Scan tab
+#   diagram       → Diagram tab (topology view; backend keeps the API)
+#   aiAdvice      → Advice tab (AI advisor; backend keeps the API)
+features:
+  podMonitoring: true
+  securityScan: true
+  diagram: true
+  aiAdvice: true
+
 # Pod monitoring agent configuration
 agent:
   # Grace period (seconds) before reporting Pending pods as failed.

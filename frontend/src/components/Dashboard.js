@@ -22,6 +22,14 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [aiEnabled, setAiEnabled] = useState(false);
+  // Feature toggles from /api/config. Default everything to true so the UI
+  // renders normally on first paint before the config response arrives.
+  const [features, setFeatures] = useState({
+    pod_monitoring: true,
+    security_scan: true,
+    diagram: true,
+    ai_advice: true,
+  });
   // Separate namespace filters for each tab
   const [podNamespaceFilter, setPodNamespaceFilter] = useState('');
   const [securityNamespaceFilter, setSecurityNamespaceFilter] = useState('');
@@ -448,6 +456,8 @@ const Dashboard = () => {
         if (cancelled) return;
         setAiEnabled(config.ai_enabled || false);
         if (cancelled) return;
+        if (config.features) setFeatures(prev => ({ ...prev, ...config.features }));
+        if (cancelled) return;
         setPodHistory(history);
         if (cancelled) return;
         setIgnoredPods(ignored);
@@ -491,10 +501,27 @@ const Dashboard = () => {
     try {
       const config = await api.getConfig();
       setAiEnabled(config.ai_enabled || false);
+      if (config.features) setFeatures(prev => ({ ...prev, ...config.features }));
     } catch (err) {
       console.error('Error refreshing config:', err);
     }
   }, []);
+
+  // If the currently active tab is disabled by feature flags, fall back to
+  // the first enabled feature tab (or Admin if everything else is off).
+  useEffect(() => {
+    const enabledFor = {
+      monitoring: features.pod_monitoring,
+      security: features.security_scan,
+      advice: features.ai_advice,
+      diagram: features.diagram,
+      admin: userRole === 'admin',
+    };
+    if (enabledFor[activeTab]) return;
+    const fallback = ['monitoring', 'security', 'advice', 'diagram', 'admin']
+      .find(tab => enabledFor[tab]);
+    if (fallback) setActiveTab(fallback);
+  }, [features, activeTab, userRole]);
 
   if (loading) {
     return (
@@ -595,6 +622,7 @@ const Dashboard = () => {
           <div className={`border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
             <nav className="-mb-px flex justify-between">
               <div className="flex">
+                {features.pod_monitoring && (
                 <button
                   onClick={() => setActiveTab('monitoring')}
                   className={`${
@@ -611,6 +639,8 @@ const Dashboard = () => {
                     </span>
                   )}
                 </button>
+                )}
+                {features.security_scan && (
                 <button
                   onClick={() => setActiveTab('security')}
                   className={`${
@@ -627,6 +657,8 @@ const Dashboard = () => {
                     </span>
                   )}
                 </button>
+                )}
+                {features.ai_advice && (
                 <button
                   onClick={() => setActiveTab('advice')}
                   className={`${
@@ -638,6 +670,8 @@ const Dashboard = () => {
                   <Lightbulb className="w-5 h-5" />
                   <span>Advice</span>
                 </button>
+                )}
+                {features.diagram && (
                 <button
                   onClick={() => setActiveTab('diagram')}
                   className={`${
@@ -649,6 +683,7 @@ const Dashboard = () => {
                   <Network className="w-5 h-5" />
                   <span>Diagram</span>
                 </button>
+                )}
               </div>
               {userRole === 'admin' && (
               <button
