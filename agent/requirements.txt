@@ -1,4 +1,9 @@
-kubernetes>=33.1.0
+# Pinned <36: v36.0.0 has a regression where `incluster_config._set_config`
+# writes `api_key['authorization']` while `Configuration.auth_settings()`
+# only reads `api_key['BearerToken']`, so the bearer token is silently
+# dropped from outgoing requests and the API server returns 403 as
+# `system:anonymous`.
+kubernetes>=33.1.0,<36
 urllib3>=2.6.3
 aiohttp>=3.9.4
 asyncio==4.0.0
