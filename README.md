@@ -51,6 +51,13 @@ Kure is focused on failure diagnosis, not general observability:
 
 Kure complements your existing observability stack (Prometheus, Grafana, Datadog) — it doesn't replace it.
 
+## What's New in v2.4.2
+
+- **AI Advice now ships 38 detectors** (up from 23). Sixteen new detectors landed across resource hygiene (`missing-requests-limits`, `requests-equal-limits-burstable`, `cpu-limit-throttling-risk`, `oom-prone-memory-headroom`), scheduling/availability (`missing-pod-anti-affinity-replicas`, `missing-topology-spread-constraints`, `single-replica-behind-service`, `missing-priority-class`), networking (`service-target-port-mismatch`, `ingress-host-collision`, `networkpolicy-selects-nothing`), lifecycle (`prestop-missing-short-grace`, `job-restart-policy-mismatch`, `image-pull-always-with-mutable-tag`), and storage (`pvc-no-storage-class`, `rwo-pvc-multi-replica`).
+- **Active / Ignored tabs in AI Advice.** The "Show dismissed" checkbox is gone. Findings now live under Active and Ignored tabs with live counts, optimistic dismiss/restore, tab-aware exports, and tab-aware WebSocket upserts — matching the Pod Monitoring tab's pattern.
+- **Fix: `referenced-config-missing` detector removed.** It false-positived on every Secret reference because the backend has no Secret-read RBAC by design. Genuinely missing ConfigMap/Secret references are already reported by the pod-watcher as `CreateContainerConfigError` with better evidence and timing.
+- **No breaking changes.** No RBAC updates, no schema migration. Drop-in upgrade.
+
 ## What's New in v2.4.1
 
 - **Optional feature toggles** - The four dashboard features can now be enabled or disabled individually via Helm values. All four default to `true`, so existing deployments behave identically — opt in to slim things down by setting any of these to `false`:

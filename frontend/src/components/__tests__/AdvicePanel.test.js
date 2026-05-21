@@ -81,30 +81,104 @@ describe("AdvicePanel", () => {
     ).toBeInTheDocument();
   });
 
-  test("toggling show-dismissed re-fetches with include_dismissed", async () => {
+  test("switching to the Ignored tab re-fetches with dismissed_only", async () => {
+    const activeFinding = { ...sampleFinding, id: 1, dismissed: false };
+    const dismissedFinding = {
+      ...sampleFinding,
+      id: 2,
+      title: "Dismissed finding",
+      dismissed: true,
+    };
+    // Route the two parallel fetches based on params so we don't depend on
+    // call-order: Active tab gets the active list, the counter fetch gets the
+    // dismissed list, and vice versa when the Ignored tab is selected.
+    api.getAdviceFindings.mockImplementation(async (params = {}) => {
+      if (params.dismissed_only) return { findings: [dismissedFinding] };
+      return { findings: [activeFinding] };
+    });
+
     render(<AdvicePanel canWrite={true} />);
-    // Pick a namespace first so the panel actually fetches.
     const nsSelect = await waitFor(() => {
       const el = document.getElementById("advice-scope-namespace");
       if (!el) throw new Error("namespace select not ready");
-      // Wait until the namespace options have actually rendered — without
-      // this, `fireEvent.change` to a value not yet present in the <option>
-      // list is silently ignored by the DOM and the test wedges.
       if (!el.querySelector('option[value="data"]')) {
         throw new Error("namespace options not yet loaded");
       }
       return el;
     });
     fireEvent.change(nsSelect, { target: { value: "data" } });
+
+    // Active tab loads non-dismissed findings.
     await waitFor(() =>
       expect(api.getAdviceFindings).toHaveBeenCalledWith({ namespace: "data" }),
     );
-    fireEvent.click(screen.getByLabelText(/Show dismissed/i));
+    expect(
+      await screen.findByText("Startup IO amplification"),
+    ).toBeInTheDocument();
+    // The tab labels show both counts (active=1, ignored=1 from counter fetch).
+    expect(screen.getByTestId("advice-tab-active")).toHaveTextContent(
+      /Active \(1\)/,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("advice-tab-ignored")).toHaveTextContent(
+        /Ignored \(1\)/,
+      ),
+    );
+
+    // Click Ignored tab — must re-fetch with dismissed_only=true.
+    fireEvent.click(screen.getByTestId("advice-tab-ignored"));
     await waitFor(() =>
       expect(api.getAdviceFindings).toHaveBeenCalledWith({
-        include_dismissed: true,
+        dismissed_only: true,
         namespace: "data",
       }),
+    );
+    expect(await screen.findByText("Dismissed finding")).toBeInTheDocument();
+  });
+
+  test("Dismiss on Active tab removes finding and updates counts", async () => {
+    api.getAdviceFindings.mockImplementation(async (params = {}) => {
+      if (params.dismissed_only) return { findings: [] };
+      return { findings: [sampleFinding] };
+    });
+    render(<AdvicePanel canWrite={true} />);
+    const nsSelect = await waitFor(() => {
+      const el = document.getElementById("advice-scope-namespace");
+      if (!el) throw new Error("namespace select not ready");
+      if (!el.querySelector('option[value="data"]')) {
+        throw new Error("namespace options not yet loaded");
+      }
+      return el;
+    });
+    fireEvent.change(nsSelect, { target: { value: "data" } });
+    expect(
+      await screen.findByText("Startup IO amplification"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("advice-tab-ignored")).toHaveTextContent(
+        /Ignored \(0\)/,
+      ),
+    );
+
+    // The Dismiss button only renders inside the expanded card body — expand
+    // the card by clicking its header (the button that wraps the title).
+    const header = screen
+      .getByText("Startup IO amplification")
+      .closest("button");
+    fireEvent.click(header);
+    const dismissBtn = await screen.findByRole("button", { name: /Dismiss/i });
+    fireEvent.click(dismissBtn);
+    await waitFor(() =>
+      expect(api.dismissAdviceFinding).toHaveBeenCalledWith(1),
+    );
+    // Optimistic update: finding gone from Active, Ignored count bumped.
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Startup IO amplification"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("advice-tab-ignored")).toHaveTextContent(
+      /Ignored \(1\)/,
     );
   });
 
@@ -525,10 +599,14 @@ describe("AdvicePanel", () => {
       namespace: "web",
       title: "Finding B",
     };
-    // First scoped fetch (namespace=data) returns A.
-    api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingA] });
-    // Second scoped fetch (namespace=web) returns B, NOT A.
-    api.getAdviceFindings.mockResolvedValueOnce({ findings: [findingB] });
+    // Route by namespace so the parallel counter fetch doesn't consume our
+    // mockResolvedValueOnce slots. Dismissed-only fetches return empty.
+    api.getAdviceFindings.mockImplementation(async (params = {}) => {
+      if (params.dismissed_only) return { findings: [] };
+      if (params.namespace === "data") return { findings: [findingA] };
+      if (params.namespace === "web") return { findings: [findingB] };
+      return { findings: [] };
+    });
 
     render(<AdvicePanel canWrite={true} />);
 
@@ -646,13 +724,15 @@ describe("AdvicePanel", () => {
     });
 
     test("switching namespace resets visible count (no Showing 5 of 3)", async () => {
-      // First scoped fetch: data with 12 findings.
-      api.getAdviceFindings.mockResolvedValueOnce({
-        findings: makeFindings(12, "data"),
-      });
-      // Second scoped fetch: web with 3 findings.
-      api.getAdviceFindings.mockResolvedValueOnce({
-        findings: makeFindings(3, "web"),
+      // Route by namespace; the parallel counter fetch (dismissed_only) is
+      // empty, so we don't burn through mockResolvedValueOnce slots.
+      api.getAdviceFindings.mockImplementation(async (params = {}) => {
+        if (params.dismissed_only) return { findings: [] };
+        if (params.namespace === "data")
+          return { findings: makeFindings(12, "data") };
+        if (params.namespace === "web")
+          return { findings: makeFindings(3, "web") };
+        return { findings: [] };
       });
 
       render(<AdvicePanel canWrite={true} />);

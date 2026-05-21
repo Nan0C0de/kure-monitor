@@ -18,30 +18,35 @@ what this workload actually does?"
 
 ## What it works on without anything extra
 
-AI Advice ships with seven detectors. **Four of them work today on any
-Kubernetes cluster** -- no special CNI, no extra components, just the
-Kubernetes API kure-monitor already talks to.
+AI Advice ships with **38 detectors** as of v2.4.2. **35 of them work
+today on any Kubernetes cluster** -- no special CNI, no extra
+components, just the Kubernetes API kure-monitor already talks to.
 
 ### Layer 1 detectors (manifest-only)
 
 These read your manifests and pod spec. They are cheap, deterministic,
-and always on.
+and always on. Highlights:
 
-- **`deployment-hpa-burst-mismatch`** -- detects HPAs that are wired in a
-  way that defeats themselves. Collapsed range (`minReplicas == maxReplicas`),
-  CPU-only HPA with a 60-second stabilization window on a bursty
-  workload, or an HPA attached to a Deployment whose pod template mounts
-  a `ReadWriteOnce` PVC.
-- **`db-connections-per-replica`** -- looks for database pool-size env
-  vars (`DATABASE_POOL_SIZE`, `SQLALCHEMY_POOL_SIZE`, `HIKARI_MAXIMUM_POOL_SIZE`,
-  and friends), multiplies by the worst-case replica count from any
-  attached HPA, and flags totals that would exhaust a typical Postgres
-  or MySQL connection budget.
-- **`startup-io-amplification`** -- flags workloads where every replica
-  re-runs the same one-time startup work: migrations, model/artifact
-  downloads, `git clone` into an emptyDir. On a multi-replica workload
-  this means N copies of the same work and N times the blast radius
-  when the upstream rate-limits.
+- **Scaling / capacity** -- `deployment-hpa-burst-mismatch`,
+  `db-connections-per-replica`, `startup-io-amplification`.
+- **Resource hygiene** (new in v2.4.2) --
+  `missing-requests-limits`, `requests-equal-limits-burstable`,
+  `cpu-limit-throttling-risk`, `oom-prone-memory-headroom`.
+- **Scheduling / availability** (new in v2.4.2) --
+  `missing-pod-anti-affinity-replicas`,
+  `missing-topology-spread-constraints`,
+  `single-replica-behind-service`, `missing-priority-class`.
+- **Networking** (new in v2.4.2) --
+  `service-target-port-mismatch`, `ingress-host-collision`,
+  `networkpolicy-selects-nothing`.
+- **Lifecycle** (new in v2.4.2) --
+  `prestop-missing-short-grace`, `job-restart-policy-mismatch`,
+  `image-pull-always-with-mutable-tag`.
+- **Storage** (new in v2.4.2) --
+  `pvc-no-storage-class`, `rwo-pvc-multi-replica`.
+
+The full list of detector ids is visible in **Admin → AI Advice**, where
+each detector can be toggled on or off individually.
 
 ### Bonus Layer 2 detector that needs only pod data
 
@@ -51,7 +56,7 @@ and always on.
   evictions. Doesn't need anything beyond what the kube-apiserver
   already gives kure-monitor.
 
-That's 4 of 7 detectors covered with **zero infrastructure beyond a
+That's 35 of 38 detectors covered with **zero infrastructure beyond a
 running Kure install**.
 
 ## What unlocks with Cilium + Hubble
@@ -141,13 +146,28 @@ bool). It is read with a short TTL cache on every scan, so flipping a
 toggle takes effect on the next scan -- no backend restart needed.
 
 Disabling a detector does not dismiss its existing findings. Use the
-existing dismiss/restore controls on each finding card for that.
+dismiss/restore controls on each finding card to move it between the
+**Active** and **Ignored** tabs.
+
+## Active / Ignored tabs
+
+As of v2.4.2 the Advice panel splits findings into two tabs:
+
+- **Active** -- live findings the last scan emitted (and any kept-active
+  findings from prior scans). This is where dismiss takes effect.
+- **Ignored** -- everything that has been dismissed. Restore from here
+  to send a finding back to Active.
+
+Each tab shows a live count next to its label. Dismiss/restore is
+optimistic so the UI updates immediately; WebSocket upserts arriving
+mid-scan route to the correct tab; the **Export** menu only exports the
+currently visible tab. The previous "Show dismissed" checkbox has been
+removed in favour of this UX.
 
 ## Exporting findings
 
-From the Advice tab, the **Export** menu downloads the current findings
-list (honouring the active filters, including `Show dismissed`) as
-JSON or CSV.
+From the Advice tab, the **Export** menu downloads the currently visible
+tab's findings (so Active and Ignored export separately) as JSON or CSV.
 
 - JSON is the same wire shape served by `GET /api/advice/findings`
   -- a single object with a `findings` array of records.

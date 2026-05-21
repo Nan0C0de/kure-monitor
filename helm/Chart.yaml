@@ -3,8 +3,8 @@ name: kure
 description: Kubernetes failure diagnosis tool with AI-powered troubleshooting
 type: application
 kubeVersion: ">=1.20.0-0"
-version: 2.4.1
-appVersion: "2.4.1"
+version: 2.4.2
+appVersion: "2.4.2"
 keywords:
   - kubernetes
   - monitoring
@@ -24,7 +24,11 @@ annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
     - kind: added
-      description: "Optional feature toggles. The four dashboard features (Pod Monitoring, Security Scan, Diagram, AI Advice) can now be enabled/disabled individually via the new helm features.* values. All four default to true so existing deployments are unaffected. Disabling a feature hides its dashboard tab and skips deploying any workloads/RBAC/NetworkPolicies dedicated to it."
+      description: "Sixteen new AI Advice detectors across resource hygiene, scheduling/availability, networking, lifecycle, and storage categories. Net detector count rises from 23 to 38."
+    - kind: changed
+      description: "AI Advice panel replaces the 'Show dismissed' checkbox with Active / Ignored tabs (live counts, optimistic dismiss/restore, tab-aware export and WebSocket upserts)."
+    - kind: fixed
+      description: "Removed the 'referenced-config-missing' detector, which false-positived on every Secret reference (the backend has no Secret-read RBAC by design). Genuinely missing ConfigMap/Secret refs are already reported by the pod-watcher as CreateContainerConfigError with better evidence and timing."
   artifacthub.io/category: monitoring-logging
   artifacthub.io/displayName: Kure - Kubernetes Failure Diagnosis
   artifacthub.io/license: Apache-2.0
@@ -44,7 +48,7 @@ annotations:
     helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
 
     # Install Kure Monitor
-    helm install kure-monitor kure-monitor/kure --version 2.4.1 \
+    helm install kure-monitor kure-monitor/kure --version 2.4.2 \
       --create-namespace --namespace kure-system \
       --set postgresql.password="$(openssl rand -hex 24)"
 

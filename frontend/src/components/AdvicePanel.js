@@ -7,6 +7,8 @@ import {
   Download,
   ChevronDown,
   Info,
+  Activity,
+  EyeOff,
 } from "lucide-react";
 import { api } from "../services/api";
 import AdviceFindingCard from "./AdviceFindingCard";
@@ -27,7 +29,13 @@ const AdvicePanel = ({
   const [findings, setFindings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showDismissed, setShowDismissed] = useState(false);
+  // Active/Ignored tabs replace the old "Show dismissed" checkbox. Active is
+  // the default; Ignored shows dismissed-only findings.
+  const [tab, setTab] = useState("active"); // 'active' | 'ignored'
+  // Count of findings in the OTHER tab from the one currently rendered. We
+  // fetch this lightly so the tab labels can show counts in parentheses
+  // without re-fetching the full list on every tab switch.
+  const [otherTabCount, setOtherTabCount] = useState(0);
   const [scope, setScope] = useState({
     namespace: undefined,
     workload_kind: undefined,
@@ -43,13 +51,13 @@ const AdvicePanel = ({
   const [hasCompletedScan, setHasCompletedScan] = useState(false);
   const activeScanIdRef = useRef(null);
 
-  // Keep a ref of showDismissed so the WS event effect (which intentionally
+  // Keep a ref of the current tab so the WS event effect (which intentionally
   // only depends on wsEvent.seq) can read the current value without going
-  // stale between toggles.
-  const showDismissedRef = useRef(showDismissed);
+  // stale between tab switches.
+  const tabRef = useRef(tab);
   useEffect(() => {
-    showDismissedRef.current = showDismissed;
-  }, [showDismissed]);
+    tabRef.current = tab;
+  }, [tab]);
 
   // Export menu state.
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -79,19 +87,31 @@ const AdvicePanel = ({
   const loadFindings = useCallback(async () => {
     if (!scope.namespace) {
       setFindings([]);
+      setOtherTabCount(0);
       setError(null);
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
-      const params = {};
-      if (showDismissed) params.include_dismissed = true;
-      params.namespace = scope.namespace;
-      if (scope.workload_kind) params.resource_kind = scope.workload_kind;
-      if (scope.workload_name) params.resource_name = scope.workload_name;
-      const res = await api.getAdviceFindings(params);
-      setFindings(res?.findings || []);
+      const baseParams = { namespace: scope.namespace };
+      if (scope.workload_kind) baseParams.resource_kind = scope.workload_kind;
+      if (scope.workload_name) baseParams.resource_name = scope.workload_name;
+
+      // Primary fetch: findings for the active tab.
+      const primaryParams = { ...baseParams };
+      if (tab === "ignored") primaryParams.dismissed_only = true;
+      // Counter fetch: just to populate the other tab's count badge. Cheap
+      // enough that we run it in parallel; failures are non-fatal.
+      const counterParams = { ...baseParams };
+      if (tab === "active") counterParams.dismissed_only = true;
+
+      const [primary, counter] = await Promise.all([
+        api.getAdviceFindings(primaryParams),
+        api.getAdviceFindings(counterParams).catch(() => ({ findings: [] })),
+      ]);
+      setFindings(primary?.findings || []);
+      setOtherTabCount((counter?.findings || []).length);
       setError(null);
     } catch (err) {
       console.error("Failed to load advice findings:", err);
@@ -99,12 +119,7 @@ const AdvicePanel = ({
     } finally {
       setLoading(false);
     }
-  }, [
-    showDismissed,
-    scope.namespace,
-    scope.workload_kind,
-    scope.workload_name,
-  ]);
+  }, [tab, scope.namespace, scope.workload_kind, scope.workload_name]);
 
   useEffect(() => {
     loadFindings();
@@ -113,7 +128,7 @@ const AdvicePanel = ({
   // Reset the "scan completed" flag whenever the scope changes. Without this,
   // after scanning namespace A, switching to namespace B would show
   // "No improvements suggested — this scope looks healthy" even though B was
-  // never scanned. `showDismissed` is intentionally NOT a dep: it's view state.
+  // never scanned. `tab` is intentionally NOT a dep: it's view state.
   useEffect(() => {
     setHasCompletedScan(false);
   }, [
@@ -165,19 +180,24 @@ const AdvicePanel = ({
     if (!type || !data) return;
 
     if (type === "advice_finding") {
-      // Upsert by id.
+      // Upsert by id, scoped to the currently-visible tab.
+      // - Active tab: only show non-dismissed findings.
+      // - Ignored tab: only show dismissed findings.
+      // An incoming event that doesn't match the current tab is dropped from
+      // the visible list (and removed if it was previously there).
       setFindings((prev) => {
         const idx = prev.findIndex((f) => f.id === data.id);
+        const belongsHere =
+          tabRef.current === "ignored" ? !!data.dismissed : !data.dismissed;
         if (idx >= 0) {
+          if (!belongsHere) {
+            return prev.filter((f) => f.id !== data.id);
+          }
           const next = [...prev];
           next[idx] = { ...prev[idx], ...data };
           return next;
         }
-        // If we're not showing dismissed and the incoming one is dismissed,
-        // skip insertion. Otherwise prepend.
-        if (!showDismissedRef.current && data.dismissed) {
-          return prev;
-        }
+        if (!belongsHere) return prev;
         return [data, ...prev];
       });
     } else if (type === "advice_finding_deleted") {
@@ -304,20 +324,20 @@ const AdvicePanel = ({
   ]);
 
   const handleDismiss = async (finding) => {
-    // Optimistic: remove from the visible list (if not showing dismissed) or
-    // mark as dismissed in place (if showing dismissed).
+    // Optimistic: drop from the Active tab list and bump the Ignored count.
+    // Active is the only tab that should expose a Dismiss action, but be
+    // defensive in case the row re-renders during a tab transition.
     const prevFindings = findings;
-    setFindings((prev) =>
-      showDismissed
-        ? prev.map((f) => (f.id === finding.id ? { ...f, dismissed: true } : f))
-        : prev.filter((f) => f.id !== finding.id),
-    );
+    const prevOther = otherTabCount;
+    setFindings((prev) => prev.filter((f) => f.id !== finding.id));
+    setOtherTabCount((c) => c + 1);
     try {
       await api.dismissAdviceFinding(finding.id);
     } catch (err) {
       console.error("Failed to dismiss advice finding:", err);
       // Roll back on failure.
       setFindings(prevFindings);
+      setOtherTabCount(prevOther);
     }
   };
 
@@ -332,15 +352,17 @@ const AdvicePanel = ({
   };
 
   const handleRestore = async (finding) => {
+    // Optimistic: drop from the Ignored tab list and bump the Active count.
     const prevFindings = findings;
-    setFindings((prev) =>
-      prev.map((f) => (f.id === finding.id ? { ...f, dismissed: false } : f)),
-    );
+    const prevOther = otherTabCount;
+    setFindings((prev) => prev.filter((f) => f.id !== finding.id));
+    setOtherTabCount((c) => c + 1);
     try {
       await api.restoreAdviceFinding(finding.id);
     } catch (err) {
       console.error("Failed to restore advice finding:", err);
       setFindings(prevFindings);
+      setOtherTabCount(prevOther);
     }
   };
 
@@ -364,7 +386,9 @@ const AdvicePanel = ({
     setExporting(true);
     try {
       const params = {};
-      if (showDismissed) params.include_dismissed = true;
+      // Export the same slice the user is currently viewing: Active tab =
+      // non-dismissed only (default), Ignored tab = dismissed only.
+      if (tab === "ignored") params.dismissed_only = true;
       // The panel currently surfaces scope (namespace/workload/pod) only as
       // scan input — apply matching filters to the export so the file mirrors
       // what the user sees when a narrow scope is set.
@@ -387,15 +411,15 @@ const AdvicePanel = ({
       const sa = order[(a.severity || "").toLowerCase()] || 99;
       const sb = order[(b.severity || "").toLowerCase()] || 99;
       if (sa !== sb) return sa - sb;
-      // Prefer non-dismissed first within same severity.
-      if (!!a.dismissed !== !!b.dismissed) return a.dismissed ? 1 : -1;
+      // Within a tab, all rows share the same dismissed-state, so just sort
+      // by id descending (newest first).
       return (b.id || 0) - (a.id || 0);
     });
   }, [findings]);
 
-  // Reset pagination whenever the scope changes, the show-dismissed toggle
-  // flips, or a scan completes. Without this, switching from a namespace with
-  // 12 findings to one with 3 would leave visibleCount stuck at 5+ and the
+  // Reset pagination whenever the scope changes, the active tab flips, or a
+  // scan completes. Without this, switching from a namespace with 12 findings
+  // to one with 3 would leave visibleCount stuck at 5+ and the
   // "Showing 5 of 3" footer would render nonsense.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -404,7 +428,7 @@ const AdvicePanel = ({
     scope.workload_kind,
     scope.workload_name,
     scope.pod_name,
-    showDismissed,
+    tab,
     hasCompletedScan,
   ]);
 
@@ -480,20 +504,6 @@ const AdvicePanel = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="flex items-center text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-              checked={showDismissed}
-              onChange={(e) => setShowDismissed(e.target.checked)}
-            />
-            <span
-              className={`ml-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
-            >
-              Show dismissed
-            </span>
-          </label>
-
           {/* Export dropdown */}
           <div className="relative" ref={exportMenuRef}>
             <button
@@ -747,6 +757,58 @@ const AdvicePanel = ({
         </div>
       )}
 
+      {/* Active / Ignored tabs — only shown once a namespace is picked, so
+          the select-a-namespace empty state can claim the full panel. */}
+      {scope.namespace && (
+        <div
+          data-testid="advice-tab-bar"
+          className={`flex border-b mb-4 ${
+            isDark ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
+          <button
+            type="button"
+            data-testid="advice-tab-active"
+            onClick={() => setTab("active")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+              tab === "active"
+                ? isDark
+                  ? "border-blue-400 text-blue-400"
+                  : "border-blue-500 text-blue-600"
+                : isDark
+                  ? "border-transparent text-gray-400 hover:text-gray-200"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>
+              Active ({tab === "active" ? sortedFindings.length : otherTabCount}
+              )
+            </span>
+          </button>
+          <button
+            type="button"
+            data-testid="advice-tab-ignored"
+            onClick={() => setTab("ignored")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+              tab === "ignored"
+                ? isDark
+                  ? "border-blue-400 text-blue-400"
+                  : "border-blue-500 text-blue-600"
+                : isDark
+                  ? "border-transparent text-gray-400 hover:text-gray-200"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <EyeOff className="w-4 h-4" />
+            <span>
+              Ignored (
+              {tab === "ignored" ? sortedFindings.length : otherTabCount})
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Findings list */}
       {!scope.namespace ? (
         <div
@@ -792,15 +854,17 @@ const AdvicePanel = ({
               isDark ? "text-gray-100" : "text-gray-900"
             }`}
           >
-            {hasCompletedScan && !showDismissed
-              ? "No improvements suggested"
-              : "No advice findings"}
+            {tab === "ignored"
+              ? "No ignored findings"
+              : hasCompletedScan
+                ? "No improvements suggested"
+                : "No advice findings"}
           </h3>
           <p
             className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}
           >
-            {showDismissed
-              ? "No findings — dismissed or active."
+            {tab === "ignored"
+              ? "Dismissed findings will appear here."
               : hasCompletedScan
                 ? "This scope looks healthy — no architectural mismatches detected."
                 : "Run a scan to surface scaling, startup, and capacity advice."}

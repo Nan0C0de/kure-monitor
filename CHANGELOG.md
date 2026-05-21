@@ -12,6 +12,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > historical context for upgrades from prior versions; substitute
 > `helm upgrade` for the equivalent action.
 
+## [2.4.2] - 2026-05-21
+
+Headline change: **AI Advice now ships 38 detectors** (up from 23). Sixteen
+new detectors landed across resource hygiene, scheduling/availability,
+networking, lifecycle, and storage. One detector
+(`referenced-config-missing`) was removed because it false-positived on
+every Secret reference — by design the backend has no Secret-read RBAC,
+so it could never confirm a Secret existed. Genuinely missing
+ConfigMap/Secret references are already reported by the pod-watcher as
+`CreateContainerConfigError` with better evidence and timing.
+
+The AI Advice panel also replaces the "Show dismissed" checkbox with
+**Active / Ignored tabs**, matching the Pod Monitoring tab's UX.
+
+No breaking changes. No RBAC updates. No schema migrations. Drop-in upgrade.
+
+### Added
+
+- **Sixteen new AI Advice detectors:**
+  - **Resource hygiene** — `missing-requests-limits`,
+    `requests-equal-limits-burstable`, `cpu-limit-throttling-risk`,
+    `oom-prone-memory-headroom`
+  - **Scheduling / availability** — `missing-pod-anti-affinity-replicas`,
+    `missing-topology-spread-constraints`,
+    `single-replica-behind-service`, `missing-priority-class`
+  - **Networking** — `service-target-port-mismatch`,
+    `ingress-host-collision`, `networkpolicy-selects-nothing`
+  - **Lifecycle** — `prestop-missing-short-grace`,
+    `job-restart-policy-mismatch`, `image-pull-always-with-mutable-tag`
+  - **Storage** — `pvc-no-storage-class`, `rwo-pvc-multi-replica`
+
+  All sixteen are Layer 1 (manifest-only) detectors and work on any
+  Kubernetes cluster without extra components. They show up in the
+  Admin → AI Advice detector toggle list and can be disabled
+  individually per detector id.
+
+- **Active / Ignored tabs in the AI Advice panel** (`AdvicePanel.js`).
+  Replaces the "Show dismissed" checkbox. Each tab has a live count;
+  dismiss/restore is optimistic; WebSocket upserts route to the right
+  tab; the export button only exports the currently visible tab. The
+  backend ignore APIs (`DELETE /advice/findings/{id}`,
+  `PUT /advice/findings/{id}/restore`,
+  `?include_dismissed` / `?dismissed_only`) already existed — this
+  release exposes them in the UI.
+
+### Changed
+
+- **Net detector count: 23 → 38** (one removed, sixteen added).
+- **Image tags** for `agent`, `security-scanner`, `backend`, and
+  `frontend` move from `2.4.1` to `2.4.2`. Helm values default to the
+  matching chart version.
+
+### Fixed
+
+- **`referenced-config-missing` detector removed.** Deleted
+  `backend/services/advice/detectors/referenced_config_missing.py` and
+  its tests; the entry was removed from `ALL_DETECTORS`. The detector
+  flagged every Secret reference as "missing" because the topology
+  service can never list Secrets (the backend ServiceAccount has no
+  Secret-read RBAC, by design). The pod-watcher already surfaces
+  genuinely missing ConfigMap/Secret references as
+  `CreateContainerConfigError` with the missing object's name and the
+  exact container that needs it.
+
+### Removed
+
+- `referenced-config-missing` detector and its tests.
+
+### Notes
+
+- **No breaking changes**, no RBAC changes, no schema migration.
+  `helm upgrade` is sufficient. If you had explicitly disabled
+  `referenced-config-missing` via the detector toggle map, the stored
+  key becomes a no-op and can be cleaned up but does not need to be.
+- **Helm only.** Raw `k8s/` manifests, where they still exist in-tree,
+  use placeholder image strings (`BACKEND_IMAGE`, etc.) rather than
+  pinned tags, so no `k8s/` edits were required for the version bump.
+
 ## [2.4.1] - 2026-05-20
 
 Headline feature: **optional feature toggles**. The four dashboard features
