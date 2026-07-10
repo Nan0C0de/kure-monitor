@@ -65,16 +65,16 @@ jobs:
         run: |
           case "${{ github.event.inputs.scan_target }}" in
             "all")
-              echo 'matrix={"include":[{"name":"backend","image":"ghcr.io/nan0c0de/kure-monitor/backend","version":"${{ github.event.inputs.backend_image_tag }}","registry":"ghcr.io"},{"name":"frontend","image":"ghcr.io/nan0c0de/kure-monitor/frontend","version":"${{ github.event.inputs.frontend_image_tag }}","registry":"ghcr.io"},{"name":"agent","image":"ghcr.io/nan0c0de/kure-monitor/agent","version":"${{ github.event.inputs.agent_image_tag }}","registry":"ghcr.io"},{"name":"postgres","image":"postgres","version":"${{ github.event.inputs.postgres_image_tag }}","registry":"docker.io"}]}' >> $GITHUB_OUTPUT
+              echo 'matrix={"include":[{"name":"backend","image":"ghcr.io/igor-koricanac/kure-monitor/backend","version":"${{ github.event.inputs.backend_image_tag }}","registry":"ghcr.io"},{"name":"frontend","image":"ghcr.io/igor-koricanac/kure-monitor/frontend","version":"${{ github.event.inputs.frontend_image_tag }}","registry":"ghcr.io"},{"name":"agent","image":"ghcr.io/igor-koricanac/kure-monitor/agent","version":"${{ github.event.inputs.agent_image_tag }}","registry":"ghcr.io"},{"name":"postgres","image":"postgres","version":"${{ github.event.inputs.postgres_image_tag }}","registry":"docker.io"}]}' >> $GITHUB_OUTPUT
               ;;
             "backend")
-              echo 'matrix={"include":[{"name":"backend","image":"ghcr.io/nan0c0de/kure-monitor/backend","version":"${{ github.event.inputs.backend_image_tag }}","registry":"ghcr.io"}]}' >> $GITHUB_OUTPUT
+              echo 'matrix={"include":[{"name":"backend","image":"ghcr.io/igor-koricanac/kure-monitor/backend","version":"${{ github.event.inputs.backend_image_tag }}","registry":"ghcr.io"}]}' >> $GITHUB_OUTPUT
               ;;
             "frontend")
-              echo 'matrix={"include":[{"name":"frontend","image":"ghcr.io/nan0c0de/kure-monitor/frontend","version":"${{ github.event.inputs.frontend_image_tag }}","registry":"ghcr.io"}]}' >> $GITHUB_OUTPUT
+              echo 'matrix={"include":[{"name":"frontend","image":"ghcr.io/igor-koricanac/kure-monitor/frontend","version":"${{ github.event.inputs.frontend_image_tag }}","registry":"ghcr.io"}]}' >> $GITHUB_OUTPUT
               ;;
             "agent")
-              echo 'matrix={"include":[{"name":"agent","image":"ghcr.io/nan0c0de/kure-monitor/agent","version":"${{ github.event.inputs.agent_image_tag }}","registry":"ghcr.io"}]}' >> $GITHUB_OUTPUT
+              echo 'matrix={"include":[{"name":"agent","image":"ghcr.io/igor-koricanac/kure-monitor/agent","version":"${{ github.event.inputs.agent_image_tag }}","registry":"ghcr.io"}]}' >> $GITHUB_OUTPUT
               ;;
             "postgres")
               echo 'matrix={"include":[{"name":"postgres","image":"postgres","version":"${{ github.event.inputs.postgres_image_tag }}","registry":"docker.io"}]}' >> $GITHUB_OUTPUT

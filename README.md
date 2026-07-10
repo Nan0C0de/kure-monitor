@@ -183,7 +183,7 @@ Kure complements your existing observability stack (Prometheus, Grafana, Datadog
 
 ```bash
 # Add the Helm repository
-helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
 helm repo update
 
 # Install Kure Monitor

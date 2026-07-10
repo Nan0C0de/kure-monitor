@@ -591,7 +591,7 @@ const AdvicePanel = ({
               detector
               {detectorCoverage.gatedCount === 1 ? "" : "s"}.{" "}
               <a
-                href="https://github.com/nan0c0de/kure-monitor/blob/main/docs/AI-ADVICE-LAYER2.md"
+                href="https://github.com/igor-koricanac/kure-monitor/blob/main/docs/AI-ADVICE-LAYER2.md"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`underline ${

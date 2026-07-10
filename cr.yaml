@@ -1,11 +1,11 @@
 # Chart Releaser configuration
-owner: Nan0C0de
+owner: igor-koricanac
 git-repo: kure-monitor
 charts-dir: helm
 target-branch: gh-pages
 package-path: .cr-release-packages
 index-path: .cr-index
-commit-username: "Nan0C0de"
+commit-username: "igor-koricanac"
 commit-email: "igor.koricanac@gmail.com"
 push: true
 pr: false

@@ -57,7 +57,7 @@ jobs:
         # This keeps the Pages-hosted helm repo (index.yaml + .tgz) intact so
         # `helm repo add ...` continues to work after a website-only deploy.
         helm package helm/ --destination .cr-release-packages/
-        helm repo index .cr-release-packages --url https://nan0c0de.github.io/kure-monitor/
+        helm repo index .cr-release-packages --url https://igor-koricanac.github.io/kure-monitor/
         echo "# Generated at $(date)" >> .cr-release-packages/index.yaml
 
         cp .cr-release-packages/index.yaml      website/dist/

@@ -34,7 +34,7 @@ kubectl get pvc -n kure-system
 ### Image pull errors
 
 ```bash
-docker pull ghcr.io/nan0c0de/kure-monitor/backend:2.4.0
+docker pull ghcr.io/igor-koricanac/kure-monitor/backend:2.4.0
 
 # Private registry
 kubectl create secret docker-registry regcred \
@@ -322,4 +322,4 @@ kubectl describe pods -n kure-system >> kure-diagnostics.yaml
 
 ## Still stuck?
 
-[Open an issue on GitHub](https://github.com/Nan0C0de/kure-monitor/issues) with the diagnostics bundle.
+[Open an issue on GitHub](https://github.com/igor-koricanac/kure-monitor/issues) with the diagnostics bundle.

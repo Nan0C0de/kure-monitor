@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-	site: 'https://nan0c0de.github.io',
+	site: 'https://igor-koricanac.github.io',
 	base: '/kure-monitor',
 	integrations: [
 		starlight({
@@ -14,12 +14,12 @@ export default defineConfig({
 				{
 					icon: 'github',
 					label: 'GitHub',
-					href: 'https://github.com/Nan0C0de/kure-monitor',
+					href: 'https://github.com/igor-koricanac/kure-monitor',
 				},
 			],
 			editLink: {
 				baseUrl:
-					'https://github.com/Nan0C0de/kure-monitor/edit/main/website/',
+					'https://github.com/igor-koricanac/kure-monitor/edit/main/website/',
 			},
 			lastUpdated: true,
 			customCss: ['./src/styles/custom.css'],

@@ -52,7 +52,7 @@
           "properties": {
             "repository": {
               "type": "string",
-              "default": "ghcr.io/nan0c0de/kure-monitor/agent"
+              "default": "ghcr.io/igor-koricanac/kure-monitor/agent"
             },
             "tag": {
               "type": "string",
@@ -135,7 +135,7 @@
           "properties": {
             "repository": {
               "type": "string",
-              "default": "ghcr.io/nan0c0de/kure-monitor/security-scanner"
+              "default": "ghcr.io/igor-koricanac/kure-monitor/security-scanner"
             },
             "tag": {
               "type": "string",
@@ -206,7 +206,7 @@
           "properties": {
             "repository": {
               "type": "string",
-              "default": "ghcr.io/nan0c0de/kure-monitor/backend"
+              "default": "ghcr.io/igor-koricanac/kure-monitor/backend"
             },
             "tag": {
               "type": "string",
@@ -273,7 +273,7 @@
           "properties": {
             "repository": {
               "type": "string",
-              "default": "ghcr.io/nan0c0de/kure-monitor/frontend"
+              "default": "ghcr.io/igor-koricanac/kure-monitor/frontend"
             },
             "tag": {
               "type": "string",

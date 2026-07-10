@@ -11,7 +11,7 @@ hero:
       icon: right-arrow
       variant: primary
     - text: View on GitHub
-      link: https://github.com/Nan0C0de/kure-monitor
+      link: https://github.com/igor-koricanac/kure-monitor
       icon: external
       variant: minimal
 ---
@@ -48,7 +48,7 @@ It also continuously audits your cluster for security misconfigurations and rend
 ## Install in two commands
 
 ```bash
-helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system --create-namespace \
   --set postgresql.password="$(openssl rand -hex 24)"
@@ -97,7 +97,7 @@ Apache 2.0 licensed. Ships as a Helm chart. Stores nothing outside your cluster 
 	/>
 	<LinkCard
 		title="Source on GitHub"
-		href="https://github.com/Nan0C0de/kure-monitor"
+		href="https://github.com/igor-koricanac/kure-monitor"
 		description="Star the repo, file an issue, or contribute."
 	/>
 	<LinkCard

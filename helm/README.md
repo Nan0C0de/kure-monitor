@@ -6,7 +6,7 @@ Kubernetes failure diagnosis tool with AI-powered troubleshooting and security s
 
 ```bash
 # Add the Helm repository
-helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
 helm repo update
 
 # Install Kure Monitor
@@ -248,6 +248,6 @@ helm uninstall kure-monitor -n kure-system
 
 ## License
 
-Licensed under the [Apache License 2.0](https://github.com/Nan0C0de/kure-monitor/blob/main/LICENSE).
+Licensed under the [Apache License 2.0](https://github.com/igor-koricanac/kure-monitor/blob/main/LICENSE).
 
 "Kure Monitor" is a trademark of Igor Koricanac.

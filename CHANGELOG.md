@@ -556,10 +556,10 @@ the upgrade guide.
 - **BREAKING**: removed `auth.apiKey` in favor of the bootstrap Secret model
   (fully overhauled in 2.3.0)
 
-[2.4.1]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.4.1
-[2.4.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.4.0
-[2.3.4]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.4
-[2.3.3]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.3
-[2.3.2]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.2
-[2.3.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.3.0
-[2.2.0]: https://github.com/Nan0C0de/kure-monitor/releases/tag/v2.2.0
+[2.4.1]: https://github.com/igor-koricanac/kure-monitor/releases/tag/v2.4.1
+[2.4.0]: https://github.com/igor-koricanac/kure-monitor/releases/tag/v2.4.0
+[2.3.4]: https://github.com/igor-koricanac/kure-monitor/releases/tag/v2.3.4
+[2.3.3]: https://github.com/igor-koricanac/kure-monitor/releases/tag/v2.3.3
+[2.3.2]: https://github.com/igor-koricanac/kure-monitor/releases/tag/v2.3.2
+[2.3.0]: https://github.com/igor-koricanac/kure-monitor/releases/tag/v2.3.0
+[2.2.0]: https://github.com/igor-koricanac/kure-monitor/releases/tag/v2.2.0

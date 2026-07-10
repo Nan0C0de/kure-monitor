@@ -198,5 +198,5 @@ initial admin account.
 
 ## Getting help
 
-- GitHub Issues: <https://github.com/Nan0C0de/kure-monitor/issues>
+- GitHub Issues: <https://github.com/igor-koricanac/kure-monitor/issues>
 - Full changelog: [CHANGELOG.md](../CHANGELOG.md)

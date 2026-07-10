@@ -11,7 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: nan0c0de/kure-monitor/frontend
+  IMAGE_NAME: igor-koricanac/kure-monitor/frontend
 
 permissions: {}
 

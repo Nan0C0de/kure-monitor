@@ -8,7 +8,7 @@ Five minutes from zero to a working dashboard.
 ## 1. Install the chart
 
 ```bash
-helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
 helm repo update
 
 helm install kure-monitor kure-monitor/kure \

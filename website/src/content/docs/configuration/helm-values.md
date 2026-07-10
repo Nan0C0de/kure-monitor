@@ -3,7 +3,7 @@ title: Helm Values
 description: Complete reference for every Helm value supported by the Kure Monitor chart.
 ---
 
-Reference for every Helm value in the Kure Monitor chart. For canonical defaults see [`helm/values.yaml`](https://github.com/Nan0C0de/kure-monitor/blob/main/helm/values.yaml) and [`helm/README.md`](https://github.com/Nan0C0de/kure-monitor/blob/main/helm/README.md).
+Reference for every Helm value in the Kure Monitor chart. For canonical defaults see [`helm/values.yaml`](https://github.com/igor-koricanac/kure-monitor/blob/main/helm/values.yaml) and [`helm/README.md`](https://github.com/igor-koricanac/kure-monitor/blob/main/helm/README.md).
 
 ## Feature toggles
 
@@ -36,7 +36,7 @@ The agent runs as a DaemonSet (one pod per node) and watches the Kubernetes API 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `agent.pendingGracePeriod` | Seconds before pending pods are flagged | `120` |
-| `agent.image.repository` | Agent image repository | `ghcr.io/nan0c0de/kure-monitor/agent` |
+| `agent.image.repository` | Agent image repository | `ghcr.io/igor-koricanac/kure-monitor/agent` |
 | `agent.image.tag` | Agent image tag | `2.4.2` |
 | `agent.resources.requests.cpu` | CPU request | `100m` |
 | `agent.resources.requests.memory` | Memory request | `128Mi` |

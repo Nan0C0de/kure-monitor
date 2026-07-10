@@ -17,7 +17,7 @@ This guide covers how to install Kure Monitor on your Kubernetes cluster. Kure s
 ### Add the repository
 
 ```bash
-helm repo add kure-monitor https://nan0c0de.github.io/kure-monitor/
+helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
 helm repo update
 ```
 
@@ -43,7 +43,7 @@ helm install kure-monitor kure-monitor/kure \
 ### Install from a local checkout
 
 ```bash
-git clone https://github.com/Nan0C0de/kure-monitor.git
+git clone https://github.com/igor-koricanac/kure-monitor.git
 cd kure-monitor
 helm install kure-monitor ./helm \
   --namespace kure-system \
