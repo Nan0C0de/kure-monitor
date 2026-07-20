@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > historical context for upgrades from prior versions; substitute
 > `helm upgrade` for the equivalent action.
 
+## [2.4.3] - 2026-07-20
+
+Headline changes:
+- **UI Branding**: Replaced the default frontend icons with the official Kure Monitor logo in the dashboard and login screens. The documentation website was also updated to include the logo and aligned to a matching purple color theme.
+- **LLM Upgrades**: Updated the default Anthropic provider options in the AI settings to their latest 2026 release models (`claude-fable-5`, `claude-sonnet-5`, and `claude-opus-4-8`).
+
 ## [2.4.2] - 2026-05-21
 
 Headline change: **AI Advice now ships 38 detectors** (up from 23). Sixteen

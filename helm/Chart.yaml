@@ -3,8 +3,8 @@ name: kure
 description: Kubernetes failure diagnosis tool with AI-powered troubleshooting
 type: application
 kubeVersion: ">=1.20.0-0"
-version: 2.4.2
-appVersion: "2.4.2"
+version: 2.4.3
+appVersion: "2.4.3"
 icon: "https://raw.githubusercontent.com/igor-koricanac/kure-monitor/main/docs/images/kure_monitor_logo.png"
 keywords:
   - kubernetes
@@ -49,7 +49,7 @@ annotations:
     helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
 
     # Install Kure Monitor
-    helm install kure-monitor kure-monitor/kure --version 2.4.2 \
+    helm install kure-monitor kure-monitor/kure --version 2.4.3 \
       --create-namespace --namespace kure-system \
       --set postgresql.password="$(openssl rand -hex 24)"
 

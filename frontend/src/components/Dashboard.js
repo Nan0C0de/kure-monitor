@@ -11,7 +11,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { exportAsCSV, exportAsJSON, exportAsPDF } from '../utils/exportFindings';
-
+import logo from '../kure_monitor_logo.png';
 const Dashboard = () => {
   const { user, userRole, logout } = useAuth();
   const navigate = useNavigate();
@@ -540,7 +540,7 @@ const Dashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <Server className={`w-8 h-8 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+              <img src={logo} alt="Kure Monitor Logo" className="w-8 h-8" />
               <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Kure Dashboard</h1>
             </div>
 

@@ -4,16 +4,16 @@
 }
 
 :root[data-theme='dark'] {
-	--sl-color-accent-low: #0f1f3a;
-	--sl-color-accent: #3b82f6;
-	--sl-color-accent-high: #93c5fd;
+	--sl-color-accent-low: #3b0764;
+	--sl-color-accent: #a855f7;
+	--sl-color-accent-high: #e9d5ff;
 	--sl-color-bg-nav: #0a0e1a;
 }
 
 :root[data-theme='light'] {
-	--sl-color-accent-low: #dbeafe;
-	--sl-color-accent: #2563eb;
-	--sl-color-accent-high: #1e40af;
+	--sl-color-accent-low: #f3e8ff;
+	--sl-color-accent: #9333ea;
+	--sl-color-accent-high: #581c87;
 }
 
 /* Landing page hero polish */

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Server, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import logo from '../kure_monitor_logo.png';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -62,7 +63,7 @@ const Login = () => {
     <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <div className={`w-full max-w-md p-8 rounded-lg shadow-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="flex flex-col items-center mb-8">
-          <Server className={`w-12 h-12 mb-3 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+          <img src={logo} alt="Kure Monitor Logo" className="w-12 h-12 mb-3" />
           <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
             Kure Monitor
           </h1>

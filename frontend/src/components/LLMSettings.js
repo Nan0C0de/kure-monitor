@@ -25,12 +25,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to Groq',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      defaultModel: 'meta-llama/llama-4-scout',
       models: [
-        { value: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B (Best)' },
-        { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Recommended)' },
-        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
-        { value: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B (Fast)' }
+        { value: 'meta-llama/llama-4-maverick', label: 'Llama 4 Maverick (Best)' },
+        { value: 'meta-llama/llama-4-scout', label: 'Llama 4 Scout (Recommended)' },
+        { value: 'meta-llama/llama-3.3-70b-versatile', label: 'Llama 3.3 70B' }
       ]
     },
     {
@@ -44,8 +43,8 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       defaultModel: 'llama4:scout',
       baseUrlHelper: 'The URL where your Ollama instance is running',
       models: [
+        { value: 'llama4:maverick', label: 'Llama 4 Maverick' },
         { value: 'llama4:scout', label: 'Llama 4 Scout (Recommended)' },
-        { value: 'llama3.3', label: 'Llama 3.3' },
         { value: 'qwen3', label: 'Qwen 3' }
       ]
     },
@@ -56,11 +55,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to OpenAI',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'gpt-5.5-mini',
+      defaultModel: 'gpt-5.6-terra',
       models: [
-        { value: 'gpt-5.5', label: 'GPT-5.5 (Latest)' },
-        { value: 'gpt-5.5-mini', label: 'GPT-5.5 Mini (Recommended)' },
-        { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' }
+        { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol (Best)' },
+        { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra (Recommended)' },
+        { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (Fast)' }
       ]
     },
     {
@@ -70,11 +69,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to Anthropic',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'claude-sonnet-4-6',
+      defaultModel: 'claude-sonnet-5',
       models: [
-        { value: 'claude-opus-4-7', label: 'Claude Opus 4.7 (Best)' },
-        { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Recommended)' },
-        { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Fast)' }
+        { value: 'claude-fable-5', label: 'Claude Fable 5 (Best)' },
+        { value: 'claude-sonnet-5', label: 'Claude Sonnet 5 (Recommended)' },
+        { value: 'claude-opus-4-8', label: 'Claude Opus 4.8 (Enterprise)' }
       ]
     },
     {
@@ -84,10 +83,10 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to Google',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'gemini-3-flash',
+      defaultModel: 'gemini-3.5-flash',
       models: [
         { value: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro (Latest)' },
-        { value: 'gemini-3-flash', label: 'Gemini 3 Flash (Recommended)' },
+        { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Recommended)' },
         { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (Fast)' }
       ]
     },
@@ -99,13 +98,13 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       needsApiKey: true,
       needsBaseUrl: true,
       defaultBaseUrl: 'https://models.github.ai/inference',
-      defaultModel: 'openai/gpt-5.5-mini',
+      defaultModel: 'openai/gpt-5.6-terra',
       apiKeyHelper: 'Use a GitHub PAT with Models permission',
       baseUrlHelper: 'GitHub Models inference endpoint',
       models: [
-        { value: 'openai/gpt-5.5', label: 'GPT-5.5 (Latest)' },
-        { value: 'openai/gpt-5.5-mini', label: 'GPT-5.5 Mini (Recommended)' },
-        { value: 'anthropic/claude-sonnet-4-6', label: 'Claude Sonnet 4.6' }
+        { value: 'openai/gpt-5.6-sol', label: 'GPT-5.6 Sol (Latest)' },
+        { value: 'openai/gpt-5.6-terra', label: 'GPT-5.6 Terra (Recommended)' },
+        { value: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' }
       ]
     }
   ];

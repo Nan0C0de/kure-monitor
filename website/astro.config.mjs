@@ -22,6 +22,9 @@ export default defineConfig({
 					'https://github.com/igor-koricanac/kure-monitor/edit/main/website/',
 			},
 			lastUpdated: true,
+			logo: {
+				src: './src/assets/kure_monitor_logo.png',
+			},
 			customCss: ['./src/styles/custom.css'],
 			components: {
 				Footer: './src/components/Footer.astro',
