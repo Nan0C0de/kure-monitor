@@ -221,6 +221,7 @@ CLAUDE.local.md
 k8s/registry-secret.yaml
 k8s/secrets.yaml
 **/secrets*.yaml
+**/*-secret.yaml
 !k8s/secrets.yaml.example
 
 # Security scans
