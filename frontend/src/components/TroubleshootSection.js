@@ -3,7 +3,7 @@ import { Wand2, RefreshCw } from 'lucide-react';
 import SolutionMarkdown from './SolutionMarkdown';
 import { api } from '../services/api';
 
-const ELIGIBLE_REASONS = ['CrashLoopBackOff', 'OOMKilled'];
+const ELIGIBLE_REASONS = ['CrashLoopBackOff', 'OOMKilled', 'Error'];
 
 const formatRelativeTime = (timestamp) => {
   if (!timestamp) return '';

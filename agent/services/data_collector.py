@@ -165,12 +165,14 @@ class DataCollector:
 
             reason = None
             exit_code = None
+            fetch_previous = False
 
             # CrashLoopBackOff check (waiting state)
             waiting = getattr(state, "waiting", None) if state else None
             if waiting and getattr(waiting, "reason", None) == "CrashLoopBackOff":
                 reason = "CrashLoopBackOff"
-                # Try to find exit code from last_state.terminated if available
+                fetch_previous = (restart_count > 0)
+                # For CrashLoopBackOff, we want the *previous* termination exit code
                 lt = getattr(last_state, "terminated", None) if last_state else None
                 if lt is not None:
                     exit_code = getattr(lt, "exit_code", None)
@@ -181,6 +183,7 @@ class DataCollector:
                 if terminated and getattr(terminated, "reason", None) in ("OOMKilled", "Error"):
                     reason = getattr(terminated, "reason", None)
                     exit_code = getattr(terminated, "exit_code", None)
+                    fetch_previous = False
 
             # OOMKilled/Error check (last_state terminated)
             if reason is None:
@@ -193,6 +196,7 @@ class DataCollector:
                 ):
                     reason = getattr(last_terminated, "reason", None)
                     exit_code = getattr(last_terminated, "exit_code", None)
+                    fetch_previous = (restart_count > 0)
 
             if reason is None:
                 continue
@@ -203,7 +207,7 @@ class DataCollector:
                     "reason": reason,
                     "exit_code": exit_code,
                     "restart_count": restart_count,
-                    "has_previous": restart_count > 0,
+                    "fetch_previous": fetch_previous,
                 }
             )
 
@@ -228,7 +232,7 @@ class DataCollector:
 
             for cc in crash_containers:
                 cname = cc.get("name")
-                has_previous = cc.get("has_previous", False)
+                fetch_previous = cc.get("fetch_previous", False)
 
                 entry: Dict[str, Any] = {
                     "previous": None,
@@ -236,7 +240,7 @@ class DataCollector:
                     "error": None,
                 }
 
-                if has_previous:
+                if fetch_previous:
                     text, err = await self._fetch_container_log(
                         v1_client,
                         namespace,

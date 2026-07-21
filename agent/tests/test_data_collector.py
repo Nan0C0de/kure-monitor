@@ -264,7 +264,7 @@ class TestIdentifyCrashContainers:
         assert entry["name"] == "app"
         assert entry["reason"] == "CrashLoopBackOff"
         assert entry["restart_count"] == 3
-        assert entry["has_previous"] is True
+        assert entry["fetch_previous"] is True
         assert entry["exit_code"] == 1
 
     def test_identify_crash_containers_oomkilled_last_state(self):
@@ -287,7 +287,7 @@ class TestIdentifyCrashContainers:
         # CrashLoopBackOff takes precedence in ordering since waiting is checked first,
         # but the container is eligible either way. Accept either classification.
         assert entry["reason"] in ("CrashLoopBackOff", "OOMKilled")
-        assert entry["has_previous"] is True
+        assert entry["fetch_previous"] is True
 
     def test_identify_crash_containers_oomkilled_terminated_only(self):
         pod = _make_pod_with_statuses(
@@ -306,7 +306,7 @@ class TestIdentifyCrashContainers:
         entry = result[0]
         assert entry["reason"] == "OOMKilled"
         assert entry["exit_code"] == 137
-        assert entry["has_previous"] is False
+        assert entry["fetch_previous"] is False
 
     def test_identify_crash_containers_imagepullbackoff_excluded(self):
         pod = _make_pod_with_statuses(
@@ -335,7 +335,7 @@ class TestIdentifyCrashContainers:
 
         result = self.dc._identify_crash_containers(pod)
         assert len(result) == 1
-        assert result[0]["has_previous"] is False
+        assert result[0]["fetch_previous"] is False
         assert result[0]["restart_count"] == 0
 
     def test_identify_crash_containers_init_container_included(self):
@@ -353,7 +353,7 @@ class TestIdentifyCrashContainers:
         result = self.dc._identify_crash_containers(pod)
         assert len(result) == 1
         assert result[0]["name"] == "init-1"
-        assert result[0]["has_previous"] is True
+        assert result[0]["fetch_previous"] is True
 
 
 class TestGetFailureLogs:
@@ -372,7 +372,7 @@ class TestGetFailureLogs:
                 "reason": "CrashLoopBackOff",
                 "exit_code": 1,
                 "restart_count": 2,
-                "has_previous": True,
+                "fetch_previous": True,
             }
         ]
 
@@ -419,7 +419,7 @@ class TestGetFailureLogs:
                 "reason": "CrashLoopBackOff",
                 "exit_code": 1,
                 "restart_count": 1,
-                "has_previous": True,
+                "fetch_previous": True,
             }
         ]
 
@@ -448,7 +448,7 @@ class TestGetFailureLogs:
                 "reason": "CrashLoopBackOff",
                 "exit_code": None,
                 "restart_count": 1,
-                "has_previous": True,
+                "fetch_previous": True,
             }
         ]
 
@@ -472,7 +472,7 @@ class TestGetFailureLogs:
                 "reason": "CrashLoopBackOff",
                 "exit_code": None,
                 "restart_count": 1,
-                "has_previous": True,
+                "fetch_previous": True,
             }
         ]
 
@@ -492,7 +492,7 @@ class TestGetFailureLogs:
                 "reason": "CrashLoopBackOff",
                 "exit_code": None,
                 "restart_count": 1,
-                "has_previous": True,
+                "fetch_previous": True,
             }
         ]
 
@@ -512,7 +512,7 @@ class TestGetFailureLogs:
                 "reason": "CrashLoopBackOff",
                 "exit_code": None,
                 "restart_count": 1,
-                "has_previous": True,
+                "fetch_previous": True,
             }
         ]
 
@@ -525,7 +525,7 @@ class TestGetFailureLogs:
 
     @pytest.mark.asyncio
     async def test_get_failure_logs_no_previous_flag(self):
-        """has_previous=False should not trigger the API call."""
+        """fetch_previous=False should not trigger the API call."""
         v1 = Mock()
         crash_containers = [
             {
@@ -533,7 +533,7 @@ class TestGetFailureLogs:
                 "reason": "CrashLoopBackOff",
                 "exit_code": None,
                 "restart_count": 0,
-                "has_previous": False,
+                "fetch_previous": False,
             }
         ]
 

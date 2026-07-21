@@ -37,7 +37,49 @@ const CodeBlock = ({ code, language }) => {
   );
 };
 
+const fixMarkdown = (text) => {
+  if (!text) return '';
+  const lines = text.split('\n');
+  let inCodeBlock = false;
+  let fixedLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('```')) {
+      const isOpening = trimmed.length > 3; // e.g. ```bash
+      const isClosing = trimmed === '```';
+      
+      if (inCodeBlock) {
+        if (isOpening) {
+          // LLM forgot to close previous block
+          fixedLines.push('```');
+          fixedLines.push(line);
+        } else if (isClosing) {
+          inCodeBlock = false;
+          fixedLines.push(line);
+        } else {
+          fixedLines.push(line);
+        }
+      } else {
+        inCodeBlock = true;
+        fixedLines.push(line);
+      }
+    } else {
+      fixedLines.push(line);
+    }
+  }
+
+  if (inCodeBlock) {
+    fixedLines.push('```');
+  }
+
+  return fixedLines.join('\n');
+};
+
 const SolutionMarkdown = ({ content, isDark = false }) => {
+  const fixedContent = fixMarkdown(content);
   return (
     <ReactMarkdown
       components={{
@@ -79,7 +121,7 @@ const SolutionMarkdown = ({ content, isDark = false }) => {
         a: ({ href, children }) => <a href={href} className={`hover:underline ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{children}</a>,
       }}
     >
-      {content}
+      {fixedContent}
     </ReactMarkdown>
   );
 };

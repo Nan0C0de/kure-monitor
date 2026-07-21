@@ -401,7 +401,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
   );
 
   function renderSolutionSections() {
-    const ELIGIBLE_LOG_AWARE_REASONS = ['CrashLoopBackOff', 'OOMKilled'];
+    const ELIGIBLE_LOG_AWARE_REASONS = ['CrashLoopBackOff', 'OOMKilled', 'Error'];
     // If the Log-Aware Troubleshoot section will render, always show it above
     // the AI-Generated Solution. These conditions must match TroubleshootSection.
     const troubleshootWillRender = (
