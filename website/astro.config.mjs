@@ -8,6 +8,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Kure Monitor',
+			defaultTheme: 'light',
 			description:
 				'Real-time Kubernetes failure detection and security scanning with AI-powered troubleshooting.',
 			social: [
@@ -23,7 +24,7 @@ export default defineConfig({
 			},
 			lastUpdated: true,
 			logo: {
-				src: './src/assets/kure_monitor_logo.png',
+				src: './src/assets/kure_monitor_logo.svg',
 			},
 			customCss: ['./src/styles/custom.css'],
 			components: {

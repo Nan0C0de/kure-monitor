@@ -33,3 +33,16 @@
 :root[data-theme='light'] .expressive-code {
 	--ec-frm-edBg: #f8fafc;
 }
+
+/* Fix logo size and proportions */
+.site-title img {
+	height: 3.5rem !important;
+	width: auto !important;
+	object-fit: contain !important;
+}
+
+:root[data-theme='dark'] .site-title img {
+	background-color: white;
+	padding: 4px;
+	border-radius: 6px;
+}
