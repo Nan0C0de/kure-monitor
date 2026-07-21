@@ -144,8 +144,8 @@ class DataCollector:
 
         Eligibility rules (checked for both regular and init containers):
           - CrashLoopBackOff: state.waiting.reason == "CrashLoopBackOff"
-          - OOMKilled: state.terminated.reason == "OOMKilled" OR
-                       last_state.terminated.reason == "OOMKilled"
+          - OOMKilled/Error: state.terminated.reason == "OOMKilled" or "Error" OR
+                       last_state.terminated.reason == "OOMKilled" or "Error"
 
         All other failure reasons (ImagePullBackOff, Pending, etc.) are skipped.
         """
@@ -175,23 +175,23 @@ class DataCollector:
                 if lt is not None:
                     exit_code = getattr(lt, "exit_code", None)
 
-            # OOMKilled check (current terminated)
+            # OOMKilled/Error check (current terminated)
             if reason is None:
                 terminated = getattr(state, "terminated", None) if state else None
-                if terminated and getattr(terminated, "reason", None) == "OOMKilled":
-                    reason = "OOMKilled"
+                if terminated and getattr(terminated, "reason", None) in ("OOMKilled", "Error"):
+                    reason = getattr(terminated, "reason", None)
                     exit_code = getattr(terminated, "exit_code", None)
 
-            # OOMKilled check (last_state terminated)
+            # OOMKilled/Error check (last_state terminated)
             if reason is None:
                 last_terminated = (
                     getattr(last_state, "terminated", None) if last_state else None
                 )
                 if (
                     last_terminated
-                    and getattr(last_terminated, "reason", None) == "OOMKilled"
+                    and getattr(last_terminated, "reason", None) in ("OOMKilled", "Error")
                 ):
-                    reason = "OOMKilled"
+                    reason = getattr(last_terminated, "reason", None)
                     exit_code = getattr(last_terminated, "exit_code", None)
 
             if reason is None:
@@ -381,6 +381,7 @@ class DataCollector:
                             "ErrImagePull",
                             "ImagePullBackOff",
                             "CreateContainerError",
+                            "CreateContainerConfigError",
                             "RunContainerError",
                             "ErrImageNeverPull",
                         ]:
@@ -393,6 +394,8 @@ class DataCollector:
         for container_status in pod.status.container_statuses:
             if container_status.state.waiting:
                 return container_status.state.waiting.reason or "Unknown"
+            if container_status.state.terminated:
+                return container_status.state.terminated.reason or "Error"
 
         return "Unknown"
 
@@ -406,6 +409,11 @@ class DataCollector:
                     and container_status.state.waiting.message
                 ):
                     return container_status.state.waiting.message
+                if (
+                    container_status.state.terminated
+                    and container_status.state.terminated.message
+                ):
+                    return container_status.state.terminated.message
 
         # If no container message, check pod events for failure details
         if events:

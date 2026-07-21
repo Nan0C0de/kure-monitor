@@ -172,7 +172,7 @@ async def test_log_aware_solution_prompt_contains_logs_and_manifest():
     prompt = captured_prompts["user"]
     assert "Previous Container Logs" in prompt
     assert "ERROR: cannot connect to db" in prompt
-    assert "Pod Manifest" in prompt
+    assert "Pod Manifest" not in prompt
     assert "worker" in prompt
     # System prompt emphasises logs as primary signal
     assert "primary" in captured_prompts["system"].lower()

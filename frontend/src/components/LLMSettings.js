@@ -25,11 +25,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       trustLabel: 'External - data sent to Groq',
       needsApiKey: true,
       needsBaseUrl: false,
-      defaultModel: 'meta-llama/llama-4-scout',
+      defaultModel: 'llama-3.3-70b-versatile',
       models: [
-        { value: 'meta-llama/llama-4-maverick', label: 'Llama 4 Maverick (Best)' },
-        { value: 'meta-llama/llama-4-scout', label: 'Llama 4 Scout (Recommended)' },
-        { value: 'meta-llama/llama-3.3-70b-versatile', label: 'Llama 3.3 70B' }
+        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Best)' },
+        { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fast)' },
+        { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' }
       ]
     },
     {
@@ -115,7 +115,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     loadStatus();
     // Set default model for initial provider (groq)
     if (!model) {
-      setModel('meta-llama/llama-4-scout-17b-16e-instruct');
+      setModel('llama-3.3-70b-versatile');
     }
   }, []);
 

@@ -30,7 +30,7 @@ class RetentionMinutesRequest(BaseModel):
     minutes: int = Field(..., ge=0, le=43200)
 
 
-LOG_CAPTURE_REASONS = {"CrashLoopBackOff", "OOMKilled"}
+LOG_CAPTURE_REASONS = {"CrashLoopBackOff", "OOMKilled", "Error"}
 
 logger = logging.getLogger(__name__)
 

@@ -33,6 +33,7 @@ class PodMonitor:
             "InvalidImageName",
             "ErrImageNeverPull",
             "CreateContainerError",
+            "CreateContainerConfigError",
         ]
     )
 

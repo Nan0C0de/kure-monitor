@@ -283,8 +283,7 @@ class SolutionEngine:
             "You are a Kubernetes expert. Use the previous container logs as the "
             "primary diagnostic signal. Identify the root cause of the failure from "
             "the logs and propose a specific, actionable fix. Reference concrete "
-            "lines from the logs in your explanation. If the manifest is relevant "
-            "to the fix, cite the field(s) that need to change."
+            "lines from the logs in your explanation."
         )
 
         user_prompt = self._build_log_aware_prompt(
@@ -342,13 +341,8 @@ class SolutionEngine:
                 lines.append(f"- Image: {image}")
 
         if events:
-            lines.append("")
-            lines.append("## Recent Events")
-            for event in events[-5:]:
-                lines.append(
-                    f"- {event.get('type', 'Unknown')} {event.get('reason', '')}: "
-                    f"{event.get('message', '')}"
-                )
+            # We omit events from the log-aware prompt so the model focuses strictly on logs.
+            pass
 
         if container_statuses:
             lines.append("")
@@ -362,22 +356,9 @@ class SolutionEngine:
                     entry += f", last_state={status['last_state']}"
                 lines.append(entry)
 
-        # Manifest (truncated)
+        # Manifest omitted to focus on logs
         if manifest:
-            truncated_manifest = manifest
-            if (
-                len(truncated_manifest.encode("utf-8", errors="replace"))
-                > LLM_MANIFEST_MAX_BYTES
-            ):
-                truncated_manifest = truncated_manifest.encode(
-                    "utf-8", errors="replace"
-                )[:LLM_MANIFEST_MAX_BYTES].decode("utf-8", errors="replace")
-                truncated_manifest += "\n# ... manifest truncated ..."
-            lines.append("")
-            lines.append("## Pod Manifest")
-            lines.append("```yaml")
-            lines.append(truncated_manifest)
-            lines.append("```")
+            pass
 
         # Previous container logs — the primary signal
         if container_logs:
