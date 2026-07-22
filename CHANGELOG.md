@@ -5,18 +5,13 @@ All notable changes to Kure Monitor are documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> **Note:** The `k8s/` (raw Kubernetes manifests) and `examples/` (pod-failure
-> test cases) directories have been removed. Deploy via Helm only — see the
-> [Installation guide](docs/MIGRATING-2.2-TO-2.3.md) or the website. Older
-> entries below that reference `kubectl apply -f k8s/...` are preserved as
-> historical context for upgrades from prior versions; substitute
-> `helm upgrade` for the equivalent action.
-
-## [2.4.3] - 2026-07-20
+## [2.4.3] - 2026-07-23
 
 Headline changes:
-- **UI Branding**: Replaced the default frontend icons with the official Kure Monitor logo in the dashboard and login screens. The documentation website was also updated to include the logo and aligned to a matching purple color theme.
-- **LLM Upgrades**: Updated the default Anthropic provider options in the AI settings to their latest 2026 release models (`claude-fable-5`, `claude-sonnet-5`, and `claude-opus-4-8`).
+- **Local AI Auto-Discovery**: Kure Monitor now automatically scans your Kubernetes cluster for local LLM services (Ollama, vLLM, LocalAI, etc.) and pre-fills your configuration with a single click.
+- **Flexible Custom Provider**: Replaced rigid dropdowns for Ollama, Groq, and OpenAI with a powerful, unified "Custom" provider. It supports any OpenAI-compatible API and allows free-text typing for arbitrary model images (e.g., `llama-3.3-70b-versatile`, `qwen2.5:0.5b`).
+- **UI & Branding**: Replaced default frontend icons with the official Kure Monitor logo across the dashboard, login screens, and the documentation website. Enforced a mandatory light theme for improved readability.
+- **Infrastructure & Maintenance**: Upgraded the test environment to NodeJS v24, updated helmrelease pipelines, updated secrets, and performed a repository migration.
 
 ## [2.4.2] - 2026-05-21
 

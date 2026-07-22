@@ -43,19 +43,8 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
     async def save_llm_config(config: LLMConfigCreate):
         """Save LLM configuration"""
         try:
-            valid_providers = [
-                "openai",
-                "anthropic",
-                "claude",
-                "groq",
-                "groq_cloud",
-                "gemini",
-                "google",
-                "ollama",
-                "copilot",
-                "github",
-                "github_models",
-            ]
+            from services.llm_factory import LLMFactory
+            valid_providers = list(LLMFactory.providers.keys())
             if config.provider.lower() not in valid_providers:
                 raise HTTPException(
                     status_code=400,

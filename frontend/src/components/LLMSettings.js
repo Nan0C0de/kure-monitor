@@ -14,57 +14,12 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [discoveredEndpoints, setDiscoveredEndpoints] = useState([]);
 
   // Form state
-  const [provider, setProvider] = useState('groq');
+  const [provider, setProvider] = useState('anthropic');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
 
   const providers = [
-    {
-      value: 'groq',
-      label: 'Groq',
-      trust: 'external',
-      trustLabel: 'External - data sent to Groq',
-      needsApiKey: true,
-      needsBaseUrl: false,
-      defaultModel: 'llama-3.3-70b-versatile',
-      models: [
-        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Best)' },
-        { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fast)' },
-        { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' }
-      ]
-    },
-    {
-      value: 'ollama',
-      label: 'Ollama (Local)',
-      trust: 'local',
-      trustLabel: 'Local - no data leaves cluster',
-      needsApiKey: false,
-      needsBaseUrl: true,
-      defaultBaseUrl: 'http://ollama:11434',
-      defaultModel: 'llama4:scout',
-      isCustomModel: true,
-      baseUrlHelper: 'The URL where your Ollama instance is running',
-      models: [
-        { value: 'llama4:maverick', label: 'Llama 4 Maverick' },
-        { value: 'llama4:scout', label: 'Llama 4 Scout (Recommended)' },
-        { value: 'qwen3', label: 'Qwen 3' }
-      ]
-    },
-    {
-      value: 'openai',
-      label: 'OpenAI',
-      trust: 'external',
-      trustLabel: 'External - data sent to OpenAI',
-      needsApiKey: true,
-      needsBaseUrl: false,
-      defaultModel: 'gpt-5.6-terra',
-      models: [
-        { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol (Best)' },
-        { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra (Recommended)' },
-        { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (Fast)' }
-      ]
-    },
     {
       value: 'anthropic',
       label: 'Anthropic (Claude)',
@@ -77,6 +32,23 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
         { value: 'claude-fable-5', label: 'Claude Fable 5 (Best)' },
         { value: 'claude-sonnet-5', label: 'Claude Sonnet 5 (Recommended)' },
         { value: 'claude-opus-4-8', label: 'Claude Opus 4.8 (Enterprise)' }
+      ]
+    },
+    {
+      value: 'copilot',
+      label: 'GitHub Copilot',
+      trust: 'external',
+      trustLabel: 'External - data sent to GitHub/Microsoft',
+      needsApiKey: true,
+      needsBaseUrl: true,
+      defaultBaseUrl: 'https://models.github.ai/inference',
+      defaultModel: 'openai/gpt-5.6-terra',
+      apiKeyHelper: 'Use a GitHub PAT with Models permission',
+      baseUrlHelper: 'GitHub Models inference endpoint',
+      models: [
+        { value: 'openai/gpt-5.6-sol', label: 'GPT-5.6 Sol (Latest)' },
+        { value: 'openai/gpt-5.6-terra', label: 'GPT-5.6 Terra (Recommended)' },
+        { value: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' }
       ]
     },
     {
@@ -94,33 +66,17 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       ]
     },
     {
-      value: 'copilot',
-      label: 'GitHub Copilot (GitHub Models)',
-      trust: 'external',
-      trustLabel: 'External - data sent to GitHub/Microsoft',
-      needsApiKey: true,
-      needsBaseUrl: true,
-      defaultBaseUrl: 'https://models.github.ai/inference',
-      defaultModel: 'openai/gpt-5.6-terra',
-      apiKeyHelper: 'Use a GitHub PAT with Models permission',
-      baseUrlHelper: 'GitHub Models inference endpoint',
-      models: [
-        { value: 'openai/gpt-5.6-sol', label: 'GPT-5.6 Sol (Latest)' },
-        { value: 'openai/gpt-5.6-terra', label: 'GPT-5.6 Terra (Recommended)' },
-        { value: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' }
-      ]
-    },
-    {
       value: 'custom_local',
-      label: 'Custom Local (OpenAI Compatible)',
+      label: 'Custom',
       trust: 'local',
-      trustLabel: 'Local - no data leaves cluster',
+      trustLabel: 'Local / Custom Endpoint',
       needsApiKey: false,
+      optionalApiKey: true,
       needsBaseUrl: true,
       defaultBaseUrl: 'http://my-service:8000/v1',
       defaultModel: 'llama-3',
       isCustomModel: true,
-      baseUrlHelper: 'Base URL of your OpenAI-compatible endpoint (e.g. vLLM, LocalAI)',
+      baseUrlHelper: 'Base URL of your custom endpoint (e.g. vLLM, LocalAI, OpenAI)',
       models: []
     }
   ];
@@ -129,9 +85,9 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
 
   useEffect(() => {
     loadStatus();
-    // Set default model for initial provider (groq)
+    // Set default model for initial provider (anthropic)
     if (!model) {
-      setModel('llama-3.3-70b-versatile');
+      setModel('claude-sonnet-5');
     }
   }, []);
 
@@ -197,7 +153,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const buildPayload = () => {
     const payload = {
       provider,
-      api_key: currentProvider?.needsApiKey ? apiKey : 'unused',
+      api_key: (currentProvider?.needsApiKey || (currentProvider?.optionalApiKey && apiKey)) ? (apiKey || 'unused') : 'unused',
       model: model || null,
     };
     if (currentProvider?.needsBaseUrl && baseUrl) {
@@ -427,7 +383,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
           )}
 
           {/* API Key Input - only shown when provider needs it */}
-          {currentProvider?.needsApiKey && (
+          {(currentProvider?.needsApiKey || currentProvider?.optionalApiKey) && (
             <div>
               <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 API Key
