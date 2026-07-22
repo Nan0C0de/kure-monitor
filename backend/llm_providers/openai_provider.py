@@ -12,6 +12,11 @@ class OpenAIProvider(LLMProvider):
     # Subclasses targeting OpenAI-compatible APIs can override this.
     API_URL = "https://api.openai.com/v1/chat/completions"
 
+    def __init__(self, api_key: str, model: str = None, base_url: str = None):
+        super().__init__(api_key=api_key, model=model, base_url=base_url)
+        if self.base_url:
+            self.API_URL = f"{self.base_url.rstrip('/')}/chat/completions"
+
     @property
     def provider_name(self) -> str:
         return "openai"

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import asyncio
 import logging
 
+from services.llm_discovery import LLMDiscoveryService
+
 from models.models import (
     ExcludedNamespace,
     ExcludedNamespaceResponse,
@@ -429,6 +431,17 @@ def create_admin_router(deps: RouterDeps) -> APIRouter:
             raise
         except Exception as e:
             logger.error(f"Error sending test notification: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+    @router.get("/admin/llm-discovery")
+    async def discover_llms():
+        """Discover running LLMs in the cluster"""
+        try:
+            discovery_service = LLMDiscoveryService()
+            endpoints = await discovery_service.discover_local_llms()
+            return {"endpoints": endpoints}
+        except Exception as e:
+            logger.error(f"Error discovering LLMs: {e}")
             raise HTTPException(status_code=500, detail="Internal server error")
 
     return router

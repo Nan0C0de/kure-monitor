@@ -580,6 +580,14 @@ export const api = {
   },
 
   // LLM Configuration API
+  discoverLLMs: async () => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm-discovery`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
   getLLMStatus: async () => {
     const response = await authFetch(`${API_BASE}/api/admin/llm/status`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);

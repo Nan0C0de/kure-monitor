@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search } from 'lucide-react';
 import { api } from '../services/api';
 
 const LLMSettings = ({ isDark = false, onConfigChange }) => {
@@ -10,6 +10,8 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [showApiKey, setShowApiKey] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
+  const [discoveredEndpoints, setDiscoveredEndpoints] = useState([]);
 
   // Form state
   const [provider, setProvider] = useState('groq');
@@ -41,6 +43,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       needsBaseUrl: true,
       defaultBaseUrl: 'http://ollama:11434',
       defaultModel: 'llama4:scout',
+      isCustomModel: true,
       baseUrlHelper: 'The URL where your Ollama instance is running',
       models: [
         { value: 'llama4:maverick', label: 'Llama 4 Maverick' },
@@ -106,6 +109,19 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
         { value: 'openai/gpt-5.6-terra', label: 'GPT-5.6 Terra (Recommended)' },
         { value: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' }
       ]
+    },
+    {
+      value: 'custom_local',
+      label: 'Custom Local (OpenAI Compatible)',
+      trust: 'local',
+      trustLabel: 'Local - no data leaves cluster',
+      needsApiKey: false,
+      needsBaseUrl: true,
+      defaultBaseUrl: 'http://my-service:8000/v1',
+      defaultModel: 'llama-3',
+      isCustomModel: true,
+      baseUrlHelper: 'Base URL of your OpenAI-compatible endpoint (e.g. vLLM, LocalAI)',
+      models: []
     }
   ];
 
@@ -145,6 +161,34 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setBaseUrl(providerConfig.defaultBaseUrl || '');
       setApiKey('');
     }
+  };
+
+  const handleDiscover = async () => {
+    try {
+      setDiscoveryLoading(true);
+      setError(null);
+      const res = await api.discoverLLMs();
+      if (res.endpoints && res.endpoints.length > 0) {
+        setDiscoveredEndpoints(res.endpoints);
+        setSuccess(`Found ${res.endpoints.length} local AI service(s)!`);
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError('No local AI services discovered in the cluster.');
+      }
+    } catch (err) {
+      setError('Failed to discover LLMs: ' + err.message);
+    } finally {
+      setDiscoveryLoading(false);
+    }
+  };
+
+  const applyDiscovered = (ep) => {
+    setProvider(ep.provider);
+    setBaseUrl(ep.base_url);
+    if (ep.models && ep.models.length > 0) {
+      setModel(ep.models[0]);
+    }
+    setDiscoveredEndpoints([]);
   };
 
   // Get current provider's models
@@ -318,9 +362,38 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
 
       {/* Configuration Form */}
       <div className={`border rounded-md p-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-        <h3 className={`text-sm font-medium mb-4 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-          {status?.configured ? 'Update Configuration' : 'Configure LLM Provider'}
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+            {status?.configured ? 'Update Configuration' : 'Configure LLM Provider'}
+          </h3>
+          <button
+            onClick={handleDiscover}
+            disabled={discoveryLoading}
+            className={`inline-flex items-center px-3 py-1 text-xs font-medium border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 ${isDark ? 'bg-purple-900/30 text-purple-300 border-purple-800 hover:bg-purple-900/50' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'}`}
+          >
+            {discoveryLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Search className="w-3 h-3 mr-1" />}
+            Auto-Discover Local Services
+          </button>
+        </div>
+
+        {discoveredEndpoints.length > 0 && (
+          <div className={`mb-6 p-3 border rounded-md ${isDark ? 'bg-gray-800 border-purple-900/50' : 'bg-purple-50/50 border-purple-100'}`}>
+            <h4 className={`text-xs font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Discovered Services:</h4>
+            <div className="space-y-2">
+              {discoveredEndpoints.map((ep, i) => (
+                <div key={i} className={`flex items-center justify-between p-2 rounded border ${isDark ? 'bg-gray-900/50 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div>
+                    <div className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{ep.description}</div>
+                    <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{ep.base_url} ({ep.models?.length || 0} models)</div>
+                  </div>
+                  <button onClick={() => applyDiscovered(ep)} className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700">
+                    Use This
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* Provider Select */}
@@ -409,15 +482,33 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
             <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Model
             </label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
-            >
-              {currentProviderModels.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
+            {currentProvider?.isCustomModel ? (
+              <>
+                <input
+                  type="text"
+                  list="provider-models"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="Enter or select a model name..."
+                  className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+                <datalist id="provider-models">
+                  {currentProviderModels.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </datalist>
+              </>
+            ) : (
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+              >
+                {currentProviderModels.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Action Buttons */}

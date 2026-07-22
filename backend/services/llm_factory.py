@@ -28,6 +28,7 @@ class LLMFactory:
         "copilot": CopilotProvider,
         "github": CopilotProvider,  # Alias for copilot
         "github_models": CopilotProvider,  # Alias for copilot
+        "custom_local": OpenAIProvider,
     }
 
     @classmethod
