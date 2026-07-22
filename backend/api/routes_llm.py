@@ -44,7 +44,7 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
         """Save LLM configuration"""
         try:
             from services.llm_factory import LLMFactory
-            valid_providers = list(LLMFactory.providers.keys())
+            valid_providers = list(LLMFactory.SUPPORTED_PROVIDERS.keys())
             if config.provider.lower() not in valid_providers:
                 raise HTTPException(
                     status_code=400,
