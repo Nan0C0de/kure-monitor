@@ -8,7 +8,6 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Kure Monitor',
-			defaultTheme: 'light',
 			description:
 				'Real-time Kubernetes failure detection and security scanning with AI-powered troubleshooting.',
 			social: [
@@ -22,6 +21,12 @@ export default defineConfig({
 				baseUrl:
 					'https://github.com/igor-koricanac/kure-monitor/edit/main/website/',
 			},
+			head: [
+				{
+					tag: 'script',
+					content: 'if (typeof localStorage !== "undefined" && !localStorage.getItem("starlight-theme")) { localStorage.setItem("starlight-theme", "light"); }',
+				},
+			],
 			lastUpdated: true,
 			logo: {
 				src: './src/assets/kure_monitor_logo.svg',
