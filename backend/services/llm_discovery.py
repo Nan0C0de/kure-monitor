@@ -66,8 +66,8 @@ class LLMDiscoveryService:
                             "namespace": svc.metadata.namespace,
                             "url": f"http://{svc.metadata.name}.{svc.metadata.namespace}.svc.cluster.local:{port}"
                         })
-                    # If port is 8000, 8080, 5000, 80 and the name matches a keyword, check for OpenAI compatibility
-                    elif is_candidate and port in [80, 8000, 8080, 5000]:
+                    # If it matches a keyword but isn't 11434, assume OpenAI compatible on whatever port it uses
+                    elif is_candidate:
                         endpoints.append({
                             "type": "openai",
                             "name": svc.metadata.name,
@@ -104,14 +104,15 @@ class LLMDiscoveryService:
                     data = await response.json()
                     models = [m["name"] for m in data.get("models", [])]
                     return {
-                        "provider": "ollama",
+                        "provider": "custom_local",
                         "name": ep["name"],
                         "namespace": ep["namespace"],
-                        "base_url": ep["url"],
+                        "base_url": f"{ep['url']}/v1",
                         "models": models,
                         "description": f"Ollama on {ep['namespace']}/{ep['name']}"
                     }
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error probing ollama {ep['url']}: {e}")
             pass
         return None
 

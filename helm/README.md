@@ -153,7 +153,7 @@ ingress:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `prometheus.enabled` | Enable Prometheus scraping network policy | `false` |
+| `prometheus.enabled` | Enable Prometheus metrics integration | `false` |
 | `prometheus.namespace` | Namespace where Prometheus is deployed | `monitoring` |
 | `prometheus.serviceMonitor.enabled` | Create ServiceMonitor resource (requires Prometheus Operator) | `false` |
 

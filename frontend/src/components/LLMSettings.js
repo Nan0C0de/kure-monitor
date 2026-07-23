@@ -77,6 +77,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       defaultModel: 'llama-3',
       isCustomModel: true,
       baseUrlHelper: 'Base URL of your custom endpoint (e.g. vLLM, LocalAI, OpenAI)',
+      apiKeyHelper: 'Optional. Leave blank if your local model does not require authentication.',
       models: []
     }
   ];
@@ -393,7 +394,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
                   type={showApiKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={status?.configured ? 'Enter new API key to update' : 'Enter your API key'}
+                  placeholder={currentProvider?.optionalApiKey ? 'Optional: Enter your API key if required' : (status?.configured ? 'Enter new API key to update' : 'Enter your API key')}
                   className={`w-full px-3 py-2 pr-10 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
                 />
                 <button

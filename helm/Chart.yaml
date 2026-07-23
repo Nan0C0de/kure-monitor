@@ -25,11 +25,13 @@ annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
     - kind: added
-      description: "Sixteen new AI Advice detectors across resource hygiene, scheduling/availability, networking, lifecycle, and storage categories. Net detector count rises from 23 to 38."
+      description: "Local AI Auto-Discovery: Automatically scans Kubernetes services for local LLMs (Ollama, vLLM, LocalAI, NIM) and retrieves available models."
     - kind: changed
-      description: "AI Advice panel replaces the 'Show dismissed' checkbox with Active / Ignored tabs (live counts, optimistic dismiss/restore, tab-aware export and WebSocket upserts)."
-    - kind: fixed
-      description: "Removed the 'referenced-config-missing' detector, which false-positived on every Secret reference (the backend has no Secret-read RBAC by design). Genuinely missing ConfigMap/Secret refs are already reported by the pod-watcher as CreateContainerConfigError with better evidence and timing."
+      description: "Flexible Custom Provider: Replaced rigid AI dropdowns with a unified Custom provider supporting any OpenAI-compatible API and free-text model entry."
+    - kind: changed
+      description: "UI & Branding: Official logo integrated into dashboard, login screens, and docs; enforced mandatory light theme."
+    - kind: changed
+      description: "Infrastructure: NodeJS 24 test environment, updated helmrelease pipelines, repository migration, and completely removed restrictive network policies to simplify cluster integration."
   artifacthub.io/category: monitoring-logging
   artifacthub.io/displayName: Kure - Kubernetes Failure Diagnosis
   artifacthub.io/license: Apache-2.0

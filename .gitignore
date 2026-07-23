@@ -264,3 +264,6 @@ LOCAL_TEST.md
 
 # Ignore examples
 examples
+
+# Gemini
+.gemini

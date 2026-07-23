@@ -127,7 +127,7 @@ helm install kure-monitor kure-monitor/kure \
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `prometheus.enabled` | Enable Prometheus network policy | `false` |
+| `prometheus.enabled` | Enable Prometheus metrics integration | `false` |
 | `prometheus.namespace` | Namespace where Prometheus runs | `monitoring` |
 | `prometheus.serviceMonitor.enabled` | Create ServiceMonitor (requires Operator) | `false` |
 

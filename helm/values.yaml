@@ -12,8 +12,8 @@ global:
 # disable a feature: the matching tab is hidden in the dashboard, and any
 # workloads dedicated to that feature are not deployed.
 #
-#   podMonitoring → kure-agent DaemonSet + its RBAC/NetworkPolicy + Pod Monitoring tab
-#   securityScan  → kure-security-scanner Deployment + its RBAC/NetworkPolicy + Security Scan tab
+#   podMonitoring → kure-agent DaemonSet + its RBAC + Pod Monitoring tab
+#   securityScan  → kure-security-scanner Deployment + its RBAC + Security Scan tab
 #   diagram       → Diagram tab (topology view; backend keeps the API)
 #   aiAdvice      → Advice tab (AI advisor; backend keeps the API)
 features:
@@ -240,7 +240,7 @@ security:
 
 # Prometheus metrics configuration
 prometheus:
-  enabled: false          # Enable Prometheus scraping network policy
+  enabled: false          # Enable Prometheus metrics integration
   namespace: monitoring   # Namespace where Prometheus is deployed
   serviceMonitor:
     enabled: false        # Create ServiceMonitor resource (requires Prometheus Operator)

@@ -28,7 +28,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 RUN groupadd -r kure && useradd -r -g kure -d /app -s /sbin/nologin kure
-
 WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv

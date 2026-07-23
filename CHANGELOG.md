@@ -11,7 +11,7 @@ Headline changes:
 - **Local AI Auto-Discovery**: Kure Monitor now automatically scans your Kubernetes cluster for local LLM services (Ollama, vLLM, LocalAI, etc.) and pre-fills your configuration with a single click.
 - **Flexible Custom Provider**: Replaced rigid dropdowns for Ollama, Groq, and OpenAI with a powerful, unified "Custom" provider. It supports any OpenAI-compatible API and allows free-text typing for arbitrary model images (e.g., `llama-3.3-70b-versatile`, `qwen2.5:0.5b`).
 - **UI & Branding**: Replaced default frontend icons with the official Kure Monitor logo across the dashboard, login screens, and the documentation website. Enforced a mandatory light theme for improved readability.
-- **Infrastructure & Maintenance**: Upgraded the test environment to NodeJS v24, updated helmrelease pipelines, updated secrets, and performed a repository migration.
+- **Infrastructure & Maintenance**: Upgraded the test environment to NodeJS v24, updated helmrelease pipelines, updated secrets, performed a repository migration, and removed strict egress NetworkPolicies from the Helm chart to ensure frictionless communication with local AI services on any port.
 
 ## [2.4.2] - 2026-05-21
 
