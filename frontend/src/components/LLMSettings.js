@@ -537,25 +537,29 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       {pendingEndpoint && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className={`p-6 rounded-lg shadow-xl max-w-md w-full mx-4 ${isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
-            <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Authentication Required?
-            </h3>
-            <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-              If your LLM requires api_key please insert, otherwise ignore this.
-            </p>
-            {error && !testing && (
-              <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md flex items-start">
-                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-                {error}
-              </div>
+            {!testing && (
+              <>
+                <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Authentication Required?
+                </h3>
+                <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                  If your LLM requires api_key please insert, otherwise ignore this.
+                </p>
+                {error && (
+                  <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md flex items-start">
+                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                    {error}
+                  </div>
+                )}
+                <input
+                  type="password"
+                  value={pendingApiKey}
+                  onChange={(e) => setPendingApiKey(e.target.value)}
+                  placeholder="Enter API Key (if required)"
+                  className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 mb-6 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+              </>
             )}
-            <input
-              type="password"
-              value={pendingApiKey}
-              onChange={(e) => setPendingApiKey(e.target.value)}
-              placeholder="Enter API Key (if required)"
-              className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 mb-6 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
-            />
             <div className="mt-6">
               {testing ? (
                 <div className="flex flex-col items-center justify-center py-4">

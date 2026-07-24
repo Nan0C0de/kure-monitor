@@ -428,6 +428,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
       pod.logs_captured === true
       && ELIGIBLE_LOG_AWARE_REASONS.includes(pod.failure_reason)
       && aiEnabled === true
+    );
     const hasQuickSolution = !!(pod.solution && pod.solution.trim() && pod.solution !== '__GENERATING__');
 
     const aiSolutionSection = (
