@@ -143,13 +143,15 @@ class DataCollector:
         """Identify containers eligible for failure log capture.
 
         Eligibility rules (checked for both regular and init containers):
-          - CrashLoopBackOff: state.waiting.reason == "CrashLoopBackOff"
+          - Pod-level failures: Evicted, NodeLost
+          - Waiting state failures: CrashLoopBackOff, RunContainerError, CreateContainerError, ErrImagePull, etc.
           - OOMKilled/Error: state.terminated.reason == "OOMKilled" or "Error" OR
                        last_state.terminated.reason == "OOMKilled" or "Error"
-
-        All other failure reasons (ImagePullBackOff, Pending, etc.) are skipped.
         """
         results: List[Dict[str, Any]] = []
+
+        pod_reason = getattr(pod.status, "reason", None)
+        is_pod_failure = pod_reason in ("Evicted", "NodeLost")
 
         all_statuses = []
         if getattr(pod.status, "init_container_statuses", None):
@@ -167,11 +169,24 @@ class DataCollector:
             exit_code = None
             fetch_previous = False
 
-            # CrashLoopBackOff check (waiting state)
             waiting = getattr(state, "waiting", None) if state else None
-            if waiting and getattr(waiting, "reason", None) == "CrashLoopBackOff":
-                reason = "CrashLoopBackOff"
-                fetch_previous = (restart_count > 0)
+            waiting_reason = getattr(waiting, "reason", None) if waiting else None
+
+            if is_pod_failure:
+                reason = pod_reason
+                fetch_previous = False
+            elif waiting_reason in (
+                "CrashLoopBackOff",
+                "RunContainerError",
+                "CreateContainerError",
+                "CreateContainerConfigError",
+                "ErrImagePull",
+                "ImagePullBackOff",
+                "InvalidImageName",
+                "ErrImageNeverPull",
+            ):
+                reason = waiting_reason
+                fetch_previous = (restart_count > 0 and waiting_reason == "CrashLoopBackOff")
                 # For CrashLoopBackOff, we want the *previous* termination exit code
                 lt = getattr(last_state, "terminated", None) if last_state else None
                 if lt is not None:
@@ -371,6 +386,10 @@ class DataCollector:
 
     def _get_failure_reason(self, pod, events=None) -> str:
         """Extract the primary failure reason"""
+        pod_reason = getattr(pod.status, "reason", None)
+        if pod_reason in ["Evicted", "NodeLost"]:
+            return pod_reason
+
         if pod.status.phase == "Pending":
             # Check events for more specific pending reasons
             if events:
@@ -405,6 +424,10 @@ class DataCollector:
 
     def _get_failure_message(self, pod, events=None) -> str:
         """Extract the failure message from containers or events"""
+        # For pod-level failures, prioritize the pod status message
+        if getattr(pod.status, "reason", None) in ["Evicted", "NodeLost"] and getattr(pod.status, "message", None):
+            return pod.status.message
+
         # First try to get message from container statuses
         if pod.status.container_statuses:
             for container_status in pod.status.container_statuses:
@@ -432,6 +455,10 @@ class DataCollector:
             for event in reversed(events):  # Most recent first
                 if event.get("type") == "Warning" and event.get("message"):
                     return event.get("message", "")
+
+        # Fallback to pod status message if present
+        if getattr(pod.status, "message", None):
+            return pod.status.message
 
         return ""
 

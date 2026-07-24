@@ -25,8 +25,7 @@ class LLMProvider(ABC):
     def __init__(self, api_key: str, model: str = None, base_url: str = None):
         self.api_key = api_key
         self.model = model or self.default_model
-        if base_url is not None:
-            self.base_url = base_url
+        self.base_url = base_url
         # Lazily created in an event loop on first use.
         self._session: Optional[aiohttp.ClientSession] = None
 
@@ -108,6 +107,15 @@ Pod Failure Details:
                 prompt += f"\n- {status.get('name', 'Unknown')}: restart_count={status.get('restart_count', 0)}"
                 if status.get("last_state"):
                     prompt += f", last_state={status['last_state']}"
+
+        if failure_reason in ["Evicted", "NodeLost"]:
+            prompt += "\n\nNote: Pay special attention to node-level events or pressure (e.g., DiskPressure, MemoryPressure) if present to deduce why the pod was evicted or the node was lost."
+        elif failure_reason in ["RunContainerError", "CreateContainerError", "CreateContainerConfigError"]:
+            prompt += "\n\nNote: Focus on container configuration, such as bad entrypoint, missing volume mounts, or invalid environment variables."
+        elif failure_reason in ["CrashLoopBackOff"]:
+            prompt += "\n\nNote: This indicates the container starts and immediately exits. Look for application crash logs, missing dependencies, or bad configuration."
+        elif failure_reason in ["ErrImagePull", "ImagePullBackOff"]:
+            prompt += "\n\nNote: Check for invalid image tags, missing registry secrets, or network issues."
 
         prompt += """
 

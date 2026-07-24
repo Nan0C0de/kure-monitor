@@ -32,6 +32,11 @@ class SolutionEngine:
             },
             "ErrImagePull": {
                 "default": "Error pulling container image. Verify: 1) Image name syntax is correct, 2) Registry is accessible, 3) Authentication credentials if needed.",
+                "patterns": {
+                    "not found": "Image or tag not found in the registry.",
+                    "pull access denied": "Authentication failed. Check imagePullSecrets.",
+                    "rpc error": "Container runtime error while pulling image.",
+                },
             },
             "CrashLoopBackOff": {
                 "default": "Container is crashing repeatedly. Check: 1) Application logs for errors, 2) Resource limits (CPU/Memory), 3) Environment variables and configuration, 4) Health check configuration.",
@@ -65,6 +70,37 @@ class SolutionEngine:
             },
             "CreateContainerConfigError": {
                 "default": "Error creating container configuration. Check: 1) ConfigMap and Secret references, 2) Volume mount configurations, 3) Environment variable references.",
+                "patterns": {
+                    "not found": "A referenced ConfigMap or Secret is missing.",
+                }
+            },
+            "CreateContainerError": {
+                "default": "Failed to create container. Check: 1) Container spec validity, 2) Volume mount permissions, 3) Runtime configuration.",
+                "patterns": {
+                    "no such file or directory": "A host path or mount point is missing or invalid.",
+                    "permission denied": "Container lacks permissions to mount or access resources.",
+                }
+            },
+            "RunContainerError": {
+                "default": "Failed to start container. Check: 1) Entrypoint/command syntax, 2) Executable permissions, 3) Missing libraries or binaries.",
+                "patterns": {
+                    "executable file not found": "The command or entrypoint binary is missing from the image.",
+                    "permission denied": "The entrypoint script or binary lacks execution permissions.",
+                }
+            },
+            "Evicted": {
+                "default": "Pod was evicted from the node. Check: 1) Node disk pressure, 2) Node memory pressure, 3) Pod resource limits/requests.",
+                "patterns": {
+                    "disk pressure": "Node ran out of disk space. Check for large logs, emptyDirs, or local volumes.",
+                    "memory pressure": "Node ran out of memory. Consider setting or reducing pod memory limits.",
+                    "pid pressure": "Node ran out of available PIDs.",
+                }
+            },
+            "NodeLost": {
+                "default": "The node running the pod became unreachable. Check: 1) Node status, 2) Network connectivity to the node, 3) Kubelet status on the node.",
+                "patterns": {
+                    "node unresponsive": "Node stopped reporting to the control plane.",
+                }
             },
             "InvalidImageName": {
                 "default": "Invalid container image name format. Verify image name follows registry/repository:tag format.",

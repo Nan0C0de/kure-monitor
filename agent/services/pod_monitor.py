@@ -34,6 +34,7 @@ class PodMonitor:
             "ErrImageNeverPull",
             "CreateContainerError",
             "CreateContainerConfigError",
+            "RunContainerError",
         ]
     )
 
@@ -266,6 +267,10 @@ class PodMonitor:
         labels = pod.metadata.labels or {}
         if labels.get("kure.io/mirror") == "true":
             return False
+
+        # Explicit check for pod-level failures
+        if getattr(pod.status, "reason", None) in ["Evicted", "NodeLost"]:
+            return True
 
         # Failed phase is obviously a failure
         if pod.status.phase == "Failed":
