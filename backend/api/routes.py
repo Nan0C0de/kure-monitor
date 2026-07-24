@@ -18,6 +18,7 @@ from .routes_llm import create_llm_router
 from .routes_mirror import create_mirror_router
 from .routes_diagram import create_diagram_router
 from .routes_advice import build_router as create_advice_router
+from .routes_chat import create_chat_ingest_router
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ def create_api_router(
     router.include_router(create_pod_ingest_router(deps))
     router.include_router(create_security_ingest_router(deps))
     router.include_router(create_metrics_ingest_router(deps))
+    router.include_router(create_chat_ingest_router(deps))
 
     # Admin reads also reachable by service token (e.g. scanner reading exclusions)
     router.include_router(create_admin_shared_router(deps))

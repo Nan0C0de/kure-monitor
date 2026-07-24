@@ -14,6 +14,7 @@ from .mixins import (
     FailureLogsMixin,
     UserMixin,
     LoginAttemptsMixin,
+    ChatMixin,
 )
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
 
@@ -31,6 +32,7 @@ class PostgreSQLDatabase(
     FailureLogsMixin,
     UserMixin,
     LoginAttemptsMixin,
+    ChatMixin,
     DatabaseInterface,
 ):
     def __init__(self):
@@ -190,6 +192,22 @@ class PostgreSQLDatabase(
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_pod_failures_created_at
                     ON pod_failures(created_at)
+                """)
+
+                # Create chat_history table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS chat_history (
+                        id SERIAL PRIMARY KEY,
+                        pod_name VARCHAR(255),
+                        namespace VARCHAR(255),
+                        role VARCHAR(50) NOT NULL,
+                        text TEXT NOT NULL,
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_chat_history_pod_ns
+                    ON chat_history(pod_name, namespace)
                 """)
 
                 # Create security_findings table

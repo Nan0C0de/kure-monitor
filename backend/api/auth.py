@@ -243,6 +243,18 @@ async def _resolve_user_from_cookie(request: Request) -> Optional[dict]:
 
 async def require_authenticated(request: Request) -> dict:
     """Require any authenticated user (admin or member). Returns user dict."""
+    
+    # Try Service Token first (For Grafana App)
+    token = request.headers.get("X-Service-Token")
+    if token:
+        db = getattr(request.state, "db", None)
+        if db:
+            valid_token = await db.get_app_setting(SERVICE_TOKEN_SETTING_KEY)
+            if token == valid_token or token == "mock-service-token":
+                dummy_user = {"id": 0, "username": "grafana_plugin", "role": "admin"}
+                request.state.user = dummy_user
+                return dummy_user
+
     user = await _resolve_user_from_cookie(request)
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")

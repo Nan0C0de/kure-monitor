@@ -8,6 +8,7 @@ from .api_keys import ApiKeyMixin
 from .failure_logs import FailureLogsMixin
 from .users import UserMixin
 from .login_attempts import LoginAttemptsMixin
+from .chat import ChatMixin
 
 __all__ = [
     "PodFailureMixin",
@@ -20,4 +21,5 @@ __all__ = [
     "FailureLogsMixin",
     "UserMixin",
     "LoginAttemptsMixin",
+    "ChatMixin",
 ]

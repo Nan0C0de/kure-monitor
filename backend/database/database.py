@@ -336,3 +336,16 @@ class Database:
 
     async def cleanup_old_login_attempts(self, older_than_seconds):
         return await self._db.cleanup_old_login_attempts(older_than_seconds)
+
+    # Chat history
+    async def save_chat_message(self, pod_name: str, namespace: str, role: str, text: str):
+        return await self._db.save_chat_message(pod_name, namespace, role, text)
+
+    async def get_chat_history(self, pod_name: str, namespace: str):
+        return await self._db.get_chat_history(pod_name, namespace)
+        
+    async def get_chat_sessions(self):
+        return await self._db.get_chat_sessions()
+        
+    async def delete_chat_history(self, pod_name: str, namespace: str):
+        return await self._db.delete_chat_history(pod_name, namespace)
