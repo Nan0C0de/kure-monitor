@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, RefreshCw, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock, Trash2, FlaskConical, Sparkles } from 'lucide-react';
+import { FileText, RefreshCw, Terminal, Search, CheckCircle, EyeOff, RotateCcw, Clock, Trash2, FlaskConical, Sparkles, Loader2 } from 'lucide-react';
 import SolutionMarkdown from './SolutionMarkdown';
 import TroubleshootSection from './TroubleshootSection';
 import { api } from '../services/api';
@@ -105,7 +105,27 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
   const [isRetrying, setIsRetrying] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [genProgress, setGenProgress] = useState(0);
   const hasAutoTriggered = useRef(false);
+
+  const isGenerating = pod.solution === '__GENERATING__' || isRetrying;
+
+  useEffect(() => {
+    let interval;
+    if (isGenerating) {
+      setGenProgress(0);
+      interval = setInterval(() => {
+        setGenProgress((prev) => {
+          if (prev >= 95) return prev;
+          const increment = prev < 50 ? 8 : prev < 80 ? 3 : 1;
+          return prev + increment;
+        });
+      }, 500);
+    } else {
+      setGenProgress(100);
+    }
+    return () => clearInterval(interval);
+  }, [isGenerating]);
 
   // Check if solution is a fallback (AI unavailable)
   const isFallbackSolution = pod.solution && (
@@ -408,8 +428,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
       pod.logs_captured === true
       && ELIGIBLE_LOG_AWARE_REASONS.includes(pod.failure_reason)
       && aiEnabled === true
-    );
-    const hasQuickSolution = !!(pod.solution && pod.solution.trim());
+    const hasQuickSolution = !!(pod.solution && pod.solution.trim() && pod.solution !== '__GENERATING__');
 
     const aiSolutionSection = (
       <div>
@@ -462,19 +481,28 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
           </div>
         </div>
         <div className={`rounded p-4 text-sm overflow-hidden ${
-          isFallbackSolution
-            ? isDark ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'
-            : isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'
+          isGenerating
+            ? isDark ? 'bg-purple-900/30 border border-purple-700' : 'bg-purple-50 border border-purple-200'
+            : isFallbackSolution
+              ? isDark ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'
+              : isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'
         }`}>
-          {hasQuickSolution ? (
+          {isGenerating ? (
+            <div className="flex flex-col items-center justify-center py-3" data-testid="quick-solution-skeleton">
+              <div className="flex items-center text-purple-600 mb-3">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <span className="font-medium text-sm">Generating solution...</span>
+              </div>
+              <div className="w-full max-w-md h-1.5 bg-purple-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-purple-600 rounded-full transition-all duration-500 ease-out" 
+                  style={{ width: `${genProgress}%` }} 
+                />
+              </div>
+            </div>
+          ) : hasQuickSolution ? (
             <div className="solution-content">
               <SolutionMarkdown content={pod.solution} isDark={isDark} />
-            </div>
-          ) : isRetrying ? (
-            <div className="space-y-2" data-testid="quick-solution-skeleton">
-              <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-700' : 'bg-gray-200'} w-3/4`} />
-              <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-700' : 'bg-gray-200'} w-full`} />
-              <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-700' : 'bg-gray-200'} w-5/6`} />
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3 flex-wrap">

@@ -12,6 +12,9 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [success, setSuccess] = useState(null);
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [discoveredEndpoints, setDiscoveredEndpoints] = useState([]);
+  const [pendingEndpoint, setPendingEndpoint] = useState(null);
+  const [pendingApiKey, setPendingApiKey] = useState('');
+  const [testingPhase, setTestingPhase] = useState('');
 
   // Form state
   const [provider, setProvider] = useState('anthropic');
@@ -140,12 +143,58 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   };
 
   const applyDiscovered = (ep) => {
-    setProvider(ep.provider);
-    setBaseUrl(ep.base_url);
-    if (ep.models && ep.models.length > 0) {
-      setModel(ep.models[0]);
+    setPendingEndpoint(ep);
+    setPendingApiKey('');
+  };
+
+  const handlePendingEndpointConfirm = async (useApiKey) => {
+    const ep = pendingEndpoint;
+    const finalApiKey = useApiKey && pendingApiKey.trim() ? pendingApiKey.trim() : 'unused';
+    const finalModel = ep.models && ep.models.length > 0 ? ep.models[0] : null;
+    
+    const payload = {
+      provider: ep.provider,
+      api_key: finalApiKey,
+      model: finalModel,
+      base_url: ep.base_url
+    };
+
+    try {
+      setTesting(true);
+      setTestingPhase('Testing connection...');
+      setError(null);
+      const testResult = await api.testLLMConfig(payload);
+      
+      if (testResult.success) {
+        setTestingPhase('Connection successful!');
+        await new Promise(r => setTimeout(r, 600)); // Smooth UX delay
+        
+        setTestingPhase('Applying configuration...');
+        await api.saveLLMConfig(payload);
+        await new Promise(r => setTimeout(r, 600)); // Smooth UX delay
+        
+        setSuccess('LLM configuration saved successfully!');
+        
+        setProvider(ep.provider);
+        setBaseUrl(ep.base_url);
+        setModel(finalModel || '');
+        setApiKey(''); 
+        setDiscoveredEndpoints([]);
+        setPendingEndpoint(null);
+        
+        await loadStatus();
+        if (onConfigChange) onConfigChange();
+        
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(testResult.message || 'Test failed. Please check your API key and try again.');
+      }
+    } catch (err) {
+      setError(err.message || 'Test failed. Please check your API key and try again.');
+    } finally {
+      setTesting(false);
+      setTestingPhase('');
     }
-    setDiscoveredEndpoints([]);
   };
 
   // Get current provider's models
@@ -369,20 +418,6 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
             </select>
           </div>
 
-          {/* Trust Level Badge */}
-          {currentProvider && (
-            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-              currentProvider.trust === 'local'
-                ? (isDark ? 'bg-green-900/40 text-green-300 border border-green-700' : 'bg-green-50 text-green-700 border border-green-200')
-                : (isDark ? 'bg-yellow-900/40 text-yellow-300 border border-yellow-700' : 'bg-yellow-50 text-yellow-700 border border-yellow-200')
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                currentProvider.trust === 'local' ? 'bg-green-500' : 'bg-yellow-500'
-              }`}></span>
-              {currentProvider.trustLabel}
-            </div>
-          )}
-
           {/* API Key Input - only shown when provider needs it */}
           {(currentProvider?.needsApiKey || currentProvider?.optionalApiKey) && (
             <div>
@@ -497,6 +532,76 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
           </div>
         </div>
       </div>
+
+      {/* API Key Modal for Discovered Endpoint */}
+      {pendingEndpoint && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`p-6 rounded-lg shadow-xl max-w-md w-full mx-4 ${isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+            <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Authentication Required?
+            </h3>
+            <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+              If your LLM requires api_key please insert, otherwise ignore this.
+            </p>
+            {error && !testing && (
+              <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md flex items-start">
+                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                {error}
+              </div>
+            )}
+            <input
+              type="password"
+              value={pendingApiKey}
+              onChange={(e) => setPendingApiKey(e.target.value)}
+              placeholder="Enter API Key (if required)"
+              className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 mb-6 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+            />
+            <div className="mt-6">
+              {testing ? (
+                <div className="flex flex-col items-center justify-center py-4">
+                  <p className={`text-sm font-medium mb-4 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                    {testingPhase}
+                  </p>
+                  <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                    <div 
+                      className="h-full bg-purple-600 transition-all duration-500 ease-out"
+                      style={{ 
+                        width: testingPhase === 'Testing connection...' ? '33%' : 
+                               testingPhase === 'Connection successful!' ? '66%' : 
+                               testingPhase === 'Applying configuration...' ? '100%' : '100%'
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => handlePendingEndpointConfirm(true)}
+                    className="w-full px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md shadow-sm hover:bg-purple-700 focus:outline-none flex justify-center items-center"
+                  >
+                    Insert api_key & Test Connection
+                  </button>
+                  <button
+                    onClick={() => handlePendingEndpointConfirm(false)}
+                    className={`w-full px-4 py-2 text-sm font-medium border rounded-md focus:outline-none flex justify-center items-center ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    Ignore (No API Key needed) & Test Connection
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPendingEndpoint(null);
+                      setError(null);
+                    }}
+                    className={`w-full px-4 py-2 text-sm font-medium rounded-md focus:outline-none mt-2 ${isDark ? 'text-red-400 hover:text-red-300 hover:bg-red-900/30' : 'text-red-600 hover:text-red-700 hover:bg-red-50'}`}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

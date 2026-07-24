@@ -246,7 +246,11 @@ class SolutionEngine:
         fallback_solution = self._get_fallback_solution(
             reason, message, events, container_statuses
         )
-        return f"AI solution temporarily unavailable. Here's basic troubleshooting:\n\n{fallback_solution}"
+        
+        if not self.llm_provider:
+            return f"AI solution temporarily unavailable. Here's basic troubleshooting:\n\n{fallback_solution}"
+        else:
+            return fallback_solution
 
     async def get_log_aware_solution(
         self,
@@ -349,7 +353,7 @@ class SolutionEngine:
                 duration
             )
             logger.error(f"Log-aware solution generation failed: {e}")
-            return "Failed to generate log-aware troubleshoot solution: " f"{str(e)}"
+            return "Failed to generate log-aware troubleshoot solution: Cannot connect to LLM."
 
     def _build_log_aware_prompt(
         self,

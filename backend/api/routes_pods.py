@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 import logging
 import traceback
+import asyncio
 
 from pydantic import BaseModel, Field
 
@@ -111,57 +112,77 @@ def create_pod_ingest_router(deps: RouterDeps) -> APIRouter:
 
             use_log_aware = logs_eligible and log_rows_written > 0 and llm_configured
 
-            if use_log_aware:
-                log_aware_ok = False
-                try:
-                    stored_logs = await db.get_pod_failure_logs(pod_id)
-                    log_aware_solution = await solution_engine.get_log_aware_solution(
+            async def generate_and_broadcast_solution():
+                nonlocal use_log_aware
+                if use_log_aware:
+                    log_aware_ok = False
+                    try:
+                        stored_logs = await db.get_pod_failure_logs(pod_id)
+                        log_aware_solution = await solution_engine.get_log_aware_solution(
+                            reason=report.failure_reason,
+                            message=report.failure_message or "",
+                            events=report.events,
+                            container_statuses=report.container_statuses,
+                            pod_context={
+                                "pod_name": report.pod_name,
+                                "namespace": report.namespace,
+                                "image": getattr(report, "image", "Unknown"),
+                            },
+                            manifest=report.manifest or "",
+                            container_logs=stored_logs,
+                        )
+                        generated_at_iso = await db.update_pod_troubleshoot_solution(
+                            pod_id, log_aware_solution
+                        )
+                        await db.update_pod_auto_solution_mode(pod_id, "log_aware")
+                        log_aware_ok = True
+                        
+                        try:
+                            await websocket_manager.broadcast_pod_troubleshoot_updated(
+                                pod_id=pod_id,
+                                solution=log_aware_solution,
+                                generated_at=generated_at_iso,
+                            )
+                        except Exception as ws_err:
+                            logger.warning(
+                                f"Failed to broadcast log-aware troubleshoot update for pod {pod_id}: {ws_err}"
+                            )
+                    except Exception as log_aware_err:
+                        logger.warning(
+                            f"Log-aware auto-solution failed for pod {pod_id} "
+                            f"({report.namespace}/{report.pod_name}): {log_aware_err}. "
+                            f"Falling back to quick solution."
+                        )
+
+                    if not log_aware_ok:
+                        use_log_aware = False
+
+                if not use_log_aware:
+                    logger.info(
+                        f"Generating quick solution for pod {report.namespace}/{report.pod_name}, "
+                        f"failure reason: {report.failure_reason}"
+                    )
+                    quick_solution = await solution_engine.get_solution(
                         reason=report.failure_reason,
-                        message=report.failure_message or "",
+                        message=report.failure_message,
                         events=report.events,
                         container_statuses=report.container_statuses,
-                        pod_context={
-                            "pod_name": report.pod_name,
-                            "namespace": report.namespace,
-                            "image": getattr(report, "image", "Unknown"),
-                        },
-                        manifest=report.manifest or "",
-                        container_logs=stored_logs,
+                        pod_context=pod_context,
+                        use_llm=llm_configured,
                     )
-                    generated_at_iso = await db.update_pod_troubleshoot_solution(
-                        pod_id, log_aware_solution
-                    )
-                    await db.update_pod_auto_solution_mode(pod_id, "log_aware")
-                    response.auto_solution_mode = "log_aware"
-                    response.log_aware_solution = log_aware_solution
-                    response.log_aware_solution_generated_at = generated_at_iso
-                    log_aware_ok = True
-
+                    await db.update_pod_solution(pod_id, quick_solution)
+                    
                     try:
-                        await websocket_manager.broadcast_pod_troubleshoot_updated(
-                            pod_id=pod_id,
-                            solution=log_aware_solution,
-                            generated_at=generated_at_iso,
-                        )
+                        updated_pod = await db.get_pod_failure_by_id(pod_id)
+                        if updated_pod:
+                            await websocket_manager.broadcast_pod_solution_updated(updated_pod)
                     except Exception as ws_err:
-                        logger.warning(
-                            f"Failed to broadcast log-aware troubleshoot update for pod {pod_id}: {ws_err}"
-                        )
-                except Exception as log_aware_err:
-                    logger.warning(
-                        f"Log-aware auto-solution failed for pod {pod_id} "
-                        f"({report.namespace}/{report.pod_name}): {log_aware_err}. "
-                        f"Falling back to quick solution."
-                    )
+                        logger.warning(f"Failed to broadcast quick solution update: {ws_err}")
 
-                if not log_aware_ok:
-                    use_log_aware = False
-
-            if not use_log_aware:
-                logger.info(
-                    f"Generating quick solution for pod {report.namespace}/{report.pod_name}, "
-                    f"failure reason: {report.failure_reason}"
-                )
+            if llm_configured:
+                response.solution = "__GENERATING__"
+                asyncio.create_task(generate_and_broadcast_solution())
+            else:
                 quick_solution = await solution_engine.get_solution(
                     reason=report.failure_reason,
                     message=report.failure_message,
