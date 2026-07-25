@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
     prompt: str
     pod_name: Optional[str] = None
     namespace: Optional[str] = None
+    user_id: Optional[str] = "admin"
 
 class ChatResponse(BaseModel):
     response: str
@@ -29,7 +30,7 @@ def create_chat_ingest_router(deps: RouterDeps) -> APIRouter:
 
         # Save user prompt
         if request.pod_name and request.namespace:
-            await db.save_chat_message(request.pod_name, request.namespace, "user", request.prompt)
+            await db.save_chat_message(request.pod_name, request.namespace, request.user_id, "user", request.prompt)
 
         system_prompt = "You are a helpful Kubernetes AI assistant. Answer the user's questions based on the provided context if applicable."
         context_blocks = []
@@ -83,7 +84,7 @@ def create_chat_ingest_router(deps: RouterDeps) -> APIRouter:
 
             # Save LLM response
             if request.pod_name and request.namespace:
-                await db.save_chat_message(request.pod_name, request.namespace, "assistant", llm_response.content)
+                await db.save_chat_message(request.pod_name, request.namespace, request.user_id, "assistant", llm_response.content)
 
             return ChatResponse(
                 response=llm_response.content,
@@ -94,30 +95,30 @@ def create_chat_ingest_router(deps: RouterDeps) -> APIRouter:
             raise HTTPException(status_code=500, detail="Failed to generate chat response")
 
     @router.get("/chat/history")
-    async def get_chat_history(pod_name: str, namespace: str):
+    async def get_chat_history(pod_name: str, namespace: str, user_id: str = "admin"):
         if not pod_name or not namespace:
             raise HTTPException(status_code=400, detail="pod_name and namespace are required")
         try:
-            history = await db.get_chat_history(pod_name, namespace)
+            history = await db.get_chat_history(pod_name, namespace, user_id)
             return history
         except Exception as e:
             logger.error(f"Error fetching chat history: {e}")
             raise HTTPException(status_code=500, detail="Failed to fetch chat history")
 
     @router.get("/chat/sessions")
-    async def get_chat_sessions():
+    async def get_chat_sessions(user_id: str = "admin"):
         try:
-            return await db.get_chat_sessions()
+            return await db.get_chat_sessions(user_id)
         except Exception as e:
             logger.error(f"Error fetching chat sessions: {e}")
             raise HTTPException(status_code=500, detail="Failed to fetch chat sessions")
 
     @router.delete("/chat/history")
-    async def delete_chat_history(pod_name: str, namespace: str):
+    async def delete_chat_history(pod_name: str, namespace: str, user_id: str = "admin"):
         if not pod_name or not namespace:
             raise HTTPException(status_code=400, detail="pod_name and namespace are required")
         try:
-            await db.delete_chat_history(pod_name, namespace)
+            await db.delete_chat_history(pod_name, namespace, user_id)
             return {"status": "success"}
         except Exception as e:
             logger.error(f"Error deleting chat history: {e}")

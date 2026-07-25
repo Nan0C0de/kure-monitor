@@ -263,10 +263,13 @@ github_actions
 LOCAL_TEST.md
 
 # Ignore examples
-examples
+internal-examples
 
 # Gemini
 .gemini
 
 # Internal Docs
 internal-docs
+
+# Local setup
+local_setup

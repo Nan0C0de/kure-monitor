@@ -200,10 +200,15 @@ class PostgreSQLDatabase(
                         id SERIAL PRIMARY KEY,
                         pod_name VARCHAR(255),
                         namespace VARCHAR(255),
+                        user_id VARCHAR(255) DEFAULT 'admin',
                         role VARCHAR(50) NOT NULL,
                         text TEXT NOT NULL,
                         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
+                """)
+                # Migration for existing tables
+                await conn.execute("""
+                    ALTER TABLE chat_history ADD COLUMN IF NOT EXISTS user_id VARCHAR(255) DEFAULT 'admin';
                 """)
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_chat_history_pod_ns

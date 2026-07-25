@@ -247,10 +247,10 @@ async def require_authenticated(request: Request) -> dict:
     # Try Service Token first (For Grafana App)
     token = request.headers.get("X-Service-Token")
     if token:
-        db = getattr(request.state, "db", None)
+        db = getattr(request.app.state, "db", None)
         if db:
-            valid_token = await db.get_app_setting(SERVICE_TOKEN_SETTING_KEY)
-            if token == valid_token or token == "mock-service-token":
+            valid_token = await get_service_token(db)
+            if hmac.compare_digest(token, valid_token) or token == "mock-service-token":
                 dummy_user = {"id": 0, "username": "grafana_plugin", "role": "admin"}
                 request.state.user = dummy_user
                 return dummy_user
