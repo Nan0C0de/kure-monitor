@@ -59,6 +59,14 @@ See [CHANGELOG.md](CHANGELOG.md) for a detailed history of updates and releases.
 
 For full documentation, including Architecture, Configuration, Authentication, and Troubleshooting, please visit our **[Official Website Documentation](https://igor-koricanac.github.io/kure-monitor/)**.
 
+## Sponsor
+
+If you find Kure Monitor useful, consider supporting its development:
+
+<a href="https://github.com/sponsors/igor-koricanac">
+  <img src="https://img.shields.io/badge/Sponsor-❤-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor igor-koricanac" />
+</a>
+
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
