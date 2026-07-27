@@ -9,6 +9,7 @@ from .failure_logs import FailureLogsMixin
 from .users import UserMixin
 from .login_attempts import LoginAttemptsMixin
 from .chat import ChatMixin
+from .chatops import ChatOpsMixin
 
 __all__ = [
     "PodFailureMixin",
@@ -22,4 +23,5 @@ __all__ = [
     "UserMixin",
     "LoginAttemptsMixin",
     "ChatMixin",
+    "ChatOpsMixin",
 ]

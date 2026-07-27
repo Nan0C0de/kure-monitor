@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional, Dict
 from models.models import PodFailureResponse, SecurityFindingResponse
 
 
@@ -63,6 +63,23 @@ class DatabaseInterface(ABC):
     @abstractmethod
     async def clear_security_findings(self):
         """Clear all security findings (for new scans)"""
+        pass
+
+    @abstractmethod
+    async def save_chatops_message(
+        self, pod_failure_id: int, provider: str, channel_id: str, message_id: str
+    ) -> int:
+        """Save a mapping between a pod failure and a chat notification message"""
+        pass
+
+    @abstractmethod
+    async def get_chatops_message(self, pod_failure_id: int, provider: str) -> Optional[Dict]:
+        """Get the chatops message mapping for a pod failure and provider"""
+        pass
+
+    @abstractmethod
+    async def get_chatops_message_by_message_id(self, provider: str, message_id: str) -> Optional[Dict]:
+        """Get the chatops message mapping by message ID"""
         pass
 
     @abstractmethod

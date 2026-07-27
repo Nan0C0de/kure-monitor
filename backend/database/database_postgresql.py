@@ -15,8 +15,10 @@ from .mixins import (
     UserMixin,
     LoginAttemptsMixin,
     ChatMixin,
+    ChatOpsMixin,
 )
 from services.prometheus_metrics import DATABASE_QUERIES_TOTAL
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,7 @@ class PostgreSQLDatabase(
     UserMixin,
     LoginAttemptsMixin,
     ChatMixin,
+    ChatOpsMixin,
     DatabaseInterface,
 ):
     def __init__(self):
@@ -523,6 +526,21 @@ class PostgreSQLDatabase(
                         first_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                         last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
+                """)
+
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS chatops_messages (
+                        id SERIAL PRIMARY KEY,
+                        pod_failure_id INTEGER NOT NULL REFERENCES pod_failures(id) ON DELETE CASCADE,
+                        provider TEXT NOT NULL,
+                        channel_id TEXT NOT NULL,
+                        message_id TEXT NOT NULL,
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_chatops_pod_failure 
+                    ON chatops_messages(pod_failure_id)
                 """)
 
             logger.info("PostgreSQL database initialized successfully")

@@ -349,3 +349,18 @@ class Database:
         
     async def delete_chat_history(self, pod_name: str, namespace: str, user_id: str):
         return await self._db.delete_chat_history(pod_name, namespace, user_id)
+
+    # ChatOps messages
+    async def save_chatops_message(
+        self, pod_failure_id: int, provider: str, channel_id: str, message_id: str
+    ):
+        return await self._db.save_chatops_message(
+            pod_failure_id, provider, channel_id, message_id
+        )
+
+    async def get_chatops_message(self, pod_failure_id: int, provider: str):
+        return await self._db.get_chatops_message(pod_failure_id, provider)
+
+    async def get_chatops_message_by_message_id(self, provider: str, message_id: str):
+        return await self._db.get_chatops_message_by_message_id(provider, message_id)
+

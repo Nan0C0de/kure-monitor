@@ -1,5 +1,6 @@
 import aiohttp
 import logging
+import json
 from typing import Dict, Any, Optional
 from models.models import PodFailureResponse
 
@@ -56,12 +57,17 @@ class NotificationService:
     async def _send_notification(
         self, provider: str, config: Dict[str, Any], failure: PodFailureResponse
     ):
-        """Route to appropriate provider handler"""
-        handlers = {"slack": self._send_slack, "teams": self._send_teams}
-
-        handler = handlers.get(provider)
-        if handler:
-            await handler(config, failure)
+        """Route to appropriate provider handler, choosing interactive vs webhook mode"""
+        if provider == "slack":
+            if config.get("mode") == "app" or config.get("bot_token"):
+                await self._send_slack_interactive(config, failure)
+            else:
+                await self._send_slack(config, failure)
+        elif provider == "teams":
+            if config.get("mode") == "app" or config.get("callback_url"):
+                await self._send_teams_interactive(config, failure)
+            else:
+                await self._send_teams(config, failure)
         else:
             logger.warning(f"Unknown notification provider: {provider}")
 
@@ -188,6 +194,163 @@ class NotificationService:
             if response.status not in (200, 202):
                 text = await response.text()
                 raise Exception(f"Teams webhook returned {response.status}: {text}")
+
+    async def _send_slack_interactive(self, config: Dict[str, Any], failure: PodFailureResponse):
+        """Send Slack notification via Bot Token with interactive Block Kit button"""
+        bot_token = config.get("bot_token")
+        if not bot_token:
+            raise Exception("Slack Bot User OAuth Token (bot_token) is required for app mode")
+        channel = config.get("channel_id", config.get("channel", ""))
+        if not channel:
+            raise Exception("Slack Channel ID (channel_id) is required for app mode")
+
+        blocks = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": "🚨 Pod Failure Detected", "emoji": True},
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Pod:*\n`{failure.pod_name}`"},
+                    {"type": "mrkdwn", "text": f"*Namespace:*\n`{failure.namespace}`"},
+                    {"type": "mrkdwn", "text": f"*Reason:*\n`{failure.failure_reason}`"},
+                    {"type": "mrkdwn", "text": f"*Node:*\n`{failure.node_name or 'N/A'}`"},
+                ],
+            },
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"*Message:*\n{(failure.failure_message or 'N/A')[:500]}"},
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "🔍 Troubleshoot", "emoji": True},
+                        "style": "primary",
+                        "action_id": "kure_troubleshoot",
+                        "value": json.dumps({
+                            "pod_failure_id": failure.id or 0,
+                            "namespace": failure.namespace,
+                            "pod_name": failure.pod_name,
+                            "failure_reason": failure.failure_reason,
+                        }),
+                    }
+                ],
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {"type": "mrkdwn", "text": f"Kure Monitor • {failure.creation_timestamp}"}
+                ],
+            },
+        ]
+
+        session = await self._get_session()
+        async with session.post(
+            "https://slack.com/api/chat.postMessage",
+            headers={"Authorization": f"Bearer {bot_token}"},
+            json={
+                "channel": channel,
+                "blocks": blocks,
+                "text": f"Pod failure: {failure.namespace}/{failure.pod_name}",
+            },
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as response:
+            data = await response.json()
+            if data.get("ok"):
+                if failure.id:
+                    try:
+                        await self.db.save_chatops_message(
+                            pod_failure_id=failure.id,
+                            provider="slack",
+                            channel_id=data["channel"],
+                            message_id=data["ts"],
+                        )
+                    except Exception as db_err:
+                        logger.warning(f"Failed to store Slack chatops message mapping: {db_err}")
+            else:
+                raise Exception(f"Slack API error: {data.get('error', 'unknown')}")
+
+    async def _send_teams_interactive(self, config: Dict[str, Any], failure: PodFailureResponse):
+        """Send Teams notification via Adaptive Card with Action.Http button"""
+        webhook_url = config.get("webhook_url")
+        if not webhook_url:
+            raise Exception("Teams Workflow Webhook URL (webhook_url) is required")
+        callback_url = config.get("callback_url", "").rstrip("/")
+        if not callback_url:
+            raise Exception("Kure Public URL (callback_url) is required for app mode")
+
+        payload = {
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "contentUrl": None,
+                    "content": {
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "body": [
+                            {
+                                "type": "TextBlock",
+                                "size": "Large",
+                                "weight": "Bolder",
+                                "color": "Attention",
+                                "text": "🚨 Pod Failure Alert",
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": f"{failure.namespace}/{failure.pod_name}",
+                                "wrap": True,
+                                "weight": "Bolder",
+                            },
+                            {
+                                "type": "FactSet",
+                                "facts": [
+                                    {"title": "Namespace", "value": failure.namespace},
+                                    {"title": "Pod", "value": failure.pod_name},
+                                    {"title": "Reason", "value": failure.failure_reason},
+                                    {"title": "Node", "value": failure.node_name or "N/A"},
+                                ],
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": f"**Message:** {(failure.failure_message or 'N/A')[:500]}",
+                                "wrap": True,
+                            },
+                        ],
+                        "actions": [
+                            {
+                                "type": "Action.Http",
+                                "title": "🔍 Troubleshoot",
+                                "method": "POST",
+                                "url": f"{callback_url}/api/chatops/teams/interact",
+                                "body": json.dumps({
+                                    "pod_failure_id": failure.id or 0,
+                                    "namespace": failure.namespace,
+                                    "pod_name": failure.pod_name,
+                                    "failure_reason": failure.failure_reason,
+                                    "webhook_url": webhook_url,
+                                }),
+                                "style": "positive",
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+
+        session = await self._get_session()
+        async with session.post(
+            webhook_url,
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as response:
+            if response.status not in (200, 202):
+                text = await response.text()
+                raise Exception(f"Teams interactive webhook returned {response.status}: {text}")
 
     async def send_pod_resolved_notification(self, namespace: str, pod_name: str):
         """Send notification when a pod failure is resolved/dismissed"""

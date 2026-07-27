@@ -18,8 +18,24 @@ const NotificationSettings = ({ isDark = false }) => {
       name: 'Slack',
       icon: Hash,
       color: 'purple',
-      fields: [
-        { key: 'webhook_url', label: 'Webhook URL', type: 'text', placeholder: 'https://hooks.slack.com/services/...' }
+      modes: [
+        {
+          id: 'webhook',
+          label: 'Webhook (alerts only)',
+          fields: [
+            { key: 'webhook_url', label: 'Webhook URL', type: 'text', placeholder: 'https://hooks.slack.com/services/...' }
+          ]
+        },
+        {
+          id: 'app',
+          label: 'Slack App (interactive ChatOps)',
+          description: 'Enables "Troubleshoot" button with AI-powered threaded replies',
+          fields: [
+            { key: 'bot_token', label: 'Bot User OAuth Token', type: 'password', placeholder: 'xoxb-...' },
+            { key: 'signing_secret', label: 'Signing Secret', type: 'password', placeholder: 'Your Slack app signing secret' },
+            { key: 'channel_id', label: 'Channel ID', type: 'text', placeholder: 'C0123456789' },
+          ]
+        }
       ]
     },
     {
@@ -27,8 +43,23 @@ const NotificationSettings = ({ isDark = false }) => {
       name: 'Microsoft Teams',
       icon: Users,
       color: 'violet',
-      fields: [
-        { key: 'webhook_url', label: 'Workflow Webhook URL', type: 'text', placeholder: 'https://prod-xx.region.logic.azure.com:443/workflows/...' }
+      modes: [
+        {
+          id: 'webhook',
+          label: 'Webhook (alerts only)',
+          fields: [
+            { key: 'webhook_url', label: 'Workflow Webhook URL', type: 'text', placeholder: 'https://prod-xx.region.logic.azure.com:443/workflows/...' }
+          ]
+        },
+        {
+          id: 'app',
+          label: 'Interactive (ChatOps)',
+          description: 'Enables "Troubleshoot" button with AI-powered replies',
+          fields: [
+            { key: 'webhook_url', label: 'Workflow Webhook URL', type: 'text', placeholder: 'https://prod-xx.region.logic.azure.com:443/workflows/...' },
+            { key: 'callback_url', label: 'Kure Public URL', type: 'text', placeholder: 'https://kure.your-domain.com' },
+          ]
+        }
       ]
     }
   ];
@@ -270,10 +301,43 @@ const NotificationSettings = ({ isDark = false }) => {
                 </div>
               </div>
 
-              {isExpanded && (
+              {isExpanded && (() => {
+                const currentMode = settings[provider.id]?.config?.mode || 'webhook';
+                const activeModeObj = provider.modes.find(m => m.id === currentMode) || provider.modes[0];
+                return (
                 <div className={`px-4 py-4 border-t ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="mb-4">
+                    <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Integration Mode
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {provider.modes.map(mode => {
+                        const isSelected = currentMode === mode.id;
+                        return (
+                          <button
+                            key={mode.id}
+                            type="button"
+                            onClick={() => handleConfigChange(provider.id, 'mode', mode.id)}
+                            className={`p-2.5 rounded-lg border text-left transition-all ${
+                              isSelected
+                                ? (isDark ? 'border-blue-500 bg-blue-900/20 text-blue-300' : 'border-blue-600 bg-blue-50/60 text-blue-900')
+                                : (isDark ? 'border-gray-700 hover:bg-gray-700/50 text-gray-300' : 'border-gray-200 hover:bg-gray-50 text-gray-700')
+                            }`}
+                          >
+                            <div className="font-medium text-sm">{mode.label}</div>
+                            {mode.description && (
+                              <div className={`text-xs mt-0.5 leading-tight ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {mode.description}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="space-y-4">
-                    {provider.fields.map(field => (
+                    {activeModeObj.fields.map(field => (
                       <div key={field.key}>
                         <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                           {field.label}
@@ -377,7 +441,7 @@ const NotificationSettings = ({ isDark = false }) => {
                     )}
                   </div>
                 </div>
-              )}
+              ); })()}
             </div>
           );
         })}

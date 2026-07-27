@@ -184,6 +184,19 @@ class NotificationSettingResponse(BaseModel):
     updated_at: Optional[str] = None
 
 
+# ChatOps models
+class ChatOpsMessageRecord(BaseModel):
+    """Tracks the mapping between a pod failure and its chat notification message,
+    so we can post threaded replies when the user clicks 'Troubleshoot'."""
+
+    id: Optional[int] = None
+    pod_failure_id: int
+    provider: str  # "slack" or "teams"
+    channel_id: str  # Slack channel ID or Teams conversation ID
+    message_id: str  # Slack message_ts or Teams message ID
+    created_at: Optional[str] = None
+
+
 # LLM Configuration models
 class LLMConfigCreate(BaseModel):
     provider: str

@@ -136,3 +136,63 @@ class TestNotificationService:
                 config={"webhook_url": "https://hooks.slack.com/test"},
                 failure=mock_failure,
             )
+
+    @pytest.mark.asyncio
+    async def test_routing_slack_interactive(self, notification_service, mock_failure):
+        """Test that mode=app routes Slack to _send_slack_interactive"""
+        config = {"mode": "app", "bot_token": "xoxb-test", "channel_id": "C0123"}
+        with patch.object(notification_service, "_send_slack_interactive", new_callable=AsyncMock) as mock_interact, \
+             patch.object(notification_service, "_send_slack", new_callable=AsyncMock) as mock_webhook:
+            await notification_service._send_notification("slack", config, mock_failure)
+            mock_interact.assert_called_once_with(config, mock_failure)
+            mock_webhook.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_routing_teams_interactive(self, notification_service, mock_failure):
+        """Test that mode=app routes Teams to _send_teams_interactive"""
+        config = {"mode": "app", "webhook_url": "http://test", "callback_url": "http://kure"}
+        with patch.object(notification_service, "_send_teams_interactive", new_callable=AsyncMock) as mock_interact, \
+             patch.object(notification_service, "_send_teams", new_callable=AsyncMock) as mock_webhook:
+            await notification_service._send_notification("teams", config, mock_failure)
+            mock_interact.assert_called_once_with(config, mock_failure)
+            mock_webhook.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_send_slack_interactive_success(self, notification_service, mock_failure):
+        """Test sending interactive Slack notification and saving ChatOps record"""
+        config = {"mode": "app", "bot_token": "xoxb-test", "channel_id": "C0123"}
+        mock_resp = AsyncMock()
+        mock_resp.json = AsyncMock(return_value={"ok": True, "channel": "C0123", "ts": "1600000000.000000"})
+        mock_post_cm = AsyncMock()
+        mock_post_cm.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_session = AsyncMock()
+        mock_session.post = Mock(return_value=mock_post_cm)
+
+        with patch.object(notification_service, "_get_session", new=AsyncMock(return_value=mock_session)):
+            await notification_service._send_slack_interactive(config, mock_failure)
+            notification_service.db.save_chatops_message.assert_called_once_with(
+                pod_failure_id=mock_failure.id,
+                provider="slack",
+                channel_id="C0123",
+                message_id="1600000000.000000",
+            )
+
+    @pytest.mark.asyncio
+    async def test_send_teams_interactive_success(self, notification_service, mock_failure):
+        """Test sending interactive Teams notification with Action.Http"""
+        config = {"mode": "app", "webhook_url": "https://test.logic.azure.com", "callback_url": "https://kure.example.com"}
+        mock_resp = AsyncMock()
+        mock_resp.status = 202
+        mock_post_cm = AsyncMock()
+        mock_post_cm.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_session = AsyncMock()
+        mock_session.post = Mock(return_value=mock_post_cm)
+
+        with patch.object(notification_service, "_get_session", new=AsyncMock(return_value=mock_session)):
+            await notification_service._send_teams_interactive(config, mock_failure)
+            assert mock_session.post.call_count == 1
+            call_kwargs = mock_session.post.call_args[1]
+            payload = call_kwargs["json"]
+            assert payload["attachments"][0]["content"]["actions"][0]["type"] == "Action.Http"
