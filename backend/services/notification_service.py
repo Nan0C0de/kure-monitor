@@ -17,6 +17,7 @@ class NotificationService:
         self.db = db
         # Lazily created in an event loop on first webhook send.
         self._session: Optional[aiohttp.ClientSession] = None
+        self._notified_cache: Dict[str, float] = {}
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Return a process-wide ClientSession, creating it lazily."""
@@ -37,6 +38,21 @@ class NotificationService:
     async def send_pod_failure_notification(self, failure: PodFailureResponse):
         """Send notification for a pod failure to all enabled providers"""
         try:
+            if not getattr(failure, "is_new_failure", True):
+                logger.debug(
+                    f"Skipping notification for pod {failure.namespace}/{failure.pod_name}: existing failure update"
+                )
+                return
+
+            key = f"{failure.namespace}/{failure.pod_name}"
+            now = __import__("time").time()
+            if key in self._notified_cache and (now - self._notified_cache[key]) < 86400:
+                logger.info(
+                    f"Skipping notification for pod {key}: already notified within the last 24 hours"
+                )
+                return
+            self._notified_cache[key] = now
+
             settings = await self.db.get_enabled_notification_settings()
 
             for setting in settings:
@@ -355,6 +371,9 @@ class NotificationService:
     async def send_pod_resolved_notification(self, namespace: str, pod_name: str):
         """Send notification when a pod failure is resolved/dismissed"""
         try:
+            key = f"{namespace}/{pod_name}"
+            self._notified_cache.pop(key, None)
+
             settings = await self.db.get_enabled_notification_settings()
 
             for setting in settings:
@@ -379,16 +398,98 @@ class NotificationService:
         self, provider: str, config: Dict[str, Any], namespace: str, pod_name: str
     ):
         """Route to appropriate provider handler for resolved notifications"""
-        handlers = {
-            "slack": self._send_slack_resolved,
-            "teams": self._send_teams_resolved,
-        }
-
-        handler = handlers.get(provider)
-        if handler:
-            await handler(config, namespace, pod_name)
+        if provider == "slack":
+            if config.get("mode") == "app" or config.get("bot_token"):
+                await self._send_slack_resolved_interactive(config, namespace, pod_name)
+            else:
+                await self._send_slack_resolved(config, namespace, pod_name)
+        elif provider == "teams":
+            await self._send_teams_resolved(config, namespace, pod_name)
         else:
             logger.warning(f"Unknown notification provider: {provider}")
+
+    async def _send_slack_resolved_interactive(
+        self, config: Dict[str, Any], namespace: str, pod_name: str
+    ):
+        """Send Slack resolved notification via Bot Token (with thread reply if thread exists)"""
+        bot_token = config.get("bot_token")
+        if not bot_token:
+            raise Exception("Slack Bot User OAuth Token (bot_token) is required for app mode")
+        channel = config.get("channel_id", config.get("channel", ""))
+        if not channel:
+            raise Exception("Slack Channel ID (channel_id) is required for app mode")
+
+        # Try to find recent pod failure ID to see if we have a thread mapping
+        thread_ts = None
+        try:
+            pod_failures = await self.db.get_pod_failures(
+                namespace=namespace, pod_name=pod_name, include_dismissed=True
+            )
+            if pod_failures:
+                latest_id = pod_failures[0].id
+                chatops_msg = await self.db.get_chatops_message(
+                    pod_failure_id=latest_id, provider="slack"
+                )
+                if chatops_msg and chatops_msg.get("message_id"):
+                    thread_ts = chatops_msg["message_id"]
+        except Exception as e:
+            logger.debug(
+                f"Could not look up thread_ts for resolved pod {namespace}/{pod_name}: {e}"
+            )
+
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "🟢 Pod Recovered & Resolved",
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Pod:*\n`{pod_name}`"},
+                    {"type": "mrkdwn", "text": f"*Namespace:*\n`{namespace}`"},
+                    {"type": "mrkdwn", "text": "*Status:*\n✅ `Healthy / Resolved`"},
+                ],
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "Kure Monitor • Pod is no longer failing in Kubernetes",
+                    }
+                ],
+            },
+        ]
+
+        session = await self._get_session()
+
+        post_json = {
+            "channel": channel,
+            "blocks": blocks,
+            "text": f"🟢 Pod Recovered & Resolved: {namespace}/{pod_name}",
+        }
+        if thread_ts:
+            post_json["thread_ts"] = thread_ts
+            post_json["reply_broadcast"] = True
+
+        async with session.post(
+            "https://slack.com/api/chat.postMessage",
+            headers={"Authorization": f"Bearer {bot_token}"},
+            json=post_json,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as response:
+            if response.status != 200:
+                text = await response.text()
+                raise Exception(f"Slack postMessage returned {response.status}: {text}")
+            data = await response.json()
+            if not data.get("ok"):
+                raise Exception(
+                    f"Slack postMessage failed: {data.get('error', 'unknown error')}"
+                )
 
     async def _send_slack_resolved(
         self, config: Dict[str, Any], namespace: str, pod_name: str

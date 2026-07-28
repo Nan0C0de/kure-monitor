@@ -98,6 +98,7 @@ class PodFailureMixin:
             )
 
             if existing:
+                failure.is_new_failure = False
                 await conn.execute(
                     """
                     UPDATE pod_failures SET
@@ -124,6 +125,7 @@ class PodFailureMixin:
                 )
                 return existing["id"]
             else:
+                failure.is_new_failure = True
                 result = await conn.fetchrow(
                     """
                     INSERT INTO pod_failures (

@@ -73,11 +73,11 @@ existing users out).
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `agent.pendingGracePeriod` | Seconds before reporting Pending pods as failed | `120` |
-| `agent.image.tag` | Agent image tag | `2.4.3` |
-| `securityScanner.image.tag` | Security scanner image tag | `2.4.3` |
+| `agent.image.tag` | Agent image tag | `2.4.4` |
+| `securityScanner.image.tag` | Security scanner image tag | `2.4.4` |
 | `backend.replicaCount` | Backend replica count | `1` |
-| `backend.image.tag` | Backend image tag | `2.4.3` |
-| `frontend.image.tag` | Frontend image tag | `2.4.3` |
+| `backend.image.tag` | Backend image tag | `2.4.4` |
+| `frontend.image.tag` | Frontend image tag | `2.4.4` |
 
 ### LLM Configuration
 
@@ -237,7 +237,7 @@ helm install kure-monitor kure-monitor/kure \
 
 ```bash
 helm repo update
-helm upgrade kure-monitor kure-monitor/kure --version 2.4.3 -n kure-system
+helm upgrade kure-monitor kure-monitor/kure --version 2.4.4 -n kure-system
 ```
 
 ## Uninstall

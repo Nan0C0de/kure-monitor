@@ -110,27 +110,30 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
                 base_url=config.base_url,
             )
 
-            test_response = await provider.generate_solution(
-                failure_reason="CrashLoopBackOff",
-                failure_message="Test connection to LLM provider",
-                pod_context={"name": "test-pod", "namespace": "test"},
-                events=[
-                    {
-                        "type": "Warning",
-                        "reason": "BackOff",
-                        "message": "Back-off restarting container",
-                    }
-                ],
-            )
+            try:
+                test_response = await provider.generate_solution(
+                    failure_reason="CrashLoopBackOff",
+                    failure_message="Test connection to LLM provider",
+                    pod_context={"name": "test-pod", "namespace": "test"},
+                    events=[
+                        {
+                            "type": "Warning",
+                            "reason": "BackOff",
+                            "message": "Back-off restarting container",
+                        }
+                    ],
+                )
 
-            if (
-                test_response
-                and test_response.content
-                and len(test_response.content) > 10
-            ):
-                return {"success": True, "message": "LLM connection successful"}
-            else:
-                return {"success": False, "message": "LLM returned empty response"}
+                if (
+                    test_response
+                    and test_response.content
+                    and len(test_response.content) > 10
+                ):
+                    return {"success": True, "message": "LLM connection successful"}
+                else:
+                    return {"success": False, "message": "LLM returned empty response"}
+            finally:
+                await provider.close()
         except Exception as e:
             logger.error(f"Error testing LLM config: {e}")
             return {"success": False, "message": str(e)}

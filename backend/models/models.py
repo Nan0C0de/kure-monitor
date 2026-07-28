@@ -80,6 +80,7 @@ class PodFailureResponse(PodFailureReport):
     # "log_aware" = log-aware solution auto-generated; frontend should show
     # it first and the quick solution requires a manual retry.
     auto_solution_mode: str = "quick"
+    is_new_failure: bool = True
 
 
 class PodStatusUpdate(BaseModel):

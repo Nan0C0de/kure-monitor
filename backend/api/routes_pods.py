@@ -241,7 +241,7 @@ def create_pod_ingest_router(deps: RouterDeps) -> APIRouter:
             if not resolved_pods:
                 await websocket_manager.broadcast_pod_deleted(namespace, pod_name)
 
-            if notification_service:
+            if resolved_pods and notification_service:
                 await notification_service.send_pod_resolved_notification(
                     namespace=namespace, pod_name=pod_name
                 )

@@ -43,26 +43,78 @@ def create_chatops_router(deps: RouterDeps) -> APIRouter:
     # Slack interactive endpoint
     # -----------------------------------------------------------------
 
-    @router.post("/chatops/slack/interact")
-    async def slack_interaction(request: Request):
-        """Handle Slack interactive component payloads (button clicks).
-
-        Slack sends a URL-encoded form with a ``payload`` field containing
-        JSON.  We must respond within 3 seconds, so we acknowledge
-        immediately and process the troubleshoot request in the background.
-        """
-        # 1. Verify Slack signature
+    async def _handle_slack_incoming(request: Request):
         body = await request.body()
         await _verify_slack_signature(request, body, db)
 
-        # 2. Parse the payload
-        form_data = parse_qs(body.decode("utf-8", errors="replace"))
-        raw_payload = form_data.get("payload", [None])[0]
-        if not raw_payload:
-            raise HTTPException(status_code=400, detail="Missing payload")
-        payload = json.loads(raw_payload)
+        body_str = body.decode("utf-8", errors="replace").strip()
+        payload = None
+        if body_str.startswith("payload="):
+            form_data = parse_qs(body_str)
+            raw = form_data.get("payload", [None])[0]
+            if raw:
+                try:
+                    payload = json.loads(raw)
+                except Exception:
+                    pass
+        if not payload:
+            try:
+                payload = json.loads(body_str)
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-        # Handle only our known action; silently ignore everything else.
+        # 1. Handle URL verification challenge during Slack app setup
+        if payload.get("type") == "url_verification":
+            return {"challenge": payload.get("challenge")}
+
+        logger.info(f"DEBUG INCOMING SLACK PAYLOAD: {json.dumps(payload)}")
+
+        # 2. Handle Events API callbacks (e.g. user replies in threads)
+        if payload.get("type") == "event_callback":
+            event = payload.get("event", {})
+            logger.info(f"Received Slack event: {event.get('type')}, subtype: {event.get('subtype')}")
+            
+            if event.get("bot_id") or event.get("subtype") in (
+                "bot_message",
+                "message_changed",
+                "message_deleted",
+            ):
+                return {"ok": True}
+
+            thread_ts = event.get("thread_ts")
+            channel_id = event.get("channel")
+            text = event.get("text", "").strip()
+            user_id = event.get("user", "unknown")
+
+            logger.info(f"Processing Slack message event. thread_ts={thread_ts}, channel={channel_id}, text len={len(text)}")
+
+            if not thread_ts or not channel_id or not text:
+                logger.info("Ignoring Slack event: missing thread_ts, channel_id, or text")
+                return {"ok": True}
+
+            chatops_rec = await db.get_chatops_message_by_message_id(
+                provider="slack", message_id=thread_ts
+            )
+            if chatops_rec:
+                logger.info(f"Found chatops_rec for thread_ts {thread_ts}, dispatching reply task.")
+                pod_failure_id = chatops_rec["pod_failure_id"]
+                asyncio.create_task(
+                    _process_slack_chat_reply(
+                        db=db,
+                        solution_engine=solution_engine,
+                        notification_service=notification_service,
+                        pod_failure_id=pod_failure_id,
+                        channel_id=channel_id,
+                        thread_ts=thread_ts,
+                        user_id=user_id,
+                        user_text=text,
+                    )
+                )
+            else:
+                logger.info(f"No chatops_rec found for thread_ts {thread_ts}")
+            return {"ok": True}
+
+        # 3. Handle interactive component payloads (button clicks)
         actions = payload.get("actions", [])
         if not actions:
             return {"ok": True}
@@ -70,23 +122,20 @@ def create_chatops_router(deps: RouterDeps) -> APIRouter:
         if action.get("action_id") != "kure_troubleshoot":
             return {"ok": True}
 
-        # 3. Extract context from button value
         try:
             button_value = json.loads(action["value"])
-        except (KeyError, json.JSONDecodeError):
+        except (KeyError, json.JSONDecodeError, TypeError):
             raise HTTPException(status_code=400, detail="Malformed action value")
 
         pod_failure_id = button_value.get("pod_failure_id")
         if pod_failure_id is None:
             raise HTTPException(status_code=400, detail="Missing pod_failure_id")
 
-        # 4. Gather Slack-specific context for the threaded reply.
         channel_id = payload.get("channel", {}).get("id", "")
         message_ts = payload.get("message", {}).get("ts", "")
         user_name = payload.get("user", {}).get("username", "someone")
         response_url = payload.get("response_url", "")
 
-        # 5. Fire-and-forget the heavy processing.
         asyncio.create_task(
             _process_slack_troubleshoot(
                 db=db,
@@ -99,9 +148,17 @@ def create_chatops_router(deps: RouterDeps) -> APIRouter:
                 response_url=response_url,
             )
         )
-
-        # 6. Acknowledge immediately (Slack requires < 3 s response).
         return {"ok": True}
+
+    @router.post("/chatops/slack/interact")
+    async def slack_interaction(request: Request):
+        """Handle Slack interactive component payloads and events (unified)."""
+        return await _handle_slack_incoming(request)
+
+    @router.post("/chatops/slack/events")
+    async def slack_events(request: Request):
+        """Handle Slack Events API callbacks and interactive components (unified)."""
+        return await _handle_slack_incoming(request)
 
     # -----------------------------------------------------------------
     # Teams interactive endpoint
@@ -265,6 +322,17 @@ async def _process_slack_troubleshoot(
 
         session = await notification_service._get_session()
 
+        # Ensure root message mapping is stored for threaded chat replies
+        try:
+            await db.save_chatops_message(
+                pod_failure_id=pod_failure_id,
+                provider="slack",
+                channel_id=channel_id,
+                message_id=message_ts,
+            )
+        except Exception:
+            pass
+
         # 1. Post "analyzing …" message in the thread.
         async with session.post(
             "https://slack.com/api/chat.postMessage",
@@ -368,6 +436,168 @@ async def _process_slack_troubleshoot(
                             f"❌ AI analysis failed: {str(e)[:200]}. "
                             "Please try the Kure Monitor dashboard."
                         ),
+                    },
+                ) as _:
+                    pass
+            except Exception:
+                pass
+
+
+async def _process_slack_chat_reply(
+    db,
+    solution_engine,
+    notification_service,
+    pod_failure_id: int,
+    channel_id: str,
+    thread_ts: str,
+    user_id: str,
+    user_text: str,
+) -> None:
+    """Background task: process a user's reply in a Slack troubleshooting thread and answer conversationally."""
+    bot_token: str | None = None
+    session = None
+    try:
+        if not solution_engine.llm_provider:
+            logger.warning("LLM provider not configured for Slack chat reply")
+            return
+
+        settings = await db.get_notification_setting("slack")
+        if not settings:
+            return
+        bot_token = settings.config.get("bot_token")
+        if not bot_token:
+            return
+
+        session = await notification_service._get_session()
+
+        # 1. Post "analyzing follow-up question..." indicator
+        thinking_ts = None
+        async with session.post(
+            "https://slack.com/api/chat.postMessage",
+            headers={"Authorization": f"Bearer {bot_token}"},
+            json={
+                "channel": channel_id,
+                "thread_ts": thread_ts,
+                "text": f"💬 <@{user_id}> analyzing follow-up question...",
+            },
+        ) as resp:
+            thinking_data = await resp.json()
+            thinking_ts = thinking_data.get("ts")
+
+        # 2. Load pod and build conversational context
+        pod = await db.get_pod_failure_by_id(pod_failure_id)
+        if not pod:
+            return
+
+        chat_session_id = f"slack_{thread_ts}"
+        await db.save_chat_message(
+            pod.pod_name, pod.namespace, chat_session_id, "user", f"<@{user_id}>: {user_text}"
+        )
+
+        history = await db.get_chat_history(pod.pod_name, pod.namespace, chat_session_id)
+
+        system_prompt = (
+            "You are Kure Monitor, a helpful Kubernetes AI troubleshooting assistant. "
+            "You are participating in a Slack thread helping engineers debug and fix a pod failure. "
+            "Be concise, direct, and format your answer in Slack markdown (*bold*, _italics_, and ```code blocks```)."
+        )
+
+        context_blocks = [f"Target Pod: {pod.namespace}/{pod.pod_name}"]
+        if pod.failure_reason:
+            context_blocks.append(f"Failure Reason: {pod.failure_reason}")
+        if pod.failure_message:
+            context_blocks.append(f"Failure Message: {pod.failure_message}")
+        if pod.events:
+            events_str = "\n".join([str(e) for e in pod.events[-10:]])
+            context_blocks.append(f"Recent Pod Events:\n{events_str}")
+        if pod.manifest:
+            context_blocks.append(f"Pod Manifest:\n```yaml\n{pod.manifest}\n```")
+
+        logs = await db.get_pod_failure_logs(pod_failure_id)
+        if logs:
+            for log_entry in logs:
+                cname = log_entry.get("container_name", "unknown")
+                log_text = log_entry.get("logs", "")
+                if log_text:
+                    log_lines = log_text.splitlines()[-50:]
+                    context_blocks.append(f"Container {cname} Logs:\n" + "\n".join(log_lines))
+
+        history_str = ""
+        if len(history) > 1:
+            history_lines = []
+            for h in history[:-1]:
+                role_label = "Engineer" if h["role"] == "user" else "Kure AI"
+                history_lines.append(f"{role_label}: {h['text']}")
+            history_str = "\n\nPrevious Conversation in this Thread:\n" + "\n".join(history_lines[-10:])
+
+        user_prompt = (
+            f"Pod Diagnostic Context:\n{chr(10).join(context_blocks)}"
+            f"{history_str}\n\n"
+            f"Latest Question from Engineer (<@{user_id}>):\n{user_text}"
+        )
+
+        llm_response = await solution_engine.llm_provider.generate_raw(system_prompt, user_prompt)
+        reply_text = llm_response.content
+
+        await db.save_chat_message(
+            pod.pod_name, pod.namespace, chat_session_id, "assistant", reply_text
+        )
+
+        reply_blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": _truncate_for_slack(reply_text),
+                },
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Reply to <@{user_id}> • Kure Monitor AI",
+                    }
+                ],
+            },
+        ]
+
+        if thinking_ts:
+            async with session.post(
+                "https://slack.com/api/chat.update",
+                headers={"Authorization": f"Bearer {bot_token}"},
+                json={
+                    "channel": channel_id,
+                    "ts": thinking_ts,
+                    "blocks": reply_blocks,
+                    "text": reply_text[:200],
+                },
+            ) as _:
+                pass
+        else:
+            async with session.post(
+                "https://slack.com/api/chat.postMessage",
+                headers={"Authorization": f"Bearer {bot_token}"},
+                json={
+                    "channel": channel_id,
+                    "thread_ts": thread_ts,
+                    "blocks": reply_blocks,
+                    "text": reply_text[:200],
+                },
+            ) as _:
+                pass
+
+    except Exception as e:
+        logger.error(f"Slack chat reply failed for pod {pod_failure_id}: {e}", exc_info=True)
+        if bot_token and session and channel_id and thread_ts:
+            try:
+                async with session.post(
+                    "https://slack.com/api/chat.postMessage",
+                    headers={"Authorization": f"Bearer {bot_token}"},
+                    json={
+                        "channel": channel_id,
+                        "thread_ts": thread_ts,
+                        "text": f"❌ Could not answer question: {str(e)[:200]}",
                     },
                 ) as _:
                     pass
