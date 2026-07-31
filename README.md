@@ -57,7 +57,7 @@ See [CHANGELOG.md](CHANGELOG.md) for a detailed history of updates and releases.
 
 ## Documentation
 
-For full documentation, including Architecture, Configuration, Authentication, and Troubleshooting, please visit our **[Official Website Documentation](https://igor-koricanac.github.io/kure-monitor/)**.
+For full documentation, including Architecture, Configuration, Authentication, and Troubleshooting, please visit our **[Official Website Documentation](https://kuremonitor.com/)**.
 
 ## Sponsor
 

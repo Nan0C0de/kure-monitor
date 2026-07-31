@@ -3,8 +3,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-	site: 'https://igor-koricanac.github.io',
-	base: '/kure-monitor',
+	site: 'https://kuremonitor.com',
 	integrations: [
 		starlight({
 			title: 'Kure Monitor',
@@ -64,8 +63,10 @@ export default defineConfig({
 						{ label: 'Pod Monitoring', slug: 'features/pod-monitoring' },
 						{ label: 'Security Scanner', slug: 'features/security-scanner' },
 						{ label: 'Topology Diagram', slug: 'features/diagram' },
+						{ label: 'AI Advice', slug: 'features/advice' },
 						{ label: 'Mirror Pod Testing', slug: 'features/mirror-pod' },
 						{ label: 'Notifications', slug: 'features/notifications' },
+						{ label: 'Suppressions', slug: 'features/suppressions' },
 					],
 				},
 				{
@@ -74,12 +75,6 @@ export default defineConfig({
 						{ label: 'Architecture', slug: 'reference/architecture' },
 						{ label: 'API Reference', slug: 'reference/api' },
 						{ label: 'Troubleshooting', slug: 'reference/troubleshooting' },
-					],
-				},
-				{
-					label: 'Migration Guides',
-					items: [
-						{ label: '2.2 → 2.3', slug: 'migration/2-2-to-2-3' },
 					],
 				},
 				{

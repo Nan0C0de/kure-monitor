@@ -206,8 +206,7 @@ Namespace: kure-system
 ├── Services:     kure-backend, kure-frontend, postgresql
 ├── ConfigMap:    kure-config
 ├── Secrets:      <release>-bootstrap, kure-secrets
-├── ServiceAccounts + ClusterRoles + ClusterRoleBindings
-└── NetworkPolicy: kure-network-policy
+└── ServiceAccounts + ClusterRoles + ClusterRoleBindings
 ```
 
 ## RBAC
@@ -263,17 +262,6 @@ rules:
 
 For multi-replica backends, the bootstrap Secret keeps `session-secret` consistent across replicas — see [Authentication](/kure-monitor/configuration/authentication/).
 
-## Network isolation
-
-```yaml
-NetworkPolicy:
-  - Allow Agent → Backend
-  - Allow Scanner → Backend
-  - Allow Frontend → Backend
-  - Allow Backend → PostgreSQL
-  - Allow Backend → External (LLM APIs)
-  - Deny all other traffic
-```
 
 ## Container hardening
 

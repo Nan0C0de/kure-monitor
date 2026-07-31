@@ -15,7 +15,7 @@ keywords:
   - pod-failure-detection
   - diagnostics
   - observability
-home: https://igor-koricanac.github.io/kure-monitor
+home: https://kuremonitor.com
 sources:
   - https://github.com/igor-koricanac/kure-monitor
 maintainers:
@@ -48,7 +48,7 @@ annotations:
   artifacthub.io/operator: false
   artifacthub.io/prerelease: false
   artifacthub.io/install: |
-    helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
+    helm repo add kure-monitor https://kuremonitor.com/
 
     # Install Kure Monitor
     helm install kure-monitor kure-monitor/kure --version 2.4.4 \

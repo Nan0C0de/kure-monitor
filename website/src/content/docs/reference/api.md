@@ -45,6 +45,8 @@ GET /api/pods/{namespace}/{pod_name}/logs/stream?token=YOUR_SERVICE_TOKEN
 | `GET /api/auth/status` | Whether initial admin setup is needed |
 | `POST /api/auth/login` | Log in with username + password |
 | `POST /api/auth/signup` | Create the initial admin (only when no users exist) |
+| `POST /api/chatops/slack/*` | External webhook for Slack interactivity |
+| `POST /api/chatops/teams/*` | External webhook for Teams interactivity |
 
 ### Service-token-only ingest
 
@@ -84,6 +86,13 @@ GET /api/pods/{namespace}/{pod_name}/logs/stream?token=YOUR_SERVICE_TOKEN
 | Security | `GET /security/findings` | List findings |
 | Security | `POST /security/findings/{id}/fix` | Generate AI fix |
 | Security | `GET / POST / DELETE /security/trusted-registries` | Manage trusted registries |
+| Advice | `GET /advice/findings` | List active advice |
+| Advice | `POST /advice/findings/{id}/explain` | Lazy AI explanation |
+| Advice | `PUT /advice/findings/{id}/ignore` | Suppress finding |
+| Advice | `GET /advice/detectors` | List available detectors |
+| ChatOps | `POST /chatops/slack/events` | Slack URL Verification & Events |
+| ChatOps | `POST /chatops/slack/interact` | Slack Interactive Buttons |
+| ChatOps | `POST /chatops/teams/interact` | MS Teams Interactive Buttons |
 | Mirror | `POST /mirror/preview/{id}` | Generate fixed manifest |
 | Mirror | `POST /mirror/deploy/{id}` | Deploy mirror pod |
 | Mirror | `GET /mirror/status/{id}` | Mirror status |

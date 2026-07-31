@@ -6,7 +6,7 @@ Kubernetes failure diagnosis tool with AI-powered troubleshooting and security s
 
 ```bash
 # Add the Helm repository
-helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
+helm repo add kure-monitor https://kuremonitor.com/
 helm repo update
 
 # Install Kure Monitor

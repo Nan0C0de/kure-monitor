@@ -1,80 +1,48 @@
 ---
 title: LLM Providers
-description: Supported LLM providers, default models, and recommendations for Kure Monitor's AI-powered troubleshooting.
+description: Supported LLM providers and configuration for Kure Monitor's AI-powered troubleshooting.
 ---
 
 Kure Monitor uses an LLM to generate contextual fixes for pod failures and security findings. The provider is configured **after install** from the **Admin Panel → AI Configuration** — no API keys at install time.
 
-> **2.4.0** — the LLM is now also used by the new **AI Advice** tab. Explanations for advice findings are generated lazily on card expand (one LLM call per finding, cached) so a scan with N findings does not cost N requests up front. The advice explainer prompt is constrained to only reference data present in the finding's `evidence` dict — no invented replica counts, image names, ports, or labels.
->
-> **2.3.4** — the AI Configuration panel defaults to **Groq** for new installations (was Ollama). Existing installs are unaffected; this only changes the initial pre-selection. Model catalogs across all six providers were refreshed to current (May 2026) latest models.
+## Supported Providers
 
-## Supported providers
+Kure Monitor **supports almost any LLM provider**! 
 
-| Provider | Alias | Default Model | Pricing |
-|----------|-------|---------------|---------|
-| **Groq** (default) | `groq`, `groq_cloud` | `meta-llama/llama-4-scout-17b-16e-instruct` | [groq.com/pricing](https://groq.com/pricing/) |
-| **OpenAI** | `openai` | `gpt-5.5-mini` | [openai.com/pricing](https://openai.com/pricing) |
-| **Anthropic** | `anthropic`, `claude` | `claude-sonnet-4-6` | [anthropic.com/pricing](https://www.anthropic.com/pricing) |
-| **Google Gemini** | `gemini`, `google` | `gemini-3-flash` | [ai.google.dev/pricing](https://ai.google.dev/pricing) |
-| **GitHub Copilot** (GitHub Models) | `copilot`, `github`, `github_models` | `openai/gpt-5.5-mini` | [GitHub Models](https://github.com/marketplace/models) |
-| **Ollama** (local) | `ollama` | `llama4:scout` | Free / self-hosted |
+Whether you are using a managed cloud service or running an air-gapped local model, Kure has you covered:
 
-### Model catalogs (dropdown options)
+- **Local AI Auto-Detect**: Kure automatically scans your Kubernetes cluster's services for local LLMs (like Ollama, vLLM, LocalAI, TGI, or NVIDIA NIM). With a single click in the Admin panel, it automatically retrieves the service URL and lists the available models you have loaded.
+- **Predefined Providers**: For convenience, we offer quick-select options for **Anthropic**, **Google Gemini**, and **GitHub Copilot**.
+- **Custom Provider**: For everything else (OpenAI, Groq, DeepSeek, or any other API), use the **Custom** option.
 
-| Provider | Models in the dropdown (default in **bold**) |
-|----------|----------------------------------------------|
-| OpenAI | `gpt-5.5`, **`gpt-5.5-mini`**, `gpt-5.4-mini` |
-| Anthropic | `claude-opus-4-7`, **`claude-sonnet-4-6`**, `claude-haiku-4-5` |
-| Google Gemini | `gemini-3.1-pro`, **`gemini-3-flash`**, `gemini-3.1-flash-lite` |
-| Groq | `openai/gpt-oss-120b`, **`meta-llama/llama-4-scout-17b-16e-instruct`**, `llama-3.3-70b-versatile`, `openai/gpt-oss-20b` |
-| Ollama | **`llama4:scout`**, `llama3.3`, `qwen3` |
-| GitHub Copilot | `openai/gpt-5.5`, **`openai/gpt-5.5-mini`**, `anthropic/claude-sonnet-4-6` |
+### The "Custom" Provider
 
-### GitHub Copilot (GitHub Models)
+The Custom provider allows you to connect to absolutely any OpenAI-compatible API. 
 
-- **Display name**: GitHub Copilot (GitHub Models)
-- **Auth**: GitHub Personal Access Token (fine-grained, with the `Models` permission)
-- **Base URL**: `https://models.github.ai/inference`
-- **API**: OpenAI-compatible
-- **Example models**: `openai/gpt-5.5`, `openai/gpt-5.5-mini`, `anthropic/claude-sonnet-4-6`
-
-### Ollama
-
-For air-gapped clusters. Run Ollama in your cluster, point Kure at it, and your cluster data never leaves your network. Default model: `llama4:scout`. Other models in the dropdown: `llama3.3`, `qwen3`.
-
-## Recommendations
-
-| Use case | Provider | Model |
-|----------|----------|-------|
-| Best quality | Anthropic | `claude-opus-4-7` |
-| Best value | OpenAI | `gpt-5.5-mini` |
-| Fastest | Groq | `meta-llama/llama-4-scout-17b-16e-instruct` |
-| Free tier | Groq | `meta-llama/llama-4-scout-17b-16e-instruct` |
-| Google ecosystem | Google | `gemini-3-flash` |
-| GitHub ecosystem | GitHub Copilot | `openai/gpt-5.5-mini` |
-| Local / air-gapped | Ollama | `llama4:scout` |
+When you select Custom, you simply need to provide:
+1. **Base URL**: The API endpoint (e.g., `https://api.openai.com/v1`, `https://api.groq.com/openai/v1`)
+2. **API Key**: Your secret token.
+3. **Model Name**: Type in the exact name of the model you want to use (e.g., `gpt-5.5-mini`, `llama-3.3-70b-versatile`, `qwen2.5:72b`).
 
 ## Configuring a provider
 
-1. Open the dashboard
-2. **Admin Panel → AI Configuration**
-3. Pick a provider
-4. Paste your API key (or PAT for GitHub Copilot)
-5. Pick a model from the dropdown
-6. Click **Test Connection** — verifies the key works
-7. Click **Save Configuration**
+1. Open the dashboard.
+2. Go to **Admin Panel → AI Configuration**.
+3. Select either a **Predefined Provider** (like Anthropic), **Auto-Detect** (for cluster models), or **Custom**.
+4. Fill in your Base URL, API Key, and Model name (or select them from the auto-detected dropdown).
+5. Click **Test Connection** — this verifies that your key and URL work.
+6. Click **Save Configuration**.
 
-If the LLM call fails at runtime, Kure falls back to rule-based solutions so the dashboard stays useful.
+If the LLM call ever fails at runtime (e.g., due to rate limits), Kure falls back to rule-based solutions so the dashboard always stays useful.
 
 ## Rotating an API key
 
-1. Generate a new key with your provider
-2. **Admin Panel → AI Configuration**
-3. Replace the existing key
-4. **Test Connection** → **Save**
+1. Generate a new key with your provider.
+2. Go to **Admin Panel → AI Configuration**.
+3. Replace the existing key.
+4. Click **Test Connection** → **Save**.
 
-LLM API keys are encrypted at rest using a Fernet key (`security.encryptionKey` in Helm values). If left empty at install time the chart auto-generates one.
+LLM API keys are encrypted at rest using a Fernet key (`security.encryptionKey` in Helm values). If left empty at install time, the chart auto-generates one.
 
 ## Removing a provider
 
@@ -82,4 +50,4 @@ LLM API keys are encrypted at rest using a Fernet key (`security.encryptionKey` 
 DELETE /api/admin/llm/config
 ```
 
-…or click **Delete** in the Admin panel. Kure reverts to rule-based solutions.
+…or just click **Delete** in the Admin panel. Kure will revert to rule-based solutions.

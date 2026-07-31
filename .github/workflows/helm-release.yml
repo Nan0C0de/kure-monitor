@@ -82,7 +82,7 @@ jobs:
         helm package helm/ --destination .cr-release-packages/
 
         # Create the chart repo index pointing at the Pages URL
-        helm repo index .cr-release-packages --url https://igor-koricanac.github.io/kure-monitor/
+        helm repo index .cr-release-packages --url https://kuremonitor.com/
 
         # Cache-busting comment
         echo "# Generated at $(date)" >> .cr-release-packages/index.yaml

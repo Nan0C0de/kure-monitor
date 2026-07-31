@@ -48,7 +48,7 @@ It also continuously audits your cluster for security misconfigurations and rend
 ## Install in two commands
 
 ```bash
-helm repo add kure-monitor https://igor-koricanac.github.io/kure-monitor/
+helm repo add kure-monitor https://kuremonitor.com/
 helm install kure-monitor kure-monitor/kure \
   --namespace kure-system --create-namespace \
   --set postgresql.password="$(openssl rand -hex 24)"
@@ -66,7 +66,7 @@ Configure your LLM provider from the Admin panel after the first sign-in.
 <LinkCard
 	title="Full installation guide"
 	description="Helm, raw manifests, EKS / GKE / AKS, Ingress, LoadBalancer, and post-install checks."
-	href="/kure-monitor/getting-started/installation/"
+	href="/getting-started/installation/"
 />
 
 ## Where Kure fits
@@ -87,12 +87,12 @@ Apache 2.0 licensed. Ships as a Helm chart. Stores nothing outside your cluster 
 <CardGrid>
 	<LinkCard
 		title="See it in action"
-		href="/kure-monitor/showcase/"
+		href="/showcase/"
 		description="Screenshots and short clips of the dashboard, AI troubleshooting, security scanning, and mirror-pod testing."
 	/>
 	<LinkCard
 		title="Read the docs"
-		href="/kure-monitor/getting-started/introduction/"
+		href="/getting-started/introduction/"
 		description="Architecture, configuration, API reference, and troubleshooting."
 	/>
 	<LinkCard
@@ -107,7 +107,7 @@ Apache 2.0 licensed. Ships as a Helm chart. Stores nothing outside your cluster 
 	/>
 	<LinkCard
 		title="Latest release notes"
-		href="/kure-monitor/release-notes/2-4-4/"
+		href="/release-notes/2-4-4/"
 		description="What's new in 2.4.4 — Full ChatOps parity for Slack, Microsoft Teams Interactive Mode, and bug fixes."
 	/>
 </CardGrid>
