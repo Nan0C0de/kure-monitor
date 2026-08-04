@@ -84,4 +84,4 @@ From the Security tab, click **Export**:
 
 ## How the scanner authenticates to the backend
 
-The scanner POSTs findings to `/api/security/findings` with the `X-Service-Token` header. The token is mounted from the `<release>-bootstrap` Secret. See [Authentication](/kure-monitor/configuration/authentication/).
+The scanner POSTs findings to `/api/security/findings` with the `X-Service-Token` header. The token is mounted from the `<release>-bootstrap` Secret. See [Authentication](/configuration/authentication/).

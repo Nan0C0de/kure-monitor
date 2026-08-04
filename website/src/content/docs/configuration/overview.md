@@ -94,6 +94,6 @@ helm install kure-monitor kure-monitor/kure \
 
 ## What to read next
 
-- [Helm Values](/kure-monitor/configuration/helm-values/) — full parameter reference
-- [LLM Providers](/kure-monitor/configuration/llm-providers/) — supported providers, models, and recommended picks
-- [Authentication](/kure-monitor/configuration/authentication/) — user accounts and the service token in detail
+- [Helm Values](/configuration/helm-values/) — full parameter reference
+- [LLM Providers](/configuration/llm-providers/) — supported providers, models, and recommended picks
+- [Authentication](/configuration/authentication/) — user accounts and the service token in detail

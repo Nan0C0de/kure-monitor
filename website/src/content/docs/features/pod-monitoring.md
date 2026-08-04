@@ -97,4 +97,4 @@ agent:
 
 ## Mirror pod testing
 
-For any failing pod with an AI solution, you can [deploy a mirror pod](/kure-monitor/features/mirror-pod/) — a temporary copy with the AI fix applied — to verify the fix works before committing to git.
+For any failing pod with an AI solution, you can [deploy a mirror pod](/features/mirror-pod/) — a temporary copy with the AI fix applied — to verify the fix works before committing to git.

@@ -97,7 +97,7 @@ All endpoints are gated by `require_read` (any logged-in dashboard user can call
 
 The manifest endpoint returns HTTP 403 for `kind=Secret` by design. Synthesized kinds (`Permission`, `Subject:User`, `Subject:Group`) return HTTP 400 because they have no underlying manifest.
 
-See the [API Reference](/kure-monitor/reference/api/#diagram) for full request/response shapes.
+See the [API Reference](/reference/api/#diagram) for full request/response shapes.
 
 ## Limitations
 

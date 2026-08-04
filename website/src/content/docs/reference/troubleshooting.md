@@ -145,7 +145,7 @@ Also check **Admin → Suppressions** — the namespace may be excluded.
 
 ### "AI Not Configured" banner
 
-**Admin → AI Configuration** → pick provider → key → model → Test → Save. See [LLM Providers](/kure-monitor/configuration/llm-providers/).
+**Admin → AI Configuration** → pick provider → key → model → Test → Save. See [LLM Providers](/configuration/llm-providers/).
 
 ### Test connection failed
 

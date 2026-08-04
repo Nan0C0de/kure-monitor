@@ -11,7 +11,7 @@ A quick visual tour. Each item links to the relevant docs if you want to dig in.
 
 A single pane for every pod, with status, namespace, age, and the failure reason surfaced inline.
 
-![Kure Monitor pod list](/kure-monitor/showcase/pod_list.png)
+![Kure Monitor pod list](/showcase/pod_list.png)
 
 <LinkCard
   title="Pod monitoring →"
@@ -23,17 +23,17 @@ A single pane for every pod, with status, namespace, age, and the failure reason
 
 Pod crashes, the dashboard highlights it, and the AI explains why — in seconds.
 
-![End-to-end demo](/kure-monitor/showcase/demo.gif)
+![End-to-end demo](/showcase/demo.gif)
 
 ## AI troubleshooting
 
 Open a failing pod, get a contextual diagnosis built from its events, logs, and manifest. Bring your own key (OpenAI, Anthropic, Groq, Gemini, GitHub Copilot) or run fully local with Ollama.
 
-![Pod details with AI solution](/kure-monitor/showcase/pod_details.png)
+![Pod details with AI solution](/showcase/pod_details.png)
 
 For `CrashLoopBackOff` and `OOMKilled`, Kure also runs a log-aware pass that pulls patterns directly out of container logs.
 
-![Log-aware troubleshoot](/kure-monitor/showcase/log-aware-troubleshoot.png)
+![Log-aware troubleshoot](/showcase/log-aware-troubleshoot.png)
 
 <LinkCard
   title="LLM providers →"
@@ -45,17 +45,17 @@ For `CrashLoopBackOff` and `OOMKilled`, Kure also runs a log-aware pass that pul
 
 The proactive counterpart to failure diagnosis. Trigger a scan over running, healthy workloads — and cluster flows — and Kure surfaces architectural mismatches a passing readiness probe will never tell you, each with rule-based evidence and a plain-language explanation of what to improve.
 
-![AI Advice demo](/kure-monitor/showcase/ai-advice.gif)
+![AI Advice demo](/showcase/ai-advice.gif)
 
 ## Security scanning
 
 Continuous audit of your cluster against 50+ checks — privileged containers, host namespaces, missing seccomp/AppArmor, root containers, untrusted registries, missing limits, RBAC misconfigs.
 
-![Security scan list](/kure-monitor/showcase/security_scan_list.png)
+![Security scan list](/showcase/security_scan_list.png)
 
 Click a finding and Kure proposes a concrete manifest fix — you review the diff before applying.
 
-![AI-generated security fix](/kure-monitor/showcase/security_fix_proposal.png)
+![AI-generated security fix](/showcase/security_fix_proposal.png)
 
 <LinkCard
   title="Security scanner →"
@@ -67,7 +67,7 @@ Click a finding and Kure proposes a concrete manifest fix — you review the dif
 
 Deploy a temporary copy of a failing pod with the proposed fix applied. Verify it actually works before committing to git.
 
-![Mirror pod testing](/kure-monitor/showcase/mirror-pod.gif)
+![Mirror pod testing](/showcase/mirror-pod.gif)
 
 <LinkCard
   title="Mirror pod testing →"
@@ -77,4 +77,4 @@ Deploy a temporary copy of a failing pod with the proposed fix applied. Verify i
 
 ---
 
-Want to try it in your own cluster? [Install in two commands →](/kure-monitor/getting-started/installation/)
+Want to try it in your own cluster? [Install in two commands →](/getting-started/installation/)

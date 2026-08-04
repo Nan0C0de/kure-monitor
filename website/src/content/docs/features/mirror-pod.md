@@ -64,7 +64,7 @@ The "Test Fix" button only appears for users with the right role *and* when the 
 
 ## API
 
-All mirror endpoints live under `/api/mirror/`. See the [API Reference](/kure-monitor/reference/api/#mirror-pod-testing) for full request and response shapes.
+All mirror endpoints live under `/api/mirror/`. See the [API Reference](/reference/api/#mirror-pod-testing) for full request and response shapes.
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -84,4 +84,4 @@ All mirror endpoints live under `/api/mirror/`. See the [API Reference](/kure-mo
 | **Stuck in `Pending`** | Node selectors / affinity from the original can't be satisfied; resources unavailable |
 | **Not auto-deleting** | Backend pod isn't running (cleanup is a background task); check backend logs for cleanup errors |
 
-See [Troubleshooting](/kure-monitor/reference/troubleshooting/#mirror-pod-issues) for full debugging steps.
+See [Troubleshooting](/reference/troubleshooting/#mirror-pod-issues) for full debugging steps.

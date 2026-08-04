@@ -86,7 +86,7 @@ The brain. Receives reports, generates AI solutions, stores results, broadcasts 
 └── /ws                         # WebSocket
 ```
 
-See the full [API Reference](/kure-monitor/reference/api/).
+See the full [API Reference](/reference/api/).
 
 ### Frontend (Deployment)
 
@@ -239,7 +239,7 @@ rules:
   # plus diagram-related verbs (see /features/diagram/)
 ```
 
-> **Note:** the backend ServiceAccount is **intentionally not granted access to Secrets**. See [Topology Diagram → Security model](/kure-monitor/features/diagram/#security-model).
+> **Note:** the backend ServiceAccount is **intentionally not granted access to Secrets**. See [Topology Diagram → Security model](/features/diagram/#security-model).
 
 ### Security Scanner ServiceAccount
 
@@ -260,7 +260,7 @@ rules:
 | Agent | DaemonSet (inherently HA) |
 | Scanner | Single replica (stateless) |
 
-For multi-replica backends, the bootstrap Secret keeps `session-secret` consistent across replicas — see [Authentication](/kure-monitor/configuration/authentication/).
+For multi-replica backends, the bootstrap Secret keeps `session-secret` consistent across replicas — see [Authentication](/configuration/authentication/).
 
 
 ## Container hardening

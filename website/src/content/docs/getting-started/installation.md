@@ -107,7 +107,7 @@ helm upgrade kure-monitor kure-monitor/kure \
 
 On first visit, the dashboard prompts you to create the initial **admin** account (username + password). After signing in, go to **Admin → Users** to invite further users with `read`, `write`, or `admin` roles.
 
-Authentication is always on in 2.3+ and is wired up automatically by the Helm chart — there is nothing to configure at install time. The legacy `auth.apiKey` single-key model was removed in 2.3.0. See [Authentication](/kure-monitor/configuration/authentication/) and the [2.2 → 2.3 migration guide](/kure-monitor/migration/2-2-to-2-3/) for details.
+Authentication is always on in 2.3+ and is wired up automatically by the Helm chart — there is nothing to configure at install time. The legacy `auth.apiKey` single-key model was removed in 2.3.0. See [Authentication](/configuration/authentication/) and the [2.2 → 2.3 migration guide](/migration/2-2-to-2-3/) for details.
 
 ### 4. Configure an LLM provider
 
@@ -118,7 +118,7 @@ Authentication is always on in 2.3+ and is wired up automatically by the Helm ch
 5. Pick a model
 6. Click **Test Connection**, then **Save**
 
-See [LLM Providers](/kure-monitor/configuration/llm-providers/) for the full list of supported models.
+See [LLM Providers](/configuration/llm-providers/) for the full list of supported models.
 
 ## Upgrading
 
@@ -191,6 +191,6 @@ kubectl port-forward svc/kure-monitor-frontend 8080:8080 -n kure-system
 
 ## Next steps
 
-- [Quick Start](/kure-monitor/getting-started/quick-start/) — fastest path to a working install
-- [Configuration overview](/kure-monitor/configuration/overview/) — Helm values reference
-- [Troubleshooting](/kure-monitor/reference/troubleshooting/) — common install issues
+- [Quick Start](/getting-started/quick-start/) — fastest path to a working install
+- [Configuration overview](/configuration/overview/) — Helm values reference
+- [Troubleshooting](/reference/troubleshooting/) — common install issues

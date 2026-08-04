@@ -34,7 +34,7 @@ In the Admin panel:
 3. Pick a model
 4. **Test Connection** → **Save**
 
-For air-gapped clusters, point at an in-cluster Ollama and Kure data never leaves your network. See [LLM Providers](/kure-monitor/configuration/llm-providers/).
+For air-gapped clusters, point at an in-cluster Ollama and Kure data never leaves your network. See [LLM Providers](/configuration/llm-providers/).
 
 ## 4. Watch a failure roll in
 
@@ -45,7 +45,7 @@ In another terminal:
 kubectl run crash-test --image=busybox --restart=Never -- sh -c 'exit 1'
 ```
 
-Within a few seconds the dashboard shows the failure with an AI-generated explanation, the pod manifest, recent events, and last container logs. Click **Test Fix** to deploy a [mirror pod](/kure-monitor/features/mirror-pod/) with the AI-suggested fix applied.
+Within a few seconds the dashboard shows the failure with an AI-generated explanation, the pod manifest, recent events, and last container logs. Click **Test Fix** to deploy a [mirror pod](/features/mirror-pod/) with the AI-suggested fix applied.
 
 ## 5. Trigger a security scan
 
@@ -53,7 +53,7 @@ Open the **Security** tab. The scanner audits all pods on a schedule and on dema
 
 ## What's next
 
-- [Features overview](/kure-monitor/features/overview/) — every tab and what it does
-- [Configuration overview](/kure-monitor/configuration/overview/) — Helm values, env vars, retention
-- [Authentication](/kure-monitor/configuration/authentication/) — how user accounts and the service token work
-- [Troubleshooting](/kure-monitor/reference/troubleshooting/) — when things don't go to plan
+- [Features overview](/features/overview/) — every tab and what it does
+- [Configuration overview](/configuration/overview/) — Helm values, env vars, retention
+- [Authentication](/configuration/authentication/) — how user accounts and the service token work
+- [Troubleshooting](/reference/troubleshooting/) — when things don't go to plan

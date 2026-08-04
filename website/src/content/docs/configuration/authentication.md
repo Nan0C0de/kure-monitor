@@ -8,7 +8,7 @@ Kure Monitor 2.3+ uses two separate auth mechanisms:
 - **User accounts** for dashboard traffic (`read` / `write` / `admin` roles).
 - A **shared service token** for agent and security-scanner traffic.
 
-Both are wired up automatically by the Helm chart — there is nothing to configure at install time. The legacy `AUTH_API_KEY` / `auth.apiKey` single-key model was **removed in 2.3.0**. See the [2.2 → 2.3 migration guide](/kure-monitor/migration/2-2-to-2-3/) for the upgrade path.
+Both are wired up automatically by the Helm chart — there is nothing to configure at install time. The legacy `AUTH_API_KEY` / `auth.apiKey` single-key model was **removed in 2.3.0**. See the [2.2 → 2.3 migration guide](/migration/2-2-to-2-3/) for the upgrade path.
 
 ## Dashboard (user accounts)
 

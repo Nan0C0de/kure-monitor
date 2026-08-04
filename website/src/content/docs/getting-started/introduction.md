@@ -63,11 +63,11 @@ Kure complements your existing observability stack — it doesn't replace it.
                           └──────────────────┘
 ```
 
-See [Architecture](/kure-monitor/reference/architecture/) for the full breakdown.
+See [Architecture](/reference/architecture/) for the full breakdown.
 
 ## Next steps
 
-- [Installation](/kure-monitor/getting-started/installation/) — full install guide
-- [Quick Start](/kure-monitor/getting-started/quick-start/) — TL;DR for impatient operators
-- [Features](/kure-monitor/features/overview/) — what each tab does
-- [Configuration](/kure-monitor/configuration/overview/) — Helm values, LLM providers, auth
+- [Installation](/getting-started/installation/) — full install guide
+- [Quick Start](/getting-started/quick-start/) — TL;DR for impatient operators
+- [Features](/features/overview/) — what each tab does
+- [Configuration](/configuration/overview/) — Helm values, LLM providers, auth

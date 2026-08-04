@@ -396,7 +396,7 @@ POST   /api/admin/llm/test     { "provider": "...", "api_key": "...", "model": "
 DELETE /api/admin/llm/config
 ```
 
-See [LLM Providers](/kure-monitor/configuration/llm-providers/) for supported provider/model combinations.
+See [LLM Providers](/configuration/llm-providers/) for supported provider/model combinations.
 
 ## Admin — Exclusions
 

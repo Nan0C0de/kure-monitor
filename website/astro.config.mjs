@@ -48,6 +48,12 @@ export default defineConfig({
 					slug: 'showcase',
 				},
 				{
+					label: 'Integrations',
+					items: [
+						{ label: 'Grafana App', slug: 'integrations/grafana' },
+					],
+				},
+				{
 					label: 'Configuration',
 					items: [
 						{ label: 'Overview', slug: 'configuration/overview' },

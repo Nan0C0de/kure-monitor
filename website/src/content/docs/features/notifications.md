@@ -78,4 +78,4 @@ Toggle the **Enabled** switch off in the Admin panel — settings are preserved 
 | `DELETE` | `/api/admin/notifications/{provider}` | Delete a provider |
 | `POST` | `/api/admin/notifications/{provider}/test` | Send a test notification |
 
-See the [API Reference](/kure-monitor/reference/api/#admin---notifications) for request bodies.
+See the [API Reference](/reference/api/#admin---notifications) for request bodies.

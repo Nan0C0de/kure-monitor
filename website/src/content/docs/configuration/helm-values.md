@@ -147,4 +147,4 @@ prometheus:
 |-----------|-------------|---------|
 | `security.encryptionKey` | Fernet key for API-key encryption (auto-generated if empty). Unrelated to dashboard auth. | `""` |
 
-There is **no** `auth.apiKey` value in 2.3+. The legacy single-key model was removed — see [the migration guide](/kure-monitor/migration/2-2-to-2-3/) and [Authentication](/kure-monitor/configuration/authentication/).
+There is **no** `auth.apiKey` value in 2.3+. The legacy single-key model was removed — see [the migration guide](/migration/2-2-to-2-3/) and [Authentication](/configuration/authentication/).
