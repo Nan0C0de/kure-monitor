@@ -1,6 +1,6 @@
 # Kure Helm Chart
 
-Kubernetes failure diagnosis tool with AI-powered troubleshooting and security scanning. Detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) instantly and provides contextual solutions to help you fix issues fast.
+Kubernetes AI observability platform. Instantly detect and debug pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled), proactively scan your entire cluster with the AI Advice engine, visualize workloads with an interactive topology Diagram, and audit your configurations with a built-in Security Scanner.
 
 ## Quick Start
 
@@ -73,11 +73,11 @@ existing users out).
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `agent.pendingGracePeriod` | Seconds before reporting Pending pods as failed | `120` |
-| `agent.image.tag` | Agent image tag | `2.4.4` |
-| `securityScanner.image.tag` | Security scanner image tag | `2.4.4` |
+| `agent.image.tag` | Agent image tag | `2.4.5` |
+| `securityScanner.image.tag` | Security scanner image tag | `2.4.5` |
 | `backend.replicaCount` | Backend replica count | `1` |
-| `backend.image.tag` | Backend image tag | `2.4.4` |
-| `frontend.image.tag` | Frontend image tag | `2.4.4` |
+| `backend.image.tag` | Backend image tag | `2.4.5` |
+| `frontend.image.tag` | Frontend image tag | `2.4.5` |
 
 ### LLM Configuration
 
@@ -237,7 +237,7 @@ helm install kure-monitor kure-monitor/kure \
 
 ```bash
 helm repo update
-helm upgrade kure-monitor kure-monitor/kure --version 2.4.4 -n kure-system
+helm upgrade kure-monitor kure-monitor/kure --version 2.4.5 -n kure-system
 ```
 
 ## Uninstall

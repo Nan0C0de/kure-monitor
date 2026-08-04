@@ -5,6 +5,13 @@ All notable changes to Kure Monitor are documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.5] - 2026-08-04
+
+Headline changes:
+- **Grafana App Integration**: Kure Monitor now ships with a dedicated Grafana App plugin! Bring the proactive AI troubleshooting chat, failure feed, and AI Advice directly into your existing observability dashboards.
+- **Custom Domain & SEO Expansion**: Migrated all official documentation, Helm charts, and plugin metadata to the new custom domain (`https://kuremonitor.com`). Created deep-dive error troubleshooting guides (CrashLoopBackOff, OOMKilled, ImagePullBackOff) to help users debug faster.
+- **Documentation Overhaul**: Introduced an "Integrations" section and cleaned up legacy markdown files to keep the Astro Starlight site clean and focused on our four core pillars: AI Advice, Security Scanner, Diagram, and Pod Monitoring.
+
 ## [2.4.4] - 2026-07-28
 
 Headline changes:

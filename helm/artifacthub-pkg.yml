@@ -1,23 +1,23 @@
 # Artifact Hub package metadata file
-version: 2.4.4
+version: 2.4.5
 name: kure
 category: monitoring-logging
 displayName: Kure - Kubernetes Failure Diagnosis
 createdAt: 2026-07-23T00:00:00Z
 description: |
-  Kubernetes failure diagnosis tool that detects pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled) and generates AI-powered troubleshooting solutions. Includes 50+ security checks and the AI Advice tab — 38 proactive detectors that spot architectural mismatches (scaling, reliability, networking, data, config, capacity, scheduling, supply-chain, startup, resource hygiene, lifecycle, storage) across two layers. The four dashboard features (Pod Monitoring, Security Scan, Diagram, AI Advice) are individually toggleable via helm values. No Prometheus dependency required.
+  Kubernetes AI observability platform. Instantly detect and debug pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled), proactively scan your entire cluster with the AI Advice engine, visualize workloads with an interactive topology Diagram, and audit your configurations with a built-in Security Scanner.
 license: Apache-2.0
-homeURL: https://github.com/igor-koricanac/kure-monitor
-appVersion: "2.4.4"
+homeURL: https://kuremonitor.com
+appVersion: "2.4.5"
 containersImages:
   - name: kure-monitor-agent
-    image: ghcr.io/igor-koricanac/kure-monitor/agent:2.4.4
+    image: ghcr.io/igor-koricanac/kure-monitor/agent:2.4.5
   - name: kure-monitor-backend
-    image: ghcr.io/igor-koricanac/kure-monitor/backend:2.4.4
+    image: ghcr.io/igor-koricanac/kure-monitor/backend:2.4.5
   - name: kure-monitor-frontend
-    image: ghcr.io/igor-koricanac/kure-monitor/frontend:2.4.4
+    image: ghcr.io/igor-koricanac/kure-monitor/frontend:2.4.5
   - name: kure-monitor-security-scanner
-    image: ghcr.io/igor-koricanac/kure-monitor/security-scanner:2.4.4
+    image: ghcr.io/igor-koricanac/kure-monitor/security-scanner:2.4.5
 operator: false
 deprecated: false
 prerelease: false
@@ -56,7 +56,7 @@ install: |
   helm repo update
 
   # Install Kure Monitor
-  helm install kure-monitor kure-monitor/kure --version 2.4.4 \
+  helm install kure-monitor kure-monitor/kure --version 2.4.5 \
     --create-namespace --namespace kure-system \
     --set postgresql.password="$(openssl rand -hex 24)"
 

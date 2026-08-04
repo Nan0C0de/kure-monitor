@@ -1,10 +1,10 @@
 ---
 title: Kure Monitor
-description: Real-time Kubernetes failure detection and security scanning with AI-powered troubleshooting. Apache 2.0, runs in your cluster, ships with Ollama support for fully local LLMs.
+description: The Kubernetes AI observability platform. Instantly detect pod failures and misconfigurations with AI-powered troubleshooting. Run fully air-gapped with local LLMs (Ollama/vLLM) or bring your own key for OpenAI, Anthropic, and Gemini.
 template: splash
 hero:
   tagline: |
-    Stop debugging Kubernetes failures manually. Kure detects pod crashes, image-pull errors, and scheduling issues in seconds — and uses AI to tell you why.
+    The complete Kubernetes AI observability tool. Stop debugging failures manually — Kure detects pod crashes, image-pull errors, and scheduling issues in seconds, and uses AI to tell you exactly how to fix them.
   actions:
     - text: Get started
       link: /getting-started/installation/
@@ -20,22 +20,24 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 ## Why Kure Monitor
 
-Most Kubernetes monitoring tools tell you *that* something broke. Kure tells you *why*, with context pulled from pod events, logs, and the manifest — analyzed by an LLM of your choice (OpenAI, Anthropic, Groq, Gemini, GitHub Copilot, or fully local with Ollama).
+Most Kubernetes monitoring tools tell you *that* something broke. Kure tells you *why*, with context pulled from pod events, logs, and the manifest. 
 
-It also continuously audits your cluster for security misconfigurations and renders a live topology graph, all from a single dashboard.
+Highly flexible AI architecture: deploy a private, air-gapped Kubernetes AI agent using local LLMs (Ollama/vLLM) or integrate powerful cloud models (OpenAI, Anthropic, Groq, Gemini, GitHub Copilot).
+
+It also continuously audits your cluster for security misconfigurations and renders a live topology graph, all from a single observability dashboard.
 
 <CardGrid>
 	<Card title="AI-powered diagnosis" icon="rocket">
-		Contextual fixes generated from events, logs, and manifest. Bring your own key (OpenAI, Anthropic, Groq, Gemini, GitHub Copilot) or run fully local with Ollama.
+		Instant Kubernetes failure diagnosis using contextual data from pod events, logs, and manifests. Use a local LLM or bring your own key.
 	</Card>
 	<Card title="Real-time failure detection" icon="warning">
 		Catch CrashLoopBackOff, ImagePullBackOff, OOMKilled, FailedScheduling, FailedMount, and stuck Pending pods the moment they happen.
 	</Card>
-	<Card title="50+ security checks" icon="approve-check">
-		Privileged containers, host namespaces, missing seccomp/AppArmor, root containers, untrusted registries, missing limits, RBAC misconfigs.
+	<Card title="Cluster Security Scanner" icon="approve-check">
+		50+ proactive security checks: privileged containers, missing limits, untrusted registries, and RBAC misconfigs.
 	</Card>
-	<Card title="Topology diagram" icon="puzzle">
-		Interactive graph of every workload, service, ingress, HPA, and NetworkPolicy. Click a node for the manifest, click an edge to focus that path.
+	<Card title="Interactive Topology" icon="puzzle">
+		Interactive observability graph of every workload, service, and NetworkPolicy. Click a node for manifests, click an edge to focus paths.
 	</Card>
 	<Card title="Mirror pod testing" icon="setting">
 		Deploy a temporary copy of a failing pod with the AI fix applied. Verify before committing to git.
@@ -107,7 +109,7 @@ Apache 2.0 licensed. Ships as a Helm chart. Stores nothing outside your cluster 
 	/>
 	<LinkCard
 		title="Latest release notes"
-		href="/release-notes/2-4-4/"
-		description="What's new in 2.4.4 — Full ChatOps parity for Slack, Microsoft Teams Interactive Mode, and bug fixes."
+		href="/release-notes/2-4-5/"
+		description="What's new in 2.4.5 — Grafana App Integration, Custom Domain SEO expansion, and Documentation Overhaul."
 	/>
 </CardGrid>

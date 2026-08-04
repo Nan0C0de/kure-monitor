@@ -1,10 +1,10 @@
 apiVersion: v2
 name: kure
-description: Kubernetes failure diagnosis tool with AI-powered troubleshooting
+description: Kubernetes AI observability platform with proactive AI Advice, security scanning, topology diagrams, and pod failure diagnosis.
 type: application
 kubeVersion: ">=1.20.0-0"
-version: 2.4.4
-appVersion: "2.4.4"
+version: 2.4.5
+appVersion: "2.4.5"
 icon: "https://raw.githubusercontent.com/igor-koricanac/kure-monitor/main/docs/images/kure_monitor_logo_white_background.svg"
 keywords:
   - kubernetes
@@ -51,7 +51,7 @@ annotations:
     helm repo add kure-monitor https://kuremonitor.com/
 
     # Install Kure Monitor
-    helm install kure-monitor kure-monitor/kure --version 2.4.4 \
+    helm install kure-monitor kure-monitor/kure --version 2.4.5 \
       --create-namespace --namespace kure-system \
       --set postgresql.password="$(openssl rand -hex 24)"
 

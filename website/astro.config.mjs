@@ -76,6 +76,20 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Error Guides',
+					items: [
+						{ label: 'CrashLoopBackOff', slug: 'errors/crashloopbackoff' },
+						{ label: 'OOMKilled', slug: 'errors/oomkilled' },
+						{ label: 'ImagePullBackOff', slug: 'errors/imagepullbackoff' },
+					],
+				},
+				{
+					label: 'Comparisons',
+					items: [
+						{ label: 'Prometheus vs Kure', slug: 'comparisons/prometheus-vs-kure' },
+					],
+				},
+				{
 					label: 'Reference',
 					items: [
 						{ label: 'Architecture', slug: 'reference/architecture' },

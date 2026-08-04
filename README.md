@@ -2,9 +2,9 @@
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kure-monitor)](https://artifacthub.io/packages/search?repo=kure-monitor)
 
-> **Stop debugging Kubernetes failures manually — let AI analyze your pod crashes, image pull errors, and scheduling issues in seconds.**
+📚 **Official Website & Documentation:** [https://kuremonitor.com](https://kuremonitor.com)
 
-Kure is a Kubernetes health monitoring tool that helps you understand **why** your workloads fail. When a pod crashes, gets stuck pending, or can't pull an image, Kure detects it instantly and provides AI-generated troubleshooting guidance to help you fix it fast. It also continuously scans your cluster for security misconfigurations and gives you a real-time overview of cluster resources — all from a single dashboard.
+> **The Kubernetes AI observability platform. Instantly detect pod failures and misconfigurations with AI-powered troubleshooting. Run fully air-gapped with local LLMs (Ollama/vLLM) or bring your own key for OpenAI, Anthropic, and Gemini.**
 
 ![Kure Monitor Demo](docs/images/demo.gif)
 
