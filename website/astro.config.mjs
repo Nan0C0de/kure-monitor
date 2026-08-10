@@ -25,6 +25,14 @@ export default defineConfig({
 					tag: 'script',
 					content: 'if (typeof localStorage !== "undefined" && !localStorage.getItem("starlight-theme")) { localStorage.setItem("starlight-theme", "light"); }',
 				},
+				{
+					tag: 'script',
+					attrs: {
+						src: 'https://static.cloudflareinsights.com/beacon.min.js',
+						'data-cf-beacon': '{"token": "07ebc19e670d45c7abcfe4c5a8148325"}',
+						defer: true,
+					},
+				},
 			],
 			lastUpdated: true,
 			logo: {

@@ -9,30 +9,38 @@ Because Kure Monitor is a specialized tool, the plugin is distributed independen
 
 ## Installation
 
-You can install the plugin into your Grafana instance using the `grafana-cli` command and pointing it to the official `.zip` release hosted on this website.
+### 1. Declarative Installation (Recommended)
 
-Run the following command on your Grafana server (or add it to your Grafana Docker entrypoint/init scripts):
+If you are deploying Grafana via the official Helm chart or Kubernetes manifests, you can configure Grafana to automatically install the plugin on startup using environment variables.
 
-```bash
-grafana-cli --pluginUrl https://kuremonitor.com/downloads/kuremonitor-kure-app-1.0.2.zip plugins install kuremonitor-kure-app
+Add the following to your Grafana `values.yaml`:
+
+```yaml
+env:
+  GF_INSTALL_PLUGINS: "https://github.com/igor-koricanac/kuremonitor-kure-app/releases/download/v1.0.2/kuremonitor-kure-app-1.0.2.zip;kuremonitor-kure-app"
+  GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "kuremonitor-kure-app"
 ```
 
-### Allowing Unsigned Plugins
+When Grafana boots, it will automatically download the plugin and allow it to load.
 
-Because the plugin is distributed outside the official catalog, Grafana requires you to explicitly allow it to load. Add the following to your `grafana.ini` configuration file:
+### 2. Manual Installation (CLI)
+
+If you are running Grafana natively or want to test the plugin before committing to your Helm chart, you can install it manually using the `grafana cli` tool. 
+
+Run the following command in your server terminal, or execute it inside your running container/pod:
+
+```bash
+grafana cli plugins install kuremonitor-kure-app --pluginUrl https://github.com/igor-koricanac/kuremonitor-kure-app/releases/download/v1.0.2/kuremonitor-kure-app-1.0.2.zip
+```
+
+**Allowing Unsigned Plugins**
+If you install manually, you must still explicitly tell Grafana to allow the unsigned plugin. Add the following to your `grafana.ini` configuration file:
 
 ```ini
 [plugins]
 allow_loading_unsigned_plugins = kuremonitor-kure-app
 ```
-
-If you are running Grafana in Docker or Kubernetes, you can set this via an environment variable instead:
-
-```yaml
-env:
-  - name: GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS
-    value: "kuremonitor-kure-app"
-```
+*(Alternatively, you can set the `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="kuremonitor-kure-app"` environment variable).*
 
 ## Post-Installation
 
