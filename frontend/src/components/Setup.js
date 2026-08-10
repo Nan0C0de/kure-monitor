@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Server, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import logo from '../kure_monitor_logo.svg';
 
 const MIN_PASSWORD_LENGTH = 8;
 const USERNAME_MIN = 3;
@@ -93,7 +94,7 @@ const Setup = () => {
     <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <div className={`w-full max-w-md p-8 rounded-lg shadow-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="flex flex-col items-center mb-6">
-          <Server className={`w-12 h-12 mb-3 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+          <img src={logo} alt="Kure Monitor Logo" className={`h-40 w-auto object-contain mb-3 ${isDark ? 'bg-white p-2 rounded-md' : ''}`} />
           <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
             Welcome to Kure Monitor
           </h1>

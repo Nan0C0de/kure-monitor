@@ -63,7 +63,7 @@ const Login = () => {
     <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <div className={`w-full max-w-md p-8 rounded-lg shadow-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="flex flex-col items-center mb-8">
-          <img src={logo} alt="Kure Monitor Logo" className={`h-14 w-auto object-contain mb-3 ${isDark ? 'bg-white p-1.5 rounded-md' : ''}`} />
+          <img src={logo} alt="Kure Monitor Logo" className={`h-40 w-auto object-contain mb-3 ${isDark ? 'bg-white p-2 rounded-md' : ''}`} />
           <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
             Kure Monitor
           </h1>
