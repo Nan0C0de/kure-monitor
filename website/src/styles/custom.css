@@ -3,11 +3,31 @@
 	--sl-font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
 }
 
-:root[data-theme='dark'] {
-	--sl-color-accent-low: #3b0764;
-	--sl-color-accent: #a855f7;
-	--sl-color-accent-high: #e9d5ff;
-	--sl-color-bg-nav: #0a0e1a;
+/* Force Starlight into light mode only and hide the theme toggle */
+starlight-theme-select {
+	display: none !important;
+}
+
+/* Hide the empty vertical divider in the header (used to separate social icons) */
+.social-icons::after {
+	display: none !important;
+}
+
+/* Custom modern scrollbar styling */
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+::-webkit-scrollbar-track {
+	background: var(--sl-color-bg);
+}
+::-webkit-scrollbar-thumb {
+	background: var(--sl-color-gray-5);
+	border-radius: 10px;
+	border: 2px solid var(--sl-color-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+	background: var(--sl-color-gray-4);
 }
 
 :root[data-theme='light'] {
@@ -41,8 +61,5 @@
 	object-fit: contain !important;
 }
 
-:root[data-theme='dark'] .site-title img {
-	background-color: white;
-	padding: 4px;
-	border-radius: 6px;
-}
+
+

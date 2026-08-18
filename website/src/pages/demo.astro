@@ -1,0 +1,18 @@
+---
+import App from '../demo-app/App.jsx';
+import '../demo-app/index.css'; 
+import '../tailwind.css';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kure Monitor Demo</title>
+    <meta name="theme-color" content="#111827" />
+  </head>
+  <body class="m-0 p-0 bg-gray-900 min-h-screen">
+    <App client:only="react" />
+  </body>
+</html>

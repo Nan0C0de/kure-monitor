@@ -1,0 +1,933 @@
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Lightbulb,
+  Play,
+  RefreshCw,
+  AlertTriangle,
+  Download,
+  ChevronDown,
+  Info,
+  Activity,
+  EyeOff,
+} from "lucide-react";
+import { api } from "../services/api";
+import AdviceFindingCard from "./AdviceFindingCard";
+import AdviceScopePicker from "./AdviceScopePicker";
+
+/**
+ * AdvicePanel — owns advice findings list, scope picker state, scan progress.
+ *
+ * The parent Dashboard funnels `advice_*` WebSocket messages into this panel
+ * via the `wsEvent` prop (counter-bumped on every new message so we can react
+ * via useEffect without re-applying on re-renders).
+ */
+const AdvicePanel = ({
+  isDark = false,
+  canWrite = true,
+  wsEvent = null, // {seq, type, data} — seq increments per message
+}) => {
+  const [findings, setFindings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  // Active/Ignored tabs replace the old "Show dismissed" checkbox. Active is
+  // the default; Ignored shows dismissed-only findings.
+  const [tab, setTab] = useState("active"); // 'active' | 'ignored'
+  // Count of findings in the OTHER tab from the one currently rendered. We
+  // fetch this lightly so the tab labels can show counts in parentheses
+  // without re-fetching the full list on every tab switch.
+  const [otherTabCount, setOtherTabCount] = useState(0);
+  const [scope, setScope] = useState({
+    namespace: 'production',
+    workload_kind: undefined,
+    workload_name: undefined,
+    pod_name: undefined,
+  });
+
+  // Scan progress tracking — only one banner at a time.
+  const [scanStatus, setScanStatus] = useState(null); // null | 'started' | 'failed'
+  const [scanScope, setScanScope] = useState(null);
+  const [scanError, setScanError] = useState(null);
+  const [scanRequesting, setScanRequesting] = useState(false);
+  const [hasCompletedScan, setHasCompletedScan] = useState(false);
+  const activeScanIdRef = useRef(null);
+
+  // Keep a ref of the current tab so the WS event effect (which intentionally
+  // only depends on wsEvent.seq) can read the current value without going
+  // stale between tab switches.
+  const tabRef = useRef(tab);
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
+
+  // Export menu state.
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
+  const exportMenuRef = useRef(null);
+
+  // Infinite scroll / lazy rendering: render the first N findings, load 5 more
+  // when the sentinel scrolls into view. Pagination is purely client-side —
+  // the backend returns the full list and we slice it.
+  const PAGE_SIZE = 5;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef(null);
+
+  // Detector coverage banner state.
+  // Populated from /api/advice/detectors on mount; silently swallows errors so
+  // a failed fetch never breaks the panel.
+  const [detectorCoverage, setDetectorCoverage] = useState(null);
+
+  // ----- Loading findings -----
+  // Filter the findings list to the currently-picked scope. When no namespace
+  // is selected we intentionally do NOT fetch cluster-wide — the panel shows
+  // a "Select a namespace" empty state instead. This avoids surfacing a huge
+  // cluster-wide list on first mount and keeps the panel narrowly scoped to
+  // the user's intent. Clearing the namespace also wipes any previously
+  // loaded findings so stale rows don't linger.
+  const loadFindings = useCallback(async () => {
+    if (!scope.namespace) {
+      setFindings([]);
+      setOtherTabCount(0);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const baseParams = { namespace: scope.namespace };
+      if (scope.workload_kind) baseParams.resource_kind = scope.workload_kind;
+      if (scope.workload_name) baseParams.resource_name = scope.workload_name;
+
+      // Primary fetch: findings for the active tab.
+      const primaryParams = { ...baseParams };
+      if (tab === "ignored") primaryParams.dismissed_only = true;
+      // Counter fetch: just to populate the other tab's count badge. Cheap
+      // enough that we run it in parallel; failures are non-fatal.
+      const counterParams = { ...baseParams };
+      if (tab === "active") counterParams.dismissed_only = true;
+
+      const [primary, counter] = await Promise.all([
+        api.getAdviceFindings(primaryParams),
+        api.getAdviceFindings(counterParams).catch(() => ({ findings: [] })),
+      ]);
+      setFindings(primary?.findings || []);
+      setOtherTabCount((counter?.findings || []).length);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to load advice findings:", err);
+      setError("Failed to load advice findings.");
+    } finally {
+      setLoading(false);
+    }
+  }, [tab, scope.namespace, scope.workload_kind, scope.workload_name]);
+
+  useEffect(() => {
+    loadFindings();
+  }, [loadFindings]);
+
+  // Reset the "scan completed" flag whenever the scope changes. Without this,
+  // after scanning namespace A, switching to namespace B would show
+  // "No improvements suggested — this scope looks healthy" even though B was
+  // never scanned. `tab` is intentionally NOT a dep: it's view state.
+  useEffect(() => {
+    setHasCompletedScan(false);
+  }, [
+    scope.namespace,
+    scope.workload_kind,
+    scope.workload_name,
+    scope.pod_name,
+  ]);
+
+  // ----- Detector coverage (for "FYI: Hubble unavailable" banner) -----
+  useEffect(() => {
+    let cancelled = false;
+    const loadCoverage = async () => {
+      try {
+        const data = await api.getAdviceDetectors();
+        if (cancelled) return;
+        const detectors = Array.isArray(data?.detectors) ? data.detectors : [];
+        const hubbleAvailable = !!data?.hubble_status?.available;
+        let totalEnabled = 0;
+        let activeEnabled = 0;
+        for (const d of detectors) {
+          if (!d?.enabled) continue;
+          totalEnabled += 1;
+          if (!d.requires_hubble || hubbleAvailable) {
+            activeEnabled += 1;
+          }
+        }
+        setDetectorCoverage({
+          totalEnabled,
+          activeEnabled,
+          gatedCount: totalEnabled - activeEnabled,
+          hubbleAvailable,
+        });
+      } catch (err) {
+        // Silent: the panel works fine without the banner.
+        console.warn("Failed to load advice detector coverage:", err);
+      }
+    };
+    loadCoverage();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ----- WS event handling -----
+  useEffect(() => {
+    if (!wsEvent) return;
+    const { type, data } = wsEvent;
+    if (!type || !data) return;
+
+    if (type === "advice_finding") {
+      // Upsert by id, scoped to the currently-visible tab.
+      // - Active tab: only show non-dismissed findings.
+      // - Ignored tab: only show dismissed findings.
+      // An incoming event that doesn't match the current tab is dropped from
+      // the visible list (and removed if it was previously there).
+      setFindings((prev) => {
+        const idx = prev.findIndex((f) => f.id === data.id);
+        const belongsHere =
+          tabRef.current === "ignored" ? !!data.dismissed : !data.dismissed;
+        if (idx >= 0) {
+          if (!belongsHere) {
+            return prev.filter((f) => f.id !== data.id);
+          }
+          const next = [...prev];
+          next[idx] = { ...prev[idx], ...data };
+          return next;
+        }
+        if (!belongsHere) return prev;
+        return [data, ...prev];
+      });
+    } else if (type === "advice_finding_deleted") {
+      setFindings((prev) => prev.filter((f) => f.id !== data.id));
+    } else if (type === "advice_scan_status") {
+      const status = data.status;
+      if (status === "started") {
+        activeScanIdRef.current = data.scan_id;
+        setScanStatus("started");
+        setScanScope(data.scope || null);
+        setScanError(null);
+      } else if (status === "completed") {
+        // Only clear if this is the scan we were tracking (or no active scan).
+        if (
+          !activeScanIdRef.current ||
+          activeScanIdRef.current === data.scan_id
+        ) {
+          activeScanIdRef.current = null;
+          setScanStatus(null);
+          setScanScope(null);
+          setHasCompletedScan(true);
+          // Safety-net refresh of findings (WS upserts may have already done it).
+          loadFindings();
+        }
+      } else if (status === "failed") {
+        if (
+          !activeScanIdRef.current ||
+          activeScanIdRef.current === data.scan_id
+        ) {
+          activeScanIdRef.current = null;
+          setScanStatus("failed");
+          setScanError("Scan failed — check backend logs");
+        }
+      }
+    }
+    // wsEvent.seq changes on each new message, ensuring this effect re-runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsEvent]);
+
+  // ----- Actions -----
+  // Track in-flight scan to avoid double-firing the auto-scan effect for the
+  // same scope (StrictMode double-invocation, fast re-renders, etc.). The
+  // `scanRequesting` state guard catches sequential calls; this ref catches
+  // calls within the same render cycle before state has settled.
+  const scanInFlightRef = useRef(false);
+
+  const runScan = useCallback(
+    async (scopeArg) => {
+      const s = scopeArg || scope;
+      if (scanInFlightRef.current) return;
+      if (scanRequesting) return;
+      // Backend requires a namespace; guard the call so we never POST without
+      // one (would 422). The button is also disabled in this state.
+      if (!s.namespace) return;
+      scanInFlightRef.current = true;
+      setScanRequesting(true);
+      setScanError(null);
+      try {
+        const res = await api.runAdviceScan(s);
+        // Backend returns scan_id and immediate findings; WS will deliver
+        // upserts and a completion event. If WS never tells us "started" first
+        // (race), the response itself is a strong signal — but we let WS drive
+        // the banner. If findings arrived synchronously, merge them in.
+        if (res?.findings && Array.isArray(res.findings)) {
+          setFindings((prev) => {
+            const byId = new Map(prev.map((f) => [f.id, f]));
+            for (const f of res.findings) {
+              byId.set(f.id, { ...(byId.get(f.id) || {}), ...f });
+            }
+            return Array.from(byId.values());
+          });
+          // The sync response is also "scan completed" evidence; the WS event
+          // sets this too, but the response wins races against slow sockets.
+          setHasCompletedScan(true);
+        }
+      } catch (err) {
+        console.error("Failed to run advice scan:", err);
+        setScanError(err?.message || "Failed to start scan");
+        setScanStatus("failed");
+      } finally {
+        scanInFlightRef.current = false;
+        setScanRequesting(false);
+      }
+    },
+    [scope, scanRequesting],
+  );
+
+  const handleRunScan = () => runScan();
+
+  // Auto-scan when the user picks a namespace AND no workload/pod is selected.
+  // Narrowing further (workload/pod) requires an explicit "Run scan" click —
+  // we don't want surprise scans on every dropdown twiddle. Initial mount
+  // (no namespace) is also a no-op.
+  useEffect(() => {
+    if (!scope.namespace) return undefined;
+    if (scope.workload_kind || scope.workload_name || scope.pod_name) {
+      return undefined;
+    }
+    if (scanRequesting || scanStatus === "started") return undefined;
+    let cancelled = false;
+    // Defer to a microtask so a synchronous unmount during the same tick
+    // (test teardown, fast re-renders) can flip the cancelled flag first.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      runScan({
+        namespace: scope.namespace,
+        workload_kind: undefined,
+        workload_name: undefined,
+        pod_name: undefined,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // We deliberately depend only on the scope fields — adding `runScan` would
+    // re-fire on every scanRequesting flip, looping. The guards above are
+    // sufficient to prevent double-fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    scope.namespace,
+    scope.workload_kind,
+    scope.workload_name,
+    scope.pod_name,
+  ]);
+
+  const handleDismiss = async (finding) => {
+    // Optimistic: drop from the Active tab list and bump the Ignored count.
+    // Active is the only tab that should expose a Dismiss action, but be
+    // defensive in case the row re-renders during a tab transition.
+    const prevFindings = findings;
+    const prevOther = otherTabCount;
+    setFindings((prev) => prev.filter((f) => f.id !== finding.id));
+    setOtherTabCount((c) => c + 1);
+    try {
+      await api.dismissAdviceFinding(finding.id);
+    } catch (err) {
+      console.error("Failed to dismiss advice finding:", err);
+      // Roll back on failure.
+      setFindings(prevFindings);
+      setOtherTabCount(prevOther);
+    }
+  };
+
+  // Bubbled up from a card after a successful lazy explanation fetch. Keep the
+  // canonical findings list in sync so re-renders (filter toggles, etc.) don't
+  // lose the freshly-generated explanation.
+  const handleExplained = (updated) => {
+    if (!updated || updated.id == null) return;
+    setFindings((prev) =>
+      prev.map((f) => (f.id === updated.id ? { ...f, ...updated } : f)),
+    );
+  };
+
+  const handleRestore = async (finding) => {
+    // Optimistic: drop from the Ignored tab list and bump the Active count.
+    const prevFindings = findings;
+    const prevOther = otherTabCount;
+    setFindings((prev) => prev.filter((f) => f.id !== finding.id));
+    setOtherTabCount((c) => c + 1);
+    try {
+      await api.restoreAdviceFinding(finding.id);
+    } catch (err) {
+      console.error("Failed to restore advice finding:", err);
+      setFindings(prevFindings);
+      setOtherTabCount(prevOther);
+    }
+  };
+
+  // ----- Export -----
+  // Close the export menu when clicking outside.
+  useEffect(() => {
+    if (!exportMenuOpen) return undefined;
+    const handleClick = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setExportMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [exportMenuOpen]);
+
+  const handleExport = async (format) => {
+    if (exporting) return;
+    setExportMenuOpen(false);
+    setExportError(null);
+    setExporting(true);
+    try {
+      const params = {};
+      // Export the same slice the user is currently viewing: Active tab =
+      // non-dismissed only (default), Ignored tab = dismissed only.
+      if (tab === "ignored") params.dismissed_only = true;
+      // The panel currently surfaces scope (namespace/workload/pod) only as
+      // scan input — apply matching filters to the export so the file mirrors
+      // what the user sees when a narrow scope is set.
+      if (scope?.namespace) params.namespace = scope.namespace;
+      if (scope?.workload_kind) params.resource_kind = scope.workload_kind;
+      if (scope?.workload_name) params.resource_name = scope.workload_name;
+      await api.downloadAdviceFindings(format, params);
+    } catch (err) {
+      console.error("Failed to export advice findings:", err);
+      setExportError(err?.message || "Failed to export findings");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // ----- Derived list -----
+  const sortedFindings = React.useMemo(() => {
+    const order = { high: 1, medium: 2, low: 3, info: 4 };
+    return [...findings].sort((a, b) => {
+      const sa = order[(a.severity || "").toLowerCase()] || 99;
+      const sb = order[(b.severity || "").toLowerCase()] || 99;
+      if (sa !== sb) return sa - sb;
+      // Within a tab, all rows share the same dismissed-state, so just sort
+      // by id descending (newest first).
+      return (b.id || 0) - (a.id || 0);
+    });
+  }, [findings]);
+
+  // Reset pagination whenever the scope changes, the active tab flips, or a
+  // scan completes. Without this, switching from a namespace with 12 findings
+  // to one with 3 would leave visibleCount stuck at 5+ and the
+  // "Showing 5 of 3" footer would render nonsense.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [
+    scope.namespace,
+    scope.workload_kind,
+    scope.workload_name,
+    scope.pod_name,
+    tab,
+    hasCompletedScan,
+  ]);
+
+  // Also clamp visibleCount when the findings list shrinks (e.g. a WS delete
+  // event drops items below the current window). We never want the footer to
+  // claim more visible than actually exist.
+  useEffect(() => {
+    setVisibleCount((c) => {
+      if (sortedFindings.length === 0) return PAGE_SIZE;
+      if (c > sortedFindings.length) return sortedFindings.length;
+      return c;
+    });
+  }, [sortedFindings.length]);
+
+  const visibleFindings = React.useMemo(
+    () => sortedFindings.slice(0, visibleCount),
+    [sortedFindings, visibleCount],
+  );
+  const hasMore = visibleCount < sortedFindings.length;
+
+  // IntersectionObserver: when the sentinel scrolls within 200px of the
+  // viewport, bump the visible count by PAGE_SIZE. Re-runs when the sentinel
+  // ref or the total list size changes.
+  useEffect(() => {
+    if (!hasMore) return undefined;
+    const node = sentinelRef.current;
+    if (!node) return undefined;
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setVisibleCount((c) =>
+              Math.min(sortedFindings.length, c + PAGE_SIZE),
+            );
+          }
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, sortedFindings.length]);
+
+  const handleLoadMore = () =>
+    setVisibleCount((c) => Math.min(sortedFindings.length, c + PAGE_SIZE));
+
+  const scopeSummary = () => {
+    const parts = [];
+    const s = scanScope || scope;
+    if (s?.namespace) parts.push(`ns=${s.namespace}`);
+    if (s?.workload_kind) parts.push(`kind=${s.workload_kind}`);
+    if (s?.workload_name) parts.push(`name=${s.workload_name}`);
+    if (s?.pod_name) parts.push(`pod=${s.pod_name}`);
+    return parts.length > 0 ? parts.join(", ") : "whole cluster";
+  };
+
+  return (
+    <div className="p-4">
+      {/* Header: title + show-dismissed toggle */}
+      <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
+        <div className="flex items-center space-x-2">
+          <Lightbulb
+            className={`w-5 h-5 ${isDark ? "text-yellow-400" : "text-yellow-500"}`}
+          />
+          <h2
+            className={`text-lg font-semibold ${
+              isDark ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
+            AI Advice
+          </h2>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Export dropdown */}
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              type="button"
+              onClick={() => setExportMenuOpen((v) => !v)}
+              disabled={exporting || loading || sortedFindings.length === 0}
+              aria-haspopup="menu"
+              aria-expanded={exportMenuOpen}
+              title={
+                sortedFindings.length === 0
+                  ? "No findings to export"
+                  : "Export findings"
+              }
+              className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                isDark
+                  ? "border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  : "border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+              }`}
+            >
+              <Download className="w-4 h-4 mr-1.5" />
+              {exporting ? "Exporting…" : "Export"}
+              <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
+            </button>
+            {exportMenuOpen && (
+              <div
+                role="menu"
+                className={`absolute right-0 mt-1 z-20 min-w-[10rem] rounded-md border shadow-lg ${
+                  isDark
+                    ? "bg-gray-800 border-gray-700"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleExport("json")}
+                  className={`block w-full text-left px-3 py-2 text-sm ${
+                    isDark
+                      ? "text-gray-200 hover:bg-gray-700"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Export as JSON
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleExport("csv")}
+                  className={`block w-full text-left px-3 py-2 text-sm ${
+                    isDark
+                      ? "text-gray-200 hover:bg-gray-700"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Export as CSV
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Detector coverage banner — informational, only when Hubble gates
+          one or more enabled detectors. */}
+      {detectorCoverage &&
+        detectorCoverage.gatedCount > 0 &&
+        !detectorCoverage.hubbleAvailable && (
+          <div
+            data-testid="advice-detector-coverage-banner"
+            className={`mb-4 p-3 rounded-lg border flex items-start text-sm ${
+              isDark
+                ? "bg-blue-900/20 border-blue-800 text-blue-200"
+                : "bg-blue-50 border-blue-200 text-blue-800"
+            }`}
+          >
+            <Info
+              className={`w-4 h-4 mr-2 mt-0.5 flex-shrink-0 ${
+                isDark ? "text-blue-300" : "text-blue-600"
+              }`}
+            />
+            <span>
+              {detectorCoverage.activeEnabled} of{" "}
+              {detectorCoverage.totalEnabled} detectors active. Install Cilium +
+              Hubble to unlock {detectorCoverage.gatedCount} network-flow
+              detector
+              {detectorCoverage.gatedCount === 1 ? "" : "s"}.{" "}
+              <a
+                href="https://github.com/igor-koricanac/kure-monitor/blob/main/docs/AI-ADVICE-LAYER2.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`underline ${
+                  isDark
+                    ? "text-blue-300 hover:text-blue-200"
+                    : "text-blue-700 hover:text-blue-900"
+                }`}
+              >
+                Learn more
+              </a>
+            </span>
+          </div>
+        )}
+
+      {/* Scope picker + run scan */}
+      <div
+        className={`mb-4 rounded-lg border p-3 ${
+          isDark
+            ? "bg-gray-900/40 border-gray-700"
+            : "bg-gray-50 border-gray-200"
+        }`}
+      >
+        <AdviceScopePicker
+          scope={scope}
+          onChange={setScope}
+          isDark={isDark}
+          disabled={scanRequesting || scanStatus === "started"}
+        />
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span
+            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+          >
+            Scope: <span className="font-mono">{scopeSummary()}</span>
+            {canWrite && !scope.namespace && (
+              <span
+                data-testid="advice-run-scan-hint"
+                className={`ml-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
+                Pick a namespace to run a scan.
+              </span>
+            )}
+          </span>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={handleRunScan}
+              disabled={
+                scanRequesting || scanStatus === "started" || !scope.namespace
+              }
+              title={
+                !scope.namespace ? "Pick a namespace to run a scan." : undefined
+              }
+              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                isDark
+                  ? "border-blue-600 bg-blue-700 hover:bg-blue-600 text-white"
+                  : "border-blue-600 bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
+            >
+              {scanRequesting || scanStatus === "started" ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4 mr-2" />
+              )}
+              {scanRequesting
+                ? "Requesting…"
+                : scanStatus === "started"
+                  ? "Scanning…"
+                  : "Run scan"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Scan-in-progress banner */}
+      {scanStatus === "started" && (
+        <div
+          className={`mb-4 p-3 rounded-lg border flex items-center ${
+            isDark
+              ? "bg-blue-900/30 border-blue-700 text-blue-200"
+              : "bg-blue-50 border-blue-200 text-blue-800"
+          }`}
+        >
+          <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
+          <div className="text-sm">
+            <p className="font-medium">Advice scan in progress…</p>
+            <p
+              className={`text-xs ${
+                isDark ? "text-blue-300" : "text-blue-700"
+              }`}
+            >
+              Scope: <span className="font-mono">{scopeSummary()}</span>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Scan failed banner */}
+      {scanStatus === "failed" && (
+        <div
+          className={`mb-4 p-3 rounded-lg border flex items-center justify-between ${
+            isDark
+              ? "bg-red-900/30 border-red-700 text-red-200"
+              : "bg-red-50 border-red-200 text-red-800"
+          }`}
+        >
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-3" />
+            <div className="text-sm">
+              <p className="font-medium">{scanError || "Scan failed"}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setScanStatus(null);
+              setScanError(null);
+            }}
+            className={`text-xs underline ${
+              isDark ? "text-red-300" : "text-red-700"
+            }`}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Export error banner */}
+      {exportError && (
+        <div
+          className={`mb-4 p-3 rounded-lg border flex items-center justify-between ${
+            isDark
+              ? "bg-red-900/30 border-red-700 text-red-200"
+              : "bg-red-50 border-red-200 text-red-800"
+          }`}
+        >
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-3" />
+            <p className="text-sm">{exportError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExportError(null)}
+            className={`text-xs underline ${
+              isDark ? "text-red-300" : "text-red-700"
+            }`}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Generic error banner */}
+      {error && (
+        <div
+          className={`mb-4 p-3 rounded-lg border flex items-center ${
+            isDark
+              ? "bg-red-900/30 border-red-700 text-red-200"
+              : "bg-red-50 border-red-200 text-red-800"
+          }`}
+        >
+          <AlertTriangle className="w-5 h-5 mr-3" />
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Active / Ignored tabs — only shown once a namespace is picked, so
+          the select-a-namespace empty state can claim the full panel. */}
+      {scope.namespace && (
+        <div
+          data-testid="advice-tab-bar"
+          className={`flex border-b mb-4 ${
+            isDark ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
+          <button
+            type="button"
+            data-testid="advice-tab-active"
+            onClick={() => setTab("active")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+              tab === "active"
+                ? isDark
+                  ? "border-blue-400 text-blue-400"
+                  : "border-blue-500 text-blue-600"
+                : isDark
+                  ? "border-transparent text-gray-400 hover:text-gray-200"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>
+              Active ({tab === "active" ? sortedFindings.length : otherTabCount}
+              )
+            </span>
+          </button>
+          <button
+            type="button"
+            data-testid="advice-tab-ignored"
+            onClick={() => setTab("ignored")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+              tab === "ignored"
+                ? isDark
+                  ? "border-blue-400 text-blue-400"
+                  : "border-blue-500 text-blue-600"
+                : isDark
+                  ? "border-transparent text-gray-400 hover:text-gray-200"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <EyeOff className="w-4 h-4" />
+            <span>
+              Ignored (
+              {tab === "ignored" ? sortedFindings.length : otherTabCount})
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Findings list */}
+      {!scope.namespace ? (
+        <div
+          data-testid="advice-select-namespace-empty"
+          className="py-12 text-center"
+        >
+          <Lightbulb
+            className={`w-12 h-12 mx-auto mb-3 ${
+              isDark ? "text-gray-600" : "text-gray-400"
+            }`}
+          />
+          <h3
+            className={`text-base font-medium mb-1 ${
+              isDark ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
+            Select a namespace
+          </h3>
+          <p
+            className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}
+          >
+            Select a namespace to view AI Advice findings.
+          </p>
+        </div>
+      ) : loading ? (
+        <div className="py-12 text-center">
+          <div className="inline-flex items-center space-x-2">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className={isDark ? "text-gray-300" : "text-gray-700"}>
+              Loading advice…
+            </span>
+          </div>
+        </div>
+      ) : sortedFindings.length === 0 ? (
+        <div className="py-12 text-center">
+          <Lightbulb
+            className={`w-12 h-12 mx-auto mb-3 ${
+              isDark ? "text-gray-600" : "text-gray-400"
+            }`}
+          />
+          <h3
+            className={`text-base font-medium mb-1 ${
+              isDark ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
+            {tab === "ignored"
+              ? "No ignored findings"
+              : hasCompletedScan
+                ? "No improvements suggested"
+                : "No advice findings"}
+          </h3>
+          <p
+            className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}
+          >
+            {tab === "ignored"
+              ? "Dismissed findings will appear here."
+              : hasCompletedScan
+                ? "This scope looks healthy — no architectural mismatches detected."
+                : "Run a scan to surface scaling, startup, and capacity advice."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {visibleFindings.map((finding) => (
+            <AdviceFindingCard
+              key={finding.id}
+              finding={finding}
+              isDark={isDark}
+              canWrite={canWrite}
+              onDismiss={handleDismiss}
+              onRestore={handleRestore}
+              onExplained={handleExplained}
+            />
+          ))}
+          {hasMore && (
+            <>
+              <div
+                ref={sentinelRef}
+                data-testid="advice-findings-sentinel"
+                aria-hidden="true"
+              />
+              <div
+                data-testid="advice-findings-pagination-footer"
+                className={`flex items-center justify-between pt-2 text-xs ${
+                  isDark ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                <span>
+                  Showing {visibleFindings.length} of {sortedFindings.length}{" "}
+                  findings
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  className={`underline ${
+                    isDark
+                      ? "text-blue-300 hover:text-blue-200"
+                      : "text-blue-600 hover:text-blue-700"
+                  }`}
+                >
+                  Load more
+                </button>
+              </div>
+            </>
+          )}
+          {!hasMore && sortedFindings.length > PAGE_SIZE && (
+            <div
+              data-testid="advice-findings-pagination-footer"
+              className={`pt-2 text-xs text-center ${
+                isDark ? "text-gray-500" : "text-gray-400"
+              }`}
+            >
+              All {sortedFindings.length} findings shown
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdvicePanel;

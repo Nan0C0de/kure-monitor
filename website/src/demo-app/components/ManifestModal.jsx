@@ -1,0 +1,348 @@
+import React, { useRef, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Copy, Download, RefreshCw, Sparkles } from 'lucide-react';
+import useModalA11y from '../hooks/useModalA11y';
+
+// Keywords to look for in AI solutions that indicate manifest changes
+const MANIFEST_KEYWORDS = [
+  // Resource management
+  'resources', 'limits', 'requests', 'memory', 'cpu',
+  // Container configuration
+  'image', 'imagePullPolicy', 'command', 'args', 'env', 'envFrom',
+  // Security
+  'securityContext', 'runAsNonRoot', 'runAsUser', 'readOnlyRootFilesystem',
+  'allowPrivilegeEscalation', 'capabilities', 'privileged',
+  // Health checks
+  'livenessProbe', 'readinessProbe', 'startupProbe', 'httpGet', 'tcpSocket', 'exec',
+  'initialDelaySeconds', 'periodSeconds', 'timeoutSeconds', 'failureThreshold',
+  // Volumes
+  'volumes', 'volumeMounts', 'persistentVolumeClaim', 'configMap', 'secret',
+  'emptyDir', 'hostPath',
+  // Pod spec
+  'restartPolicy', 'nodeSelector', 'affinity', 'tolerations', 'serviceAccountName',
+  'imagePullSecrets', 'hostNetwork', 'hostPID', 'dnsPolicy',
+  // Container ports
+  'ports', 'containerPort', 'protocol',
+  // Labels and annotations
+  'labels', 'annotations',
+];
+
+// Extract keywords from AI solution that are relevant to manifest changes
+const extractHighlightKeywords = (solution) => {
+  if (!solution) return new Set();
+
+  const keywords = new Set();
+  const lowerSolution = solution.toLowerCase();
+
+  // Check for each manifest keyword in the solution
+  MANIFEST_KEYWORDS.forEach(keyword => {
+    if (lowerSolution.includes(keyword.toLowerCase())) {
+      keywords.add(keyword.toLowerCase());
+    }
+  });
+
+  // Also look for common patterns in AI suggestions
+  const patterns = [
+    /add\s+(?:a\s+)?(\w+)/gi,
+    /set\s+(?:the\s+)?(\w+)/gi,
+    /configure\s+(?:the\s+)?(\w+)/gi,
+    /update\s+(?:the\s+)?(\w+)/gi,
+    /change\s+(?:the\s+)?(\w+)/gi,
+    /specify\s+(?:the\s+)?(\w+)/gi,
+    /missing\s+(\w+)/gi,
+    /`([^`]+)`/g, // Code blocks often contain field names
+  ];
+
+  patterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(solution)) !== null) {
+      const word = match[1].toLowerCase();
+      if (word.length > 2 && !['the', 'pod', 'container', 'kubernetes', 'yaml', 'manifest'].includes(word)) {
+        keywords.add(word);
+      }
+    }
+  });
+
+  return keywords;
+};
+
+// Check if a line should be highlighted based on keywords
+const shouldHighlightLine = (line, keywords) => {
+  if (keywords.size === 0) return false;
+
+  const lowerLine = line.toLowerCase();
+
+  for (const keyword of keywords) {
+    // Match the keyword as a key in YAML (e.g., "resources:" or "  resources:")
+    if (lowerLine.includes(keyword + ':') || lowerLine.includes(keyword + ' :')) {
+      return true;
+    }
+    // Match the keyword as a value assignment
+    if (lowerLine.includes(': ' + keyword) || lowerLine.includes(':' + keyword)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const ManifestModal = ({
+  isOpen,
+  onClose,
+  podName,
+  namespace,
+  manifest,
+  solution,
+  onRetrySolution,
+  isRetrying,
+  isDark = false,
+  aiEnabled = false,
+  title,
+  subtitle,
+  infoMessage,
+  loading = false
+}) => {
+  const textareaRef = useRef(null);
+  const dialogRef = useRef(null);
+  const [localRetrying, setLocalRetrying] = useState(false);
+
+  useModalA11y({ isOpen, onClose, dialogRef });
+
+  // Check if solution is a fallback (AI unavailable)
+  const isFallbackSolution = solution && (
+    solution.includes('AI solution temporarily unavailable') ||
+    solution.includes('Failed to generate AI solution') ||
+    solution.includes('Basic troubleshooting')
+  );
+
+  // Extract keywords to highlight from the solution
+  const highlightKeywords = useMemo(() => {
+    return extractHighlightKeywords(solution);
+  }, [solution]);
+
+  // Parse and highlight manifest lines
+  const highlightedLines = useMemo(() => {
+    if (!manifest) return [];
+
+    const lines = manifest.split('\n');
+    return lines.map((line, index) => ({
+      number: index + 1,
+      content: line,
+      highlighted: !isFallbackSolution && shouldHighlightLine(line, highlightKeywords)
+    }));
+  }, [manifest, highlightKeywords, isFallbackSolution]);
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(manifest || '');
+    } catch (err) {
+      // Fallback for older browsers
+      if (textareaRef.current) {
+        textareaRef.current.select();
+        document.execCommand('copy');
+      }
+    }
+  };
+
+  const handleDownload = () => {
+    const blob = new Blob([manifest], { type: 'text/yaml' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `${podName || 'resource'}-manifest.yaml`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
+  const handleRetry = async () => {
+    if (onRetrySolution) {
+      setLocalRetrying(true);
+      try {
+        await onRetrySolution();
+      } finally {
+        setLocalRetrying(false);
+      }
+    }
+  };
+
+  const isCurrentlyRetrying = isRetrying || localRetrying;
+  const hasHighlights = highlightedLines.some(line => line.highlighted);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      {/* Background overlay */}
+      <div
+        className="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+        onClick={onClose}
+      ></div>
+
+      {/* Modal panel */}
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || 'Pod Manifest'}
+        className={`relative rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full max-w-4xl max-h-full flex flex-col ${isDark ? 'bg-gray-800' : 'bg-white'}`}
+      >
+          <div className={`px-4 pt-5 pb-4 sm:p-6 sm:pb-4 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className={`text-lg leading-6 font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                  {title || 'Pod Manifest'}
+                </h3>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {subtitle || `${namespace}/${podName}`}
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleCopyToClipboard}
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    isDark
+                      ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
+                      : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                  }`}
+                  title="Copy to clipboard"
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copy
+                </button>
+                <button
+                  onClick={handleDownload}
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    isDark
+                      ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
+                      : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                  }`}
+                  title="Download YAML file"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download
+                </button>
+                <button
+                  onClick={onClose}
+                  className={`inline-flex items-center justify-center w-8 h-8 focus:outline-none ${isDark ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-500'}`}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Legend for highlights */}
+            {hasHighlights && (
+              <div className={`mb-3 flex items-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <Sparkles className="w-4 h-4 mr-2 text-green-600" />
+                <span>
+                  <span className={`inline-block w-3 h-3 rounded mr-1 ${isDark ? 'bg-green-900/40 border border-green-500' : 'bg-green-100 border border-green-300'}`}></span>
+                  Highlighted lines indicate areas to review based on the AI solution
+                </span>
+              </div>
+            )}
+
+            {/* Info / loading messages */}
+            {infoMessage && (
+              <div
+                role="status"
+                className={`mb-3 rounded-md border px-4 py-3 text-sm ${
+                  isDark
+                    ? 'bg-blue-900/30 border-blue-700 text-blue-200'
+                    : 'bg-blue-50 border-blue-200 text-blue-800'
+                }`}
+              >
+                {infoMessage}
+              </div>
+            )}
+
+            {/* Content - Highlighted YAML */}
+            <div className="mt-4">
+              <div
+                className={`w-full h-96 p-4 border rounded-md overflow-auto ${
+                  isDark
+                    ? 'border-gray-600 bg-gray-900'
+                    : 'border-gray-300 bg-gray-50'
+                }`}
+                style={{ fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace' }}
+              >
+                {loading ? (
+                  <span className={isDark ? 'text-gray-400' : 'text-gray-500'}># Loading manifest...</span>
+                ) : manifest ? (
+                  <pre className="text-sm leading-relaxed">
+                    {highlightedLines.map((line) => (
+                      <div
+                        key={line.number}
+                        className={`${
+                          line.highlighted
+                            ? isDark
+                              ? 'bg-green-900/40 border-l-4 border-green-500 -ml-2 pl-2'
+                              : 'bg-green-100 border-l-4 border-green-500 -ml-2 pl-2'
+                            : ''
+                        }`}
+                      >
+                        <span className={`select-none w-8 inline-block text-right mr-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                          {line.number}
+                        </span>
+                        <span className={line.highlighted ? (isDark ? 'text-green-300 font-medium' : 'text-green-800 font-medium') : (isDark ? 'text-gray-300' : '')}>
+                          {line.content || ' '}
+                        </span>
+                      </div>
+                    ))}
+                  </pre>
+                ) : infoMessage ? (
+                  <span className={isDark ? 'text-gray-500' : 'text-gray-500'}># Manifest not shown — see message above</span>
+                ) : (
+                  <span className={isDark ? 'text-gray-500' : 'text-gray-500'}># No manifest available</span>
+                )}
+              </div>
+              {/* Hidden textarea for clipboard fallback */}
+              <textarea
+                ref={textareaRef}
+                value={manifest || ''}
+                readOnly
+                className="sr-only"
+                tabIndex={-1}
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className={`px-4 py-3 sm:px-6 sm:flex sm:justify-between ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+            {/* Left side - Retry AI button (only shown when fallback) */}
+            <div>
+              {isFallbackSolution && onRetrySolution && (
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  disabled={isCurrentlyRetrying || !aiEnabled}
+                  className={`inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'border border-blue-700 text-blue-300 bg-blue-900/50 hover:bg-blue-800/50' : 'border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'}`}
+                  title={!aiEnabled ? 'AI provider not configured' : 'Retry AI to get better solution and manifest highlights'}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isCurrentlyRetrying ? 'animate-spin' : ''}`} />
+                  {isCurrentlyRetrying ? 'Retrying AI...' : 'Retry AI'}
+                </button>
+              )}
+            </div>
+
+            {/* Right side - Close button */}
+            <div>
+              <button
+                type="button"
+                className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={onClose}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+    </div>,
+    document.body
+  );
+};
+
+export default ManifestModal;

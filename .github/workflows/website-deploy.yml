@@ -47,7 +47,7 @@ jobs:
       working-directory: website
       run: |
         npm ci
-        npm run build
+        NODE_ENV=production npm run build
 
     - name: Package current chart version and merge with website
       run: |

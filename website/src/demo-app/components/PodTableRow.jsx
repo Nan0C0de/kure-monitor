@@ -1,0 +1,239 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import StatusBadge from './StatusBadge';
+import PodDetails from './PodDetails';
+import ManifestModal from './ManifestModal';
+import PodLogsModal from './PodLogsModal';
+import MirrorPodModal from './MirrorPodModal';
+import { api } from '../services/api';
+
+const getWorkflowStatusBadge = (status) => {
+  switch (status) {
+    case 'investigating':
+      return { label: 'Investigating', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' };
+    case 'resolved':
+      return { label: 'Resolved', className: 'bg-green-100 text-green-800 border-green-300' };
+    case 'ignored':
+      return { label: 'Ignored', className: 'bg-gray-100 text-gray-600 border-gray-300' };
+    case 'new':
+    default:
+      return { label: 'New', className: 'bg-red-100 text-red-800 border-red-300' };
+  }
+};
+
+const PodTableRow = ({ pod, onSolutionUpdated, onLogAwareSolutionUpdated, onStatusChange, onDeleteRecord, aiEnabled = false, viewMode = 'active', canWrite = true }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showManifest, setShowManifest] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const [showMirror, setShowMirror] = useState(false);
+  const [isRetryingFromModal, setIsRetryingFromModal] = useState(false);
+  const [activeMirror, setActiveMirror] = useState(null);
+  const mirrorPollRef = useRef(null);
+
+  const formatTimestamp = (timestamp) => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Check for active mirror pods associated with this pod failure
+  const checkActiveMirror = useCallback(async () => {
+    try {
+      const mirrors = await api.getActiveMirrors();
+      const match = mirrors.find(m => m.pod_failure_id === pod.id);
+      if (match) {
+        // Fetch detailed status for the matched mirror
+        try {
+          const status = await api.getMirrorStatus(match.mirror_id);
+          setActiveMirror(status);
+        } catch {
+          // If status fetch fails (404 = expired), clear mirror
+          setActiveMirror(null);
+        }
+      } else {
+        setActiveMirror(null);
+      }
+    } catch {
+      // Silently ignore errors (API may not be available)
+    }
+  }, [pod.id]);
+
+  // Poll mirror status every 5 seconds when a mirror is active
+  useEffect(() => {
+    if (!activeMirror?.mirror_id) {
+      if (mirrorPollRef.current) {
+        clearInterval(mirrorPollRef.current);
+        mirrorPollRef.current = null;
+      }
+      return;
+    }
+
+    mirrorPollRef.current = setInterval(async () => {
+      try {
+        const status = await api.getMirrorStatus(activeMirror.mirror_id);
+        setActiveMirror(status);
+      } catch {
+        // Mirror gone (expired/deleted)
+        setActiveMirror(null);
+      }
+    }, 5000);
+
+    return () => {
+      if (mirrorPollRef.current) clearInterval(mirrorPollRef.current);
+    };
+  }, [activeMirror?.mirror_id]);
+
+  // Check for active mirror on mount
+  useEffect(() => {
+    checkActiveMirror();
+  }, [checkActiveMirror]);
+
+  // Handle mirror deletion
+  const handleDeleteMirror = async (mirrorId) => {
+    await api.deleteMirrorPod(mirrorId);
+    setActiveMirror(null);
+  };
+
+  // Handle closing the mirror modal (check for newly deployed mirror)
+  const handleMirrorModalClose = () => {
+    setShowMirror(false);
+    // Re-check for active mirrors after modal closes (user may have deployed one)
+    checkActiveMirror();
+  };
+
+  // Retry handler for ManifestModal
+  const handleRetrySolutionFromModal = async () => {
+    setIsRetryingFromModal(true);
+    try {
+      const updatedPod = await api.retrySolution(pod.id);
+      if (onSolutionUpdated) {
+        onSolutionUpdated(updatedPod);
+      }
+    } catch (error) {
+      console.error('Failed to retry solution:', error);
+    } finally {
+      setIsRetryingFromModal(false);
+    }
+  };
+
+  return (
+    <>
+      <tr className={`border-b border-gray-200 hover:bg-gray-50`}>
+        <td className="px-6 py-3 align-top">
+          <div className="flex items-start">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={`mr-2 mt-0.5 text-gray-400 hover:text-gray-600`}
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4" data-testid="chevron-down" />
+              ) : (
+                <ChevronRight className="w-4 h-4" data-testid="chevron-right" />
+              )}
+            </button>
+            <div className="flex-1">
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`text-left rounded transition-colors w-full hover:bg-gray-50`}
+              >
+                <div className={`text-sm font-bold text-gray-900`}>{pod.pod_name}</div>
+                <div className={`text-sm text-gray-500`}>{pod.namespace}</div>
+              </button>
+            </div>
+          </div>
+        </td>
+        <td className="px-6 py-3 align-top">
+          <div className="flex flex-col items-start gap-1">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={`rounded transition-colors hover:bg-gray-50`}
+            >
+              <StatusBadge reason={pod.failure_reason} />
+            </button>
+            {(() => {
+              const badge = getWorkflowStatusBadge(pod.status);
+              return (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badge.className}`}>
+                  {badge.label}
+                </span>
+              );
+            })()}
+          </div>
+        </td>
+        <td className="px-6 py-3 align-top">
+          <div className="w-full">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={`text-sm text-left rounded transition-colors w-full hover:bg-gray-50`}
+            >
+              <div className={`text-sm text-gray-500`}>Click to expand</div>
+            </button>
+          </div>
+        </td>
+        <td className={`px-6 py-3 text-sm align-top text-gray-500`}>
+          <div>
+            {viewMode === 'history' && pod.resolved_at
+              ? formatTimestamp(pod.resolved_at)
+              : formatTimestamp(pod.timestamp)
+            }
+          </div>
+          {viewMode === 'history' && pod.resolution_note && (
+            <div className={`text-xs mt-1 text-gray-400`}>
+              {pod.resolution_note.length > 50
+                ? pod.resolution_note.substring(0, 50) + '...'
+                : pod.resolution_note}
+            </div>
+          )}
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className={'bg-gray-50'}>
+          <td colSpan="4" className="px-6 py-4 overflow-hidden max-w-0">
+            <PodDetails
+              pod={pod}
+              onViewManifest={() => setShowManifest(true)}
+              onViewLogs={() => setShowLogs(true)}
+              onTestFix={canWrite ? () => setShowMirror(true) : undefined}
+              onSolutionUpdated={canWrite ? onSolutionUpdated : undefined}
+              onLogAwareSolutionUpdated={canWrite ? onLogAwareSolutionUpdated : undefined}
+              onStatusChange={canWrite ? onStatusChange : undefined}
+              onDeleteRecord={canWrite ? onDeleteRecord : undefined}
+              aiEnabled={aiEnabled}
+              viewMode={viewMode}
+              activeMirror={activeMirror}
+              onDeleteMirror={canWrite ? handleDeleteMirror : undefined}
+              onRefreshMirror={checkActiveMirror}
+              canWrite={canWrite}
+            />
+          </td>
+        </tr>
+      )}
+      <ManifestModal
+        isOpen={showManifest}
+        onClose={() => setShowManifest(false)}
+        podName={pod.pod_name}
+        namespace={pod.namespace}
+        manifest={pod.manifest}
+        solution={pod.solution}
+        onRetrySolution={handleRetrySolutionFromModal}
+        isRetrying={isRetryingFromModal}
+        aiEnabled={aiEnabled}
+      />
+      <PodLogsModal
+        isOpen={showLogs}
+        onClose={() => setShowLogs(false)}
+        pod={pod}
+      />
+      <MirrorPodModal
+        isOpen={showMirror}
+        onClose={handleMirrorModalClose}
+        pod={pod}
+      />
+    </>
+  );
+};
+
+export default PodTableRow;

@@ -273,3 +273,6 @@ internal-docs
 
 # Local setup
 local_setup
+
+# Mock Data
+db_pods.json
