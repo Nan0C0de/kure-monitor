@@ -59,6 +59,7 @@ class PodFailureMixin:
             status=status,
             resolved_at=resolved_at,
             resolution_note=row.get("resolution_note"),
+            acknowledged_by=row.get("acknowledged_by"),
             logs_captured=logs_captured,
             log_aware_solution=log_aware_solution,
             log_aware_solution_generated_at=log_aware_solution_generated_at,
@@ -225,7 +226,7 @@ class PodFailureMixin:
             )
 
     async def update_pod_status(
-        self, failure_id: int, status: str, resolution_note: str = None
+        self, failure_id: int, status: str, resolution_note: str = None, acknowledged_by: str = None
     ) -> Optional[PodFailureResponse]:
         """Update the status of a pod failure and return the updated record"""
         async with self._acquire() as conn:
@@ -238,6 +239,16 @@ class PodFailureMixin:
                     status,
                     dismissed,
                     resolution_note,
+                    failure_id,
+                )
+            elif status == "investigating":
+                await conn.execute(
+                    """UPDATE pod_failures
+                       SET status = $1, dismissed = $2, resolved_at = NULL, resolution_note = NULL, acknowledged_by = $3
+                       WHERE id = $4""",
+                    status,
+                    dismissed,
+                    acknowledged_by,
                     failure_id,
                 )
             else:

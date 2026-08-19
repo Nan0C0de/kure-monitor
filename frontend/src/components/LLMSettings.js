@@ -25,62 +25,68 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const providers = [
     {
       value: 'anthropic',
-      label: 'Anthropic (Claude)',
+      label: 'Anthropic',
       trust: 'external',
       trustLabel: 'External - data sent to Anthropic',
-      needsApiKey: true,
-      needsBaseUrl: false,
+      needsApiKey: false,
+      optionalApiKey: true,
+      needsBaseUrl: true,
+      defaultBaseUrl: 'https://api.anthropic.com',
       defaultModel: 'claude-sonnet-5',
       models: [
         { value: 'claude-fable-5', label: 'Claude Fable 5 (Best)' },
         { value: 'claude-sonnet-5', label: 'Claude Sonnet 5 (Recommended)' },
-        { value: 'claude-opus-4-8', label: 'Claude Opus 4.8 (Enterprise)' }
+        { value: 'claude-opus-5', label: 'Claude Opus 5 (Enterprise)' }
       ]
     },
     {
-      value: 'copilot',
-      label: 'GitHub Copilot',
+      value: 'openai',
+      label: 'OpenAI',
       trust: 'external',
-      trustLabel: 'External - data sent to GitHub/Microsoft',
-      needsApiKey: true,
+      trustLabel: 'External - data sent to OpenAI',
+      needsApiKey: false,
+      optionalApiKey: true,
       needsBaseUrl: true,
-      defaultBaseUrl: 'https://models.github.ai/inference',
-      defaultModel: 'openai/gpt-5.6-terra',
-      apiKeyHelper: 'Use a GitHub PAT with Models permission',
-      baseUrlHelper: 'GitHub Models inference endpoint',
+      defaultBaseUrl: 'https://api.openai.com/v1',
+      defaultModel: 'gpt-5.6-terra',
+      apiKeyHelper: 'OpenAI API Key',
       models: [
-        { value: 'openai/gpt-5.6-sol', label: 'GPT-5.6 Sol (Latest)' },
-        { value: 'openai/gpt-5.6-terra', label: 'GPT-5.6 Terra (Recommended)' },
-        { value: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' }
+        { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+        { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
+        { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra (Recommended)' },
+        { value: 'o3-pro', label: 'o3 Pro' }
       ]
     },
     {
       value: 'gemini',
-      label: 'Google Gemini',
+      label: 'Gemini',
       trust: 'external',
       trustLabel: 'External - data sent to Google',
-      needsApiKey: true,
-      needsBaseUrl: false,
-      defaultModel: 'gemini-3.5-flash',
+      needsApiKey: false,
+      optionalApiKey: true,
+      needsBaseUrl: true,
+      defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      defaultModel: 'gemini-3.7-flash',
       models: [
-        { value: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro (Latest)' },
-        { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Recommended)' },
-        { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (Fast)' }
+        { value: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+        { value: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite' },
+        { value: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro' }
       ]
     },
     {
       value: 'custom_local',
-      label: 'Custom',
+      label: 'Custom Endpoint',
       trust: 'local',
       trustLabel: 'Local / Custom Endpoint',
       needsApiKey: false,
       optionalApiKey: true,
       needsBaseUrl: true,
-      defaultBaseUrl: 'http://my-service:8000/v1',
+      requireBaseUrl: true,
+      defaultBaseUrl: 'http://localhost:8000/v1',
       defaultModel: 'llama-3',
       isCustomModel: true,
-      baseUrlHelper: 'Base URL of your custom endpoint (e.g. vLLM, LocalAI, OpenAI)',
-      apiKeyHelper: 'Optional. Leave blank if your local model does not require authentication.',
+      baseUrlHelper: 'Base URL of your custom endpoint',
+      apiKeyHelper: 'Optional. Leave blank if your endpoint does not require authentication.',
       models: []
     }
   ];
@@ -217,6 +223,10 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setError('Please enter an API key');
       return;
     }
+    if (currentProvider?.requireBaseUrl && !baseUrl) {
+      setError('Please enter a Base URL');
+      return;
+    }
 
     try {
       setTesting(true);
@@ -238,6 +248,10 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const handleSave = async () => {
     if (currentProvider?.needsApiKey && !apiKey) {
       setError('Please enter an API key');
+      return;
+    }
+    if (currentProvider?.requireBaseUrl && !baseUrl) {
+      setError('Please enter a Base URL');
       return;
     }
 
@@ -284,7 +298,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     }
   };
 
-  const canSubmit = currentProvider?.needsApiKey ? !!apiKey : true;
+  const canSubmit = (currentProvider?.needsApiKey ? !!apiKey : true) && (currentProvider?.requireBaseUrl ? !!baseUrl : true);
 
   if (loading) {
     return (
@@ -370,7 +384,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       <div className={`border rounded-md p-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="flex justify-between items-center mb-4">
           <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-            {status?.configured ? 'Update Configuration' : 'Configure LLM Provider'}
+            {status?.configured ? 'Update Configuration' : 'Configure API Endpoint'}
           </h3>
           <button
             onClick={handleDiscover}
@@ -405,7 +419,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
           {/* Provider Select */}
           <div>
             <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              Provider
+              API Endpoint
             </label>
             <select
               value={provider}

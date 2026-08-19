@@ -72,6 +72,7 @@ class PodFailureResponse(PodFailureReport):
     status: str = "new"  # new, investigating, resolved, ignored
     resolved_at: Optional[str] = None
     resolution_note: Optional[str] = None
+    acknowledged_by: Optional[str] = None
     logs_captured: bool = False
     log_aware_solution: Optional[str] = None
     log_aware_solution_generated_at: Optional[str] = None

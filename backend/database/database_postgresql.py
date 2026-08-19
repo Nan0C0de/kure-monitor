@@ -109,6 +109,7 @@ class PostgreSQLDatabase(
                         status VARCHAR(20) NOT NULL DEFAULT 'new',
                         resolved_at TIMESTAMPTZ,
                         resolution_note TEXT,
+                        acknowledged_by VARCHAR(255),
                         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -136,6 +137,19 @@ class PostgreSQLDatabase(
                     logger.info(
                         "Migrated pod_failures table: added status workflow columns"
                     )
+
+                # Migration: add acknowledged_by column
+                ack_by_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'pod_failures' AND column_name = 'acknowledged_by'
+                    )
+                """)
+                if not ack_by_exists:
+                    await conn.execute(
+                        "ALTER TABLE pod_failures ADD COLUMN acknowledged_by VARCHAR(255)"
+                    )
+                    logger.info("Migrated pod_failures table: added acknowledged_by column")
 
                 # Migration: add log-aware troubleshoot columns if they don't exist
                 troubleshoot_col_exists = await conn.fetchval("""

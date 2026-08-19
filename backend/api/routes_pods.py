@@ -317,9 +317,8 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
     @router.patch(
         "/pods/failed/{pod_id}/status",
         response_model=PodFailureResponse,
-        dependencies=[Depends(require_write)],
     )
-    async def update_pod_status(pod_id: int, request: PodStatusUpdate):
+    async def update_pod_status(pod_id: int, request: PodStatusUpdate, user: dict = Depends(require_write)):
         """Update the status of a pod failure (acknowledge, resolve, ignore)"""
         valid_statuses = {"new", "investigating", "resolved", "ignored"}
         if request.status not in valid_statuses:
@@ -347,8 +346,10 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                     detail=f"Cannot transition from '{current_status}' to '{request.status}'",
                 )
 
+            acknowledged_by = user.get("username") if request.status == "investigating" else None
+
             updated = await db.update_pod_status(
-                pod_id, request.status, request.resolution_note
+                pod_id, request.status, request.resolution_note, acknowledged_by
             )
 
             if updated:

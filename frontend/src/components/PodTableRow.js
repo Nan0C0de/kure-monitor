@@ -7,10 +7,14 @@ import PodLogsModal from './PodLogsModal';
 import MirrorPodModal from './MirrorPodModal';
 import { api } from '../services/api';
 
-const getWorkflowStatusBadge = (status) => {
+const getWorkflowStatusBadge = (pod) => {
+  const status = pod.status || 'new';
   switch (status) {
     case 'investigating':
-      return { label: 'Investigating', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' };
+      return { 
+        label: pod.acknowledged_by ? `Investigating (${pod.acknowledged_by})` : 'Investigating', 
+        className: 'bg-yellow-100 text-yellow-800 border-yellow-300' 
+      };
     case 'resolved':
       return { label: 'Resolved', className: 'bg-green-100 text-green-800 border-green-300' };
     case 'ignored':
@@ -153,10 +157,10 @@ const PodTableRow = ({ pod, onSolutionUpdated, onLogAwareSolutionUpdated, onStat
             >
               <StatusBadge reason={pod.failure_reason} />
             </button>
-            {(() => {
-              const badge = getWorkflowStatusBadge(pod.status);
+            {viewMode === 'active' && (() => {
+              const badge = getWorkflowStatusBadge(pod);
               return (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badge.className}`}>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${badge.className}`}>
                   {badge.label}
                 </span>
               );

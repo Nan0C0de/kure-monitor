@@ -345,7 +345,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
             <>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${isDark ? 'bg-yellow-900/50 text-yellow-300 border-yellow-700' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
                 <Clock className="w-3 h-3 mr-1" />
-                Investigating — will auto-resolve when pod recovers
+                Investigating {pod.acknowledged_by ? `(by ${pod.acknowledged_by})` : ''} — will auto-resolve when pod recovers
               </span>
               <button
                 onClick={() => handleStatusAction('ignored')}
