@@ -22,14 +22,6 @@ features:
   diagram: true
   aiAdvice: true
 
-# LLM Configuration
-# Optionally configure your AI provider (e.g. anthropic, openai, gemini, custom_local) 
-# instead of setting it via the UI admin panel.
-llm:
-  provider: ""
-  apiKey: ""
-  model: ""
-  baseUrl: ""
 
 # Pod monitoring agent configuration
 agent:

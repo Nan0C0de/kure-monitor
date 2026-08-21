@@ -84,20 +84,6 @@ spec:
           value: "{{ .Values.features.diagram }}"
         - name: FEATURE_AI_ADVICE
           value: "{{ .Values.features.aiAdvice }}"
-        {{- if .Values.llm.provider }}
-        - name: LLM_PROVIDER
-          value: "{{ .Values.llm.provider }}"
-        - name: LLM_API_KEY
-          value: "{{ .Values.llm.apiKey }}"
-        {{- if .Values.llm.model }}
-        - name: LLM_MODEL
-          value: "{{ .Values.llm.model }}"
-        {{- end }}
-        {{- if .Values.llm.baseUrl }}
-        - name: LLM_BASE_URL
-          value: "{{ .Values.llm.baseUrl }}"
-        {{- end }}
-        {{- end }}
         - name: SERVICE_TOKEN
           valueFrom:
             secretKeyRef:

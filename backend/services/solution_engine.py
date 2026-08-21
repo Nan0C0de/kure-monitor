@@ -114,24 +114,6 @@ class SolutionEngine:
         """Initialize the LLM provider from environment variables or database"""
         if self._db:
             try:
-                import os
-                
-                env_provider = os.getenv("LLM_PROVIDER")
-                env_api_key = os.getenv("LLM_API_KEY")
-                env_model = os.getenv("LLM_MODEL")
-                env_base_url = os.getenv("LLM_BASE_URL")
-                
-                # If environment variables are set (e.g. from Helm values), apply them
-                # This ensures `helm upgrade` with new config takes precedence and updates the UI.
-                if env_provider:
-                    logger.info(f"Applying LLM config from environment variables: provider={env_provider}")
-                    await self._db.save_llm_config(
-                        provider=env_provider,
-                        api_key=env_api_key or "unused",
-                        model=env_model,
-                        base_url=env_base_url
-                    )
-
                 db_config = await self._db.get_llm_config()
                 if db_config:
                     logger.info(
