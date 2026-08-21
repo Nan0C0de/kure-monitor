@@ -581,7 +581,9 @@ export const api = {
 
   // LLM Configuration API
   discoverLLMs: async () => {
-    const response = await authFetch(`${API_BASE}/api/admin/llm-discovery`);
+    const response = await authFetch(`${API_BASE}/api/admin/llm-discovery`, {
+      cache: 'no-store'
+    });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -589,7 +591,9 @@ export const api = {
   },
 
   getLLMStatus: async () => {
-    const response = await authFetch(`${API_BASE}/api/admin/llm/status`);
+    const response = await authFetch(`${API_BASE}/api/admin/llm/status`, {
+      cache: 'no-store'
+    });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },

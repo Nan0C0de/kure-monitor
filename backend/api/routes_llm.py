@@ -31,6 +31,7 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
                     configured=True,
                     provider=db_config["provider"],
                     model=db_config["model"],
+                    base_url=db_config.get("base_url"),
                     source="database",
                 )
 

@@ -220,6 +220,7 @@ class LLMConfigStatus(BaseModel):
     configured: bool = False
     provider: Optional[str] = None
     model: Optional[str] = None
+    base_url: Optional[str] = None
     source: Optional[str] = None  # "database"
 
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search } from 'lucide-react';
+import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search, Edit } from 'lucide-react';
 import { api } from '../services/api';
 
 const LLMSettings = ({ isDark = false, onConfigChange }) => {
@@ -21,6 +21,8 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
+  const [isCustomModelInput, setIsCustomModelInput] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const providers = [
     {
@@ -107,8 +109,31 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       const data = await api.getLLMStatus();
       setStatus(data);
       if (data.configured) {
-        setProvider(data.provider || 'groq');
-        setModel(data.model || '');
+        setProvider(data.provider || 'anthropic');
+        const loadedModel = data.model || '';
+        
+        // Find if the loaded model is in the provider's predefined models
+        const prov = providers.find(p => p.value === (data.provider || 'anthropic'));
+        if (prov && !prov.isCustomModel) {
+            const isPredefined = prov.models.some(m => m.value === loadedModel);
+            if (!isPredefined && loadedModel !== '') {
+                setIsCustomModelInput(true);
+            } else {
+                setIsCustomModelInput(false);
+            }
+        }
+        setModel(loadedModel);
+        if (data.base_url) {
+          setBaseUrl(data.base_url);
+        } else {
+          // If no base_url in data, try to use provider default
+          const prov = providers.find(p => p.value === (data.provider || 'anthropic'));
+          if (prov && prov.defaultBaseUrl) {
+            setBaseUrl(prov.defaultBaseUrl);
+          } else {
+            setBaseUrl('');
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to load LLM status:', err);
@@ -126,6 +151,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setModel(providerConfig.defaultModel);
       setBaseUrl(providerConfig.defaultBaseUrl || '');
       setApiKey('');
+      setIsCustomModelInput(false);
     }
   };
 
@@ -233,7 +259,14 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setError(null);
       const result = await api.testLLMConfig(buildPayload());
       if (result.success) {
-        setSuccess('Connection successful! LLM is working.');
+        await api.saveLLMConfig(buildPayload());
+        setSuccess('Connection successful! Configuration automatically saved.');
+        setApiKey(''); // Clear API key from form after save
+        setIsEditing(false);
+        await loadStatus();
+        if (onConfigChange) {
+          onConfigChange();
+        }
         setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(result.message || 'Test failed');
@@ -261,6 +294,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       await api.saveLLMConfig(buildPayload());
       setSuccess('LLM configuration saved successfully!');
       setApiKey(''); // Clear API key from form after save
+      setIsEditing(false);
       await loadStatus();
       // Notify parent that config has changed so aiEnabled state updates
       if (onConfigChange) {
@@ -368,20 +402,31 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
             </div>
           </div>
           {status?.configured && status?.source === 'database' && (
-            <button
-              onClick={handleDelete}
-              disabled={saving}
-              className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'}`}
-            >
-              <Trash2 className="w-4 h-4 mr-1" />
-              Delete
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsEditing(true)}
+                disabled={saving || isEditing}
+                className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100'}`}
+              >
+                <Edit className="w-4 h-4 mr-1" />
+                Edit
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={saving}
+                className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'}`}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </button>
+            </div>
           )}
         </div>
       </div>
 
       {/* Configuration Form */}
-      <div className={`border rounded-md p-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+      {(!status?.configured || isEditing) && (
+        <div className={`border rounded-md p-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="flex justify-between items-center mb-4">
           <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
             {status?.configured ? 'Update Configuration' : 'Configure API Endpoint'}
@@ -505,15 +550,37 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
                 </datalist>
               </>
             ) : (
-              <select
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
-              >
-                {currentProviderModels.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                <select
+                  value={isCustomModelInput ? 'custom_entry' : model}
+                  onChange={(e) => {
+                    if (e.target.value === 'custom_entry') {
+                      setIsCustomModelInput(true);
+                      setModel('');
+                    } else {
+                      setIsCustomModelInput(false);
+                      setModel(e.target.value);
+                    }
+                  }}
+                  className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+                >
+                  {currentProviderModels.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                  <option value="custom_entry">Custom... (Type your own)</option>
+                </select>
+
+                {isCustomModelInput && (
+                  <input
+                    type="text"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="Enter model name (e.g., claude-3-haiku-20240307)"
+                    className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                    autoFocus
+                  />
+                )}
+              </div>
             )}
           </div>
 
@@ -543,9 +610,22 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
               )}
               Save Configuration
             </button>
+            {isEditing && (
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  loadStatus(); // Reset to saved state
+                }}
+                disabled={saving || testing}
+                className={`inline-flex items-center px-4 py-2 text-sm font-medium border rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       </div>
+      )}
 
       {/* API Key Modal for Discovered Endpoint */}
       {pendingEndpoint && (
