@@ -15,6 +15,7 @@ import Default from '@astrojs/starlight/components/Footer.astro';
 			<a href="https://artifacthub.io/packages/helm/kure-monitor/kure">Artifact Hub</a>
 			<a href="https://github.com/igor-koricanac/kure-monitor/blob/main/CHANGELOG.md">Changelog</a>
 			<a href="https://github.com/igor-koricanac/kure-monitor/issues">Report an issue</a>
+			<a href="mailto:monitorkure@gmail.com">Support</a>
 		</div>
 	</div>
 </footer>
@@ -63,7 +64,7 @@ import Default from '@astrojs/starlight/components/Footer.astro';
 		color: var(--sl-color-text);
 		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255,255,255,0.05) inset;
 		transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-		z-index: 100;
+		z-index: 9999;
 		overflow: hidden;
 	}
 	.github-support-widget::before {
@@ -172,3 +173,19 @@ import Default from '@astrojs/starlight/components/Footer.astro';
     </div>
   </div>
 </a>
+
+<script>
+  // Move the widget to the end of the body to escape Starlight's sidebar stacking contexts
+  // which often block clicks in the bottom corners of the screen.
+  const moveWidget = () => {
+    const widget = document.querySelector('.github-support-widget');
+    if (widget && widget.parentElement !== document.body) {
+      document.body.appendChild(widget);
+    }
+  };
+  
+  // Run on load
+  moveWidget();
+  // Run on view transitions if enabled
+  document.addEventListener('astro:page-load', moveWidget);
+</script>

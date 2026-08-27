@@ -10,8 +10,7 @@ export default defineConfig({
 
   integrations: [starlight({
 			title: 'Kure Monitor',
-			description:
-          'Real-time Kubernetes failure detection and security scanning with AI-powered troubleshooting.',
+			description: 'Kubernetes AI monitoring — detect pod failures in seconds and get AI-powered fixes. Open source, air-gapped ready.',
 			social: [],
 			editLink: {
           baseUrl:
