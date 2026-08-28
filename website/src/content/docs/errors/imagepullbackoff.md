@@ -33,7 +33,7 @@ If it's an authentication issue, ensure your `Secret` exists in the same namespa
 ```bash
 kubectl get secret <secret-name> -n <namespace> -o yaml
 ```
-Then verify that your deployment manifest actually references this secret in the `spec.template.spec.imagePullSecrets` array.
+Then verify that your deployment manifest references this secret in the `spec.template.spec.imagePullSecrets` array.
 
 ## How to debug instantly with Kure Monitor
 

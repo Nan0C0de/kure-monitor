@@ -345,7 +345,7 @@ const RetentionSettings = ({ isDark, onError, onSuccess }) => {
       {/* Mirror Pod TTL */}
       <div>
         <div className="mb-4 flex items-center">
-          <FlaskConical className="w-5 h-5 text-purple-500 mr-2" />
+          <FlaskConical className="w-5 h-5 text-blue-500 mr-2" />
           <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Mirror Pod TTL</h2>
         </div>
         <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -371,7 +371,7 @@ const RetentionSettings = ({ isDark, onError, onSuccess }) => {
               const clamped = Math.max(30, Math.min(mirrorTTL, 600));
               setMirrorTTL(clamped);
             }}
-            className={`w-24 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
+            className={`w-24 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
               isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
             }`}
           />

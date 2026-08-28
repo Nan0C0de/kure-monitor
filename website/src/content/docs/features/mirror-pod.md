@@ -5,7 +5,7 @@ description: Deploy a temporary copy of a failing pod with the AI-suggested fix 
 
 Mirror Pod Testing lets you deploy a **temporary copy** of a failing pod with the AI-generated fix applied. The mirror runs alongside the original pod under a different name, is excluded from monitoring and security scanning, and auto-deletes after a configurable TTL.
 
-This closes the gap between "the AI says do X" and "I actually merged the fix into git" — you can verify the fix works in your real cluster, with your real config, before touching source control.
+This closes the gap between "the AI says do X" and "I merged the fix into git" — you can verify the fix works in your real cluster, with your real config, before touching source control.
 
 ## How it works
 

@@ -203,7 +203,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
   return (
     <div>
       <div className="mb-4 flex items-center">
-        <Shield className="w-5 h-5 text-purple-500 mr-2" />
+        <Shield className="w-5 h-5 text-blue-500 mr-2" />
         <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Security Rules</h2>
       </div>
       <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -212,7 +212,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
 
       {/* Global Rule Exclusions */}
       <div className={`mb-4 p-4 border rounded-md ${isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50/50'}`}>
-        <h3 className={`text-sm font-semibold mb-1 ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>
+        <h3 className={`text-sm font-semibold mb-1 ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
           Global (all resources)
         </h3>
         <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -231,7 +231,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                 onFocus={() => setShowGlobalRuleSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowGlobalRuleSuggestions(false), 200)}
                 placeholder="Enter or select rule to exclude globally"
-                className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
               />
               {showGlobalRuleSuggestions && filteredGlobalRuleSuggestions.length > 0 && (
                 <div
@@ -241,7 +241,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                   <div className={`px-3 py-2 text-xs border-b flex items-center justify-between ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
                     <span>Rules with multiple resources</span>
                     {selectedGlobalRuleCount > 0 && (
-                      <span className={`text-xs font-medium ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                      <span className={`text-xs font-medium ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                         {selectedGlobalRuleCount} selected
                       </span>
                     )}
@@ -251,15 +251,15 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                       key={title}
                       className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 cursor-pointer ${
                         selectedGlobalRuleTitles.includes(title)
-                          ? isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'
-                          : isDark ? 'text-gray-300 hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
+                          ? isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'
+                          : isDark ? 'text-gray-300 hover:bg-gray-700 hover:text-blue-400' : 'hover:bg-blue-50 hover:text-blue-700'
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={selectedGlobalRuleTitles.includes(title)}
                         onChange={() => toggleGlobalRuleSelection(title)}
-                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="truncate font-medium">{title}</span>
                     </label>
@@ -269,7 +269,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
             </div>
             <button
               type="submit"
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus className="w-4 h-4 mr-1" />
               Exclude{selectedGlobalRuleCount > 0 ? ` (${selectedGlobalRuleCount})` : ''}
@@ -299,7 +299,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                 onFocus={() => setShowRuleSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowRuleSuggestions(false), 200)}
                 placeholder="Enter or select specific rule"
-                className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
               />
               {showRuleSuggestions && filteredPerResourceRuleSuggestions.length > 0 && (
                 <div
@@ -309,7 +309,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                   <div className={`px-3 py-2 text-xs border-b flex items-center justify-between ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
                     <span>Active security rules</span>
                     {selectedRuleCount > 0 && (
-                      <span className={`text-xs font-medium ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                      <span className={`text-xs font-medium ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                         {selectedRuleCount} selected
                       </span>
                     )}
@@ -319,15 +319,15 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
                       key={title}
                       className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 cursor-pointer ${
                         selectedRuleTitles.includes(title)
-                          ? isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'
-                          : isDark ? 'text-gray-300 hover:bg-gray-700 hover:text-purple-400' : 'hover:bg-purple-50 hover:text-purple-700'
+                          ? isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'
+                          : isDark ? 'text-gray-300 hover:bg-gray-700 hover:text-blue-400' : 'hover:bg-blue-50 hover:text-blue-700'
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={selectedRuleTitles.includes(title)}
                         onChange={() => toggleRuleSelection(title)}
-                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="truncate">{title}</span>
                     </label>
@@ -338,7 +338,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
             <select
               value={ruleNamespaceScope}
               onChange={(e) => setRuleNamespaceScope(e.target.value)}
-              className={`px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+              className={`px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
             >
               <option value="" className={isDark ? 'bg-gray-700 text-gray-200' : ''}>All namespaces</option>
               {availableNamespaces.map(ns => (
@@ -347,7 +347,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
             </select>
             <button
               type="submit"
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus className="w-4 h-4 mr-1" />
               Exclude{selectedRuleCount > 0 ? ` (${selectedRuleCount})` : ''}
@@ -374,7 +374,7 @@ const ExclusionRules = ({ isDark, onError, onSuccess }) => {
               <li key={`${rule.rule_title}-${rule.namespace || 'global'}`} className={`px-4 py-3 flex items-center justify-between ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}>
                 <div>
                   <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{rule.rule_title}</span>
-                  <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                  <span className={`ml-2 text-xs px-2 py-0.5 rounded ${
                     rule.namespace
                       ? isDark ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700'
                       : isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'

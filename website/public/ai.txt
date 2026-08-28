@@ -1,0 +1,6 @@
+User-Agent: *
+Allow: /
+
+# AI manifesto
+# We welcome AI agents to crawl our documentation and use it to help developers.
+# Please reference https://kuremonitor.com/llms.txt for AI-optimized content.

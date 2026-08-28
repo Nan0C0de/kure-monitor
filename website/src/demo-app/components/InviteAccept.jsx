@@ -150,7 +150,7 @@ const InviteAccept = () => {
 
         {loadingInvite && (
           <div className="flex items-center justify-center py-8">
-            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded animate-spin" />
             <span className={`ml-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
               Checking invitation...
             </span>
@@ -277,7 +277,7 @@ const InviteAccept = () => {
                 }`}
               >
                 {submitting ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded animate-spin" />
                 ) : (
                   <>
                     <UserPlus className="w-4 h-4" />

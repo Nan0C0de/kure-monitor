@@ -148,7 +148,7 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
             <li key={reg} className={`px-4 py-3 flex items-center justify-between ${isDark ? '' : ''}`}>
               <div>
                 <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{reg}</span>
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded ${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
                   Default
                 </span>
               </div>

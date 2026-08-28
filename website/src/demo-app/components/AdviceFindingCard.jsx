@@ -58,7 +58,7 @@ const AdviceFindingCard = ({
       case "medium":
         return isDark
           ? "bg-yellow-900/50 text-yellow-300 border-yellow-700"
-          : "bg-amber-100 text-amber-800 border-amber-300";
+          : "bg-yellow-100 text-yellow-800 border-yellow-300";
       case "low":
         return isDark
           ? "bg-blue-900/50 text-blue-300 border-blue-700"
@@ -166,7 +166,7 @@ const AdviceFindingCard = ({
           {/* Chip row: severity + ns + detector + category + dismissed + confidence */}
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <span
-              className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getSeverityColor(
+              className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded text-xs font-medium border ${getSeverityColor(
                 finding.severity,
               )}`}
             >
@@ -204,8 +204,8 @@ const AdviceFindingCard = ({
               <span
                 className={`inline-block px-2 py-0.5 rounded text-xs ${
                   isDark
-                    ? "bg-indigo-900/40 text-indigo-300"
-                    : "bg-indigo-100 text-indigo-800"
+                    ? "bg-blue-900/40 text-blue-300"
+                    : "bg-blue-100 text-blue-800"
                 }`}
               >
                 {finding.category}
@@ -323,7 +323,7 @@ const AdviceFindingCard = ({
                   }`}
                 >
                   <div
-                    className={`w-3.5 h-3.5 mr-2 border-2 border-t-transparent rounded-full animate-spin ${
+                    className={`w-3.5 h-3.5 mr-2 border-2 border-t-transparent rounded animate-spin ${
                       isDark ? "border-blue-400" : "border-blue-500"
                     }`}
                   />

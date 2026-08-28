@@ -52,8 +52,8 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
               className={`flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 isActive
                   ? isDark
-                    ? 'border-purple-500 text-purple-400'
-                    : 'border-purple-600 text-purple-600'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-blue-600 text-blue-600'
                   : isDark
                     ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

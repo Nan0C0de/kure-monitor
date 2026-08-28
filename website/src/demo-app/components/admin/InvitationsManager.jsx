@@ -113,8 +113,8 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
-          <div className={`p-2 rounded-lg mr-3 ${isDark ? 'bg-purple-900/50' : 'bg-purple-100'}`}>
-            <Mail className={`w-5 h-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
+          <div className={`p-2 rounded-lg mr-3 ${isDark ? 'bg-blue-900/50' : 'bg-blue-100'}`}>
+            <Mail className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
           </div>
           <div>
             <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Invitations</h3>
@@ -127,8 +127,8 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
           onClick={openModal}
           className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
             isDark
-              ? 'bg-purple-600 hover:bg-purple-500 text-white'
-              : 'bg-purple-600 hover:bg-purple-700 text-white'
+              ? 'bg-blue-600 hover:bg-blue-500 text-white'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
         >
           <Plus className="w-4 h-4 mr-1" />
@@ -223,7 +223,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                     <select
                       value={newRole}
                       onChange={(e) => setNewRole(e.target.value)}
-                      className={`w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                      className={`w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isDark
                           ? 'bg-gray-900 border-gray-600 text-white'
                           : 'bg-white border-gray-300 text-gray-900'
@@ -241,7 +241,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                         type="checkbox"
                         checked={permanent}
                         onChange={(e) => setPermanent(e.target.checked)}
-                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       Permanent invite (never expires)
                     </label>
@@ -260,7 +260,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                       value={newExpires}
                       onChange={(e) => setNewExpires(e.target.value)}
                       disabled={permanent}
-                      className={`w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isDark
                           ? 'bg-gray-900 border-gray-600 text-white'
                           : 'bg-white border-gray-300 text-gray-900'
@@ -272,7 +272,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                   </div>
 
                   <div className={`text-xs rounded-md px-3 py-2 flex items-start gap-2 ${
-                    isDark ? 'bg-amber-900/20 text-amber-200' : 'bg-amber-50 text-amber-800'
+                    isDark ? 'bg-yellow-900/20 text-yellow-200' : 'bg-yellow-50 text-yellow-800'
                   }`}>
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <span>
@@ -297,10 +297,10 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                       disabled={creating}
                       className={`px-4 py-2 text-sm font-medium rounded-md ${
                         creating
-                          ? 'bg-purple-400 text-white cursor-not-allowed'
+                          ? 'bg-blue-400 text-white cursor-not-allowed'
                           : isDark
-                            ? 'bg-purple-600 hover:bg-purple-500 text-white'
-                            : 'bg-purple-600 hover:bg-purple-700 text-white'
+                            ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
                       }`}
                     >
                       {creating ? 'Creating...' : 'Create'}
@@ -337,8 +337,8 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                       onClick={closeModal}
                       className={`px-4 py-2 text-sm font-medium rounded-md ${
                         isDark
-                          ? 'bg-purple-600 hover:bg-purple-500 text-white'
-                          : 'bg-purple-600 hover:bg-purple-700 text-white'
+                          ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
                       }`}
                     >
                       Done

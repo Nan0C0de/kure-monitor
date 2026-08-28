@@ -1,29 +1,29 @@
 ---
 title: Prometheus vs Kure Monitor
-description: Learn why Kure Monitor is the perfect AI-powered complement to your existing Prometheus monitoring stack.
+description: Learn why Kure Monitor complements your existing Prometheus monitoring stack.
 ---
 
-When engineering teams look for Kubernetes observability tools, the first choice is almost always Prometheus. It is the industry standard for collecting metrics and triggering alerts.
+When engineering teams look for Kubernetes observability tools, the first choice is almost always Prometheus. It collects metrics and triggers alerts.
 
 But what happens *after* Prometheus pages you?
 
-This is where Kure Monitor comes in. Kure is not designed to replace Prometheus; it is designed to be the perfect AI-powered complement to it.
+Kure Monitor doesn't replace Prometheus; it complements it with AI.
 
 ## The Problem with Metrics-Only Monitoring
 
-Prometheus is incredible at telling you **that** something is broken:
+Prometheus tells you *that* something is broken:
 - "CPU usage on node-1 is at 99%"
 - "HTTP 500 error rate spiked to 12%"
 - "Pod `payment-service` has restarted 10 times"
 
-However, Prometheus cannot tell you **why** it is broken. 
+Prometheus does not tell you *why* it is broken. 
 
 ## How Kure Monitor Complements Prometheus
 
-While Prometheus handles the *metrics and alerting*, Kure Monitor handles the *root-cause diagnosis and remediation*.
+While Prometheus handles metrics and alerting, Kure Monitor diagnoses the root cause and suggests remediation.
 
 When Prometheus fires an alert because a pod is crashing, Kure Monitor has already:
-1. Detected the exact pod failure (`CrashLoopBackOff`, `OOMKilled`, etc.).
+1. Detected the pod failure (`CrashLoopBackOff`, `OOMKilled`, etc.).
 2. Gathered the context (events, previous container logs, and the pod manifest).
 3. Used an AI model (OpenAI, Anthropic, Gemini, or local Ollama) to analyze the failure.
 4. Generated a plain-English explanation of the root cause and provided the exact YAML or `kubectl` command to fix it.
@@ -40,8 +40,8 @@ When Prometheus fires an alert because a pod is crashing, Kure Monitor has alrea
 
 ## The Perfect Stack
 
-The most robust Kubernetes observability stacks use both:
-1. **Prometheus / Alertmanager** to monitor latency, traffic, errors, and saturation (The Four Golden Signals).
-2. **Kure Monitor** to instantly diagnose workload failures, debug crash loops, and proactively scan for architectural misconfigurations using the AI Advice engine.
+Strong Kubernetes observability stacks use both:
+1. **Prometheus / Alertmanager** to monitor latency, traffic, errors, and saturation.
+2. **Kure Monitor** to instantly diagnose workload failures, debug crash loops, and proactively scan for architectural misconfigurations.
 
-Best of all, Kure Monitor requires **no Prometheus dependency**. It runs entirely standalone, communicating directly with the Kubernetes API to gather its context. 
+Kure Monitor requires no Prometheus dependency. It runs standalone and communicates directly with the Kubernetes API to gather its context.

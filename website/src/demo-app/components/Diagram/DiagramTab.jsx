@@ -592,7 +592,7 @@ const DiagramTab = ({ isDark = false }) => {
             }`}
           >
             <div className="flex items-center space-x-2">
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded animate-spin" />
               <span className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
                 Loading diagram…
               </span>

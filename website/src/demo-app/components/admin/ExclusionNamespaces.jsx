@@ -78,7 +78,7 @@ const ExclusionNamespaces = ({ isDark, onError, onSuccess }) => {
   return (
     <div>
       <div className="mb-4 flex items-center">
-        <Shield className="w-5 h-5 text-orange-500 mr-2" />
+        <Shield className="w-5 h-5 text-red-500 mr-2" />
         <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Namespaces (Security Scan)</h2>
       </div>
       <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -120,7 +120,7 @@ const ExclusionNamespaces = ({ isDark, onError, onSuccess }) => {
           </div>
           <button
             type="submit"
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-orange-600 border border-transparent rounded-md shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
           >
             <Plus className="w-4 h-4 mr-1" />
             Exclude

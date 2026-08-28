@@ -9,7 +9,7 @@ import InviteAccept from './components/InviteAccept';
 const LoadingScreen = ({ message }) => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
     <div className="flex items-center space-x-2">
-      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded animate-spin"></div>
       <span className="text-gray-700 dark:text-gray-300">{message || 'Loading...'}</span>
     </div>
   </div>

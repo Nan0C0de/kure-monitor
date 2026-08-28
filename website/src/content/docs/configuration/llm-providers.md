@@ -19,7 +19,7 @@ Whether you are using a managed cloud service or running an air-gapped local mod
 
 The Custom provider allows you to connect to absolutely any OpenAI-compatible API. 
 
-When you select Custom, you simply need to provide:
+When you select Custom, you need to provide:
 1. **Base URL**: The API endpoint (e.g., `https://api.openai.com/v1`, `https://api.groq.com/openai/v1`)
 2. **API Key**: Your secret token.
 3. **Model Name**: Type in the exact name of the model you want to use (e.g., `gpt-5.5-mini`, `llama-3.3-70b-versatile`, `qwen2.5:72b`).
@@ -50,4 +50,4 @@ LLM API keys are encrypted at rest using a Fernet key (`security.encryptionKey` 
 DELETE /api/admin/llm/config
 ```
 
-…or just click **Delete** in the Admin panel. Kure will revert to rule-based solutions.
+…or click **Delete** in the Admin panel. Kure will revert to rule-based solutions.

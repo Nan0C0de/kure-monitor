@@ -836,7 +836,7 @@ const AdvicePanel = ({
       ) : loading ? (
         <div className="py-12 text-center">
           <div className="inline-flex items-center space-x-2">
-            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded animate-spin" />
             <span className={isDark ? "text-gray-300" : "text-gray-700"}>
               Loading advice…
             </span>

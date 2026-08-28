@@ -62,9 +62,9 @@ const NodeDetailsModal = ({ isOpen, onClose, node, isDark = false }) => {
         </span>
       </div>
       {percent !== null && (
-        <div className={`w-full h-3 rounded-full ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+        <div className={`w-full h-3 rounded ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
           <div
-            className={`h-3 rounded-full ${getProgressColor(percent)} transition-all`}
+            className={`h-3 rounded ${getProgressColor(percent)} transition-all`}
             style={{ width: `${Math.min(percent, 100)}%` }}
           />
         </div>
@@ -150,7 +150,7 @@ const NodeDetailsModal = ({ isOpen, onClose, node, isDark = false }) => {
               <h3 className={`text-lg font-medium ${textColor}`}>Node Details</h3>
               <div className="flex items-center space-x-2">
                 <p className={`text-sm ${textMuted}`}>{node.name}</p>
-                <span className={`px-2 py-0.5 text-xs rounded-full ${isReady ? (isDark ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800') : (isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800')}`}>
+                <span className={`px-2 py-0.5 text-xs rounded ${isReady ? (isDark ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800') : (isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800')}`}>
                   {isReady ? 'Ready' : 'Not Ready'}
                 </span>
               </div>
@@ -172,7 +172,7 @@ const NodeDetailsModal = ({ isOpen, onClose, node, isDark = false }) => {
             <ProgressBar
               label="CPU"
               icon={Cpu}
-              iconColor={isDark ? 'text-purple-400' : 'text-purple-600'}
+              iconColor={isDark ? 'text-blue-400' : 'text-blue-600'}
               usage={node.cpu_usage}
               capacity={node.cpu_allocatable}
               percent={cpuPercent}

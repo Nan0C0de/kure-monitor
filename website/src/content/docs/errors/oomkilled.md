@@ -9,11 +9,11 @@ When a container hits its memory limit, it is instantly killed without warning. 
 
 ## What causes OOMKilled?
 
-Unlike CPU limits (which simply throttle the container), memory limits are strictly enforced. Common causes include:
+Unlike CPU limits (which throttle the container), memory limits are strictly enforced. Common causes include:
 1. **Memory Leaks**: The application has a memory leak and slowly consumes RAM until it hits the limit.
 2. **Spiky Workloads**: A sudden surge in traffic or a large file upload causes a temporary spike in memory usage that exceeds the limit.
-3. **Java Heap Sizing**: The JVM heap size (`-Xmx`) is not configured correctly, or is set higher than the Kubernetes container memory limit. The JVM thinks it has more memory available than Kubernetes actually allows.
-4. **Missing Requests/Limits**: If you don't set a memory request, the container might be scheduled on a node that doesn't actually have enough physical RAM available.
+3. **Java Heap Sizing**: The JVM heap size (`-Xmx`) is not configured correctly, or is set higher than the Kubernetes container memory limit. The JVM thinks it has more memory available than Kubernetes allows.
+4. **Missing Requests/Limits**: If you don't set a memory request, the container might be scheduled on a node that doesn't have enough physical RAM available.
 
 ## How to debug manually
 

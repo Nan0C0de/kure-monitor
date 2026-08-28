@@ -1,0 +1,47 @@
+# Kure Monitor Full Documentation
+
+> Real-time Kubernetes failure detection and security scanning with AI-powered troubleshooting.
+
+## 1. Overview
+Kure Monitor is an advanced Kubernetes observability, debugging, and security platform. It actively monitors clusters for pod failures, resource bottlenecks, and security vulnerabilities, and seamlessly integrates with Large Language Models (LLMs) to automatically generate context-aware, actionable fixes for complex cluster issues.
+
+## 2. Key Features
+- **AI-Powered Troubleshooting:** Analyzes Kubernetes events, pod logs, and YAML manifests using LLMs to suggest precise fixes for CrashLoopBackOff, ImagePullBackOff, OOMKilled, and more.
+- **Real-Time Failure Detection:** Actively watches the cluster state and dispatches immediate alerts to ChatOps platforms (Slack, Microsoft Teams).
+- **Security Scanning:** Continuously scans workloads for 50+ misconfigurations, excessive permissions, and known vulnerabilities.
+- **Interactive Topology:** Live observability graph of workloads and network policies.
+- **Mirror Pod Testing:** Deploy a temporary copy of a failing pod with the AI-suggested fix applied to verify before committing to git.
+- **Multi-LLM Support:** Native integrations with OpenAI, Anthropic, Google Gemini, Ollama, Groq, and GitHub Copilot.
+
+## 3. Getting Started
+
+### Installation
+Install Kure Monitor using Helm:
+```bash
+helm repo add kure-monitor https://kuremonitor.com/
+helm install kure-monitor kure-monitor/kure \
+  --namespace kure-system --create-namespace \
+  --set postgresql.password="$(openssl rand -hex 24)"
+```
+
+### Accessing the Dashboard
+Port-forward to access the UI:
+```bash
+kubectl port-forward svc/kure-monitor-frontend 8080:8080 -n kure-system
+```
+Open `http://localhost:8080` to create your admin account and configure your LLM provider.
+
+## 4. Architecture
+Kure Monitor runs entirely within your cluster:
+- **Agent (DaemonSet):** Collects pod states and events.
+- **Backend (FastAPI):** Orchestrates data, handles AI requests, and manages the database.
+- **Security Scanner:** Scans cluster resources for misconfigurations.
+- **Frontend (React):** Provides the interactive dashboard.
+- **PostgreSQL:** Stores configuration and findings.
+
+## 5. Important Links
+- **Website:** https://kuremonitor.com
+- **GitHub:** https://github.com/igor-koricanac/kure-monitor
+- **Artifact Hub:** https://artifacthub.io/packages/helm/kure-monitor/kure
+
+*For more details, explore our full documentation at https://kuremonitor.com/getting-started/introduction/*

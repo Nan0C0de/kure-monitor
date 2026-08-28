@@ -24,4 +24,4 @@ When you click on a specific advice finding, Kure sends the exact `evidence` dic
 
 This approach ensures:
 1. **Cost Efficiency**: A scan with 500 findings does not cost 500 LLM requests up front.
-2. **High Accuracy**: The prompt is strictly constrained to only reference data present in the finding’s `evidence` dict. The AI cannot invent replica counts, image names, ports, or labels. It simply explains *why* the evidence is problematic and *how* to fix it.
+2. **High Accuracy**: The prompt is strictly constrained to only reference data present in the finding’s `evidence` dict. The AI cannot invent replica counts, image names, ports, or labels. It explains *why* the evidence is problematic and *how* to fix it.
