@@ -206,7 +206,7 @@ const Legend = ({ isDark, groups, collapsedGroups, onToggleGroup }) => {
   ];
   return (
     <div
-      className={`text-xs rounded-md border shadow-sm px-3 py-2 ${
+      className={`text-xs rounded-sm border shadow-sm px-3 py-2 ${
         isDark ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
       }`}
     >

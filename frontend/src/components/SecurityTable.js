@@ -17,7 +17,7 @@ const SecurityTable = ({ findings, isDark = false, aiEnabled = false, canWrite =
       case 'critical':
         return isDark ? 'bg-red-900/50 text-red-300 border-red-700' : 'bg-red-100 text-red-800 border-red-300';
       case 'high':
-        return isDark ? 'bg-orange-900/50 text-orange-300 border-orange-700' : 'bg-orange-100 text-orange-800 border-orange-300';
+        return isDark ? 'bg-red-900/50 text-red-300 border-red-700' : 'bg-red-100 text-red-800 border-red-300';
       case 'medium':
         return isDark ? 'bg-yellow-900/50 text-yellow-300 border-yellow-700' : 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'low':
@@ -85,7 +85,7 @@ const SecurityTable = ({ findings, isDark = false, aiEnabled = false, canWrite =
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getSeverityColor(finding.severity)}`}>
+                    <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded text-xs font-medium border ${getSeverityColor(finding.severity)}`}>
                       {getSeverityIcon(finding.severity)}
                       <span className="ml-1">{finding.severity.toUpperCase()}</span>
                     </span>
@@ -100,7 +100,7 @@ const SecurityTable = ({ findings, isDark = false, aiEnabled = false, canWrite =
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDark ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-800'}`}>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded ${isDark ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
                       {finding.namespace}
                     </span>
                   </td>
@@ -135,7 +135,7 @@ const SecurityTable = ({ findings, isDark = false, aiEnabled = false, canWrite =
                               setSelectedFinding(finding);
                               setShowFixModal(true);
                             }}
-                            className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                            className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                               isDark
                                 ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
                                 : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'

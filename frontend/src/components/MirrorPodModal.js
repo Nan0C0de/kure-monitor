@@ -207,7 +207,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
           role="dialog"
           aria-modal="true"
           aria-label="Test Fix"
-          className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full ${
+          className={`inline-block align-bottom rounded-sm text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full ${
             stage === 'edit' || stage === 'loading-manifest' ? 'sm:max-w-3xl' : 'sm:max-w-lg'
           } ${isDark ? 'bg-gray-800' : 'bg-white'}`}
         >
@@ -215,7 +215,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
-                <FlaskConical className="w-5 h-5 text-purple-600 mr-2" />
+                <FlaskConical className="w-5 h-5 text-blue-600 mr-2" />
                 <h3 className={`text-lg leading-6 font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
                   Test Fix
                 </h3>
@@ -261,14 +261,14 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                   Review and edit the AI-generated fixed manifest before deploying.
                 </p>
                 {manifestExplanation && (
-                  <div className={`rounded-md p-3 ${isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
+                  <div className={`rounded-sm p-3 ${isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
                     <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>{manifestExplanation}</p>
                   </div>
                 )}
                 <textarea
                   value={editedManifest}
                   onChange={(e) => setEditedManifest(e.target.value)}
-                  className={`w-full rounded-md border bg-gray-900 text-gray-100 p-4 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'border-gray-600' : 'border-gray-300'}`}
+                  className={`w-full rounded-sm border bg-gray-900 text-gray-100 p-4 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'border-gray-600' : 'border-gray-300'}`}
                   style={{
                     fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
                     height: '400px',
@@ -290,7 +290,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
             {/* Running stage */}
             {stage === 'running' && mirrorInfo && (
               <div className="space-y-4">
-                <div className={`rounded-md p-4 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                <div className={`rounded-sm p-4 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <dt className={`font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Pod Name</dt>
@@ -344,7 +344,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
             {stage === 'result' && mirrorInfo && (
               <div className="space-y-4">
                 {isSuccess && (
-                  <div className={`rounded-md p-4 ${isDark ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-200'}`}>
+                  <div className={`rounded-sm p-4 ${isDark ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-200'}`}>
                     <div className="flex items-center mb-2">
                       <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
                       <span className={`text-sm font-medium ${isDark ? 'text-green-300' : 'text-green-800'}`}>Fix appears to be working!</span>
@@ -356,7 +356,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                 )}
 
                 {isFailed && (
-                  <div className={`rounded-md p-4 ${isDark ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'}`}>
+                  <div className={`rounded-sm p-4 ${isDark ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'}`}>
                     <div className="flex items-center mb-2">
                       <XCircle className="w-5 h-5 text-red-500 mr-2" />
                       <span className={`text-sm font-medium ${isDark ? 'text-red-300' : 'text-red-800'}`}>The fix didn't resolve the issue</span>
@@ -368,7 +368,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                 )}
 
                 {/* Mirror info summary */}
-                <div className={`rounded-md p-4 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                <div className={`rounded-sm p-4 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <dt className={`font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Pod Name</dt>
@@ -413,7 +413,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
 
             {/* Deleted stage */}
             {stage === 'deleted' && (
-              <div className={`rounded-md p-4 ${isDark ? 'bg-gray-900 border border-gray-700' : 'bg-gray-50 border border-gray-200'}`}>
+              <div className={`rounded-sm p-4 ${isDark ? 'bg-gray-900 border border-gray-700' : 'bg-gray-50 border border-gray-200'}`}>
                 <div className="flex items-center">
                   <CheckCircle className={`w-5 h-5 mr-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                   <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Mirror pod was cleaned up.</span>
@@ -423,7 +423,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
 
             {/* Error stage */}
             {stage === 'error' && (
-              <div className={`rounded-md p-4 ${isDark ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'}`}>
+              <div className={`rounded-sm p-4 ${isDark ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'}`}>
                 <div className="flex items-center">
                   <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
                   <span className={`text-sm ${isDark ? 'text-red-300' : 'text-red-700'}`}>{error || 'An error occurred'}</span>
@@ -439,7 +439,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className={`inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${isDark ? 'border border-red-700 text-red-300 bg-red-900/40 hover:bg-red-900/60' : 'border border-red-300 text-red-700 bg-red-50 hover:bg-red-100'}`}
+                  className={`inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${isDark ? 'border border-red-700 text-red-300 bg-red-900/40 hover:bg-red-900/60' : 'border border-red-300 text-red-700 bg-red-50 hover:bg-red-100'}`}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Now
@@ -451,7 +451,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                 <>
                   <button
                     type="button"
-                    className={`inline-flex justify-center rounded-md border shadow-sm px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    className={`inline-flex justify-center rounded-sm border shadow-sm px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                       isDark
                         ? 'border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600'
                         : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
@@ -462,7 +462,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                   </button>
                   <button
                     type="button"
-                    className={`inline-flex items-center justify-center rounded-md border shadow-sm px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    className={`inline-flex items-center justify-center rounded-sm border shadow-sm px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                       isDark
                         ? 'border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600'
                         : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
@@ -474,7 +474,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                   </button>
                   <button
                     type="button"
-                    className="inline-flex items-center justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-sm font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                    className="inline-flex items-center justify-center rounded-sm border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     onClick={() => handleDeploy()}
                   >
                     <FlaskConical className="w-4 h-4 mr-2" />
@@ -486,7 +486,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                 <>
                   <button
                     type="button"
-                    className={`inline-flex justify-center rounded-md border shadow-sm px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    className={`inline-flex justify-center rounded-sm border shadow-sm px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                       isDark
                         ? 'border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600'
                         : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
@@ -497,7 +497,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
                   </button>
                   <button
                     type="button"
-                    className="inline-flex items-center justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="inline-flex items-center justify-center rounded-sm border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     onClick={handleDeployEdited}
                   >
                     <FlaskConical className="w-4 h-4 mr-2" />
@@ -508,7 +508,7 @@ const MirrorPodModal = ({ isOpen, onClose, pod, isDark = false, defaultTTL = 180
               {stage !== 'confirm' && stage !== 'edit' && (
                 <button
                   type="button"
-                  className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex justify-center rounded-sm border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   onClick={handleClose}
                 >
                   Close

@@ -252,7 +252,7 @@ const DiagramTab = ({ isDark = false }) => {
     ? 'bg-gray-800 border-gray-600 text-gray-200 placeholder-gray-500'
     : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400';
 
-  const tabBtnBase = 'px-3 py-1.5 text-sm font-medium rounded-md border transition-colors';
+  const tabBtnBase = 'px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors';
   const tabBtnActive = isDark
     ? 'bg-blue-900/40 border-blue-700 text-blue-200'
     : 'bg-blue-50 border-blue-300 text-blue-700';
@@ -261,7 +261,7 @@ const DiagramTab = ({ isDark = false }) => {
     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50';
 
   const labelClass = `text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
-  const selectClass = `px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBase}`;
+  const selectClass = `px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBase}`;
 
   const renderEmptyState = () => {
     let title = 'No diagram';
@@ -305,7 +305,7 @@ const DiagramTab = ({ isDark = false }) => {
     <div className="p-4">
       {/* Controls */}
       <div
-        className={`mb-4 rounded-lg border p-4 ${
+        className={`mb-4 rounded-sm border p-4 ${
           isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
         }`}
       >
@@ -413,7 +413,7 @@ const DiagramTab = ({ isDark = false }) => {
                 type="button"
                 onClick={fetchDiagram}
                 disabled={!namespace || !workloadName.trim() || loading}
-                className={`px-4 py-2 text-sm font-medium rounded-md border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`px-4 py-2 text-sm font-medium rounded-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                   isDark
                     ? 'bg-blue-900/40 border-blue-700 text-blue-200 hover:bg-blue-800/50'
                     : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
@@ -546,7 +546,7 @@ const DiagramTab = ({ isDark = false }) => {
                     (roleScope === 'namespace' && (!roleNamespace || !roleName))))
               }
               title="Refresh diagram"
-              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                 isDark
                   ? 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700'
                   : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -569,7 +569,7 @@ const DiagramTab = ({ isDark = false }) => {
       {/* Error */}
       {error && (
         <div
-          className={`mb-4 flex items-start rounded-md border px-4 py-3 ${
+          className={`mb-4 flex items-start rounded-sm border px-4 py-3 ${
             isDark ? 'bg-red-900/30 border-red-700 text-red-200' : 'bg-red-50 border-red-200 text-red-800'
           }`}
         >
@@ -580,7 +580,7 @@ const DiagramTab = ({ isDark = false }) => {
 
       {/* Graph viewport */}
       <div
-        className={`relative rounded-lg border overflow-hidden ${
+        className={`relative rounded-sm border overflow-hidden ${
           isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
         }`}
         style={{ height: '70vh', minHeight: 500 }}
@@ -592,7 +592,7 @@ const DiagramTab = ({ isDark = false }) => {
             }`}
           >
             <div className="flex items-center space-x-2">
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded animate-spin" />
               <span className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
                 Loading diagram…
               </span>

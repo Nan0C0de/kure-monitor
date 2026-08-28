@@ -187,7 +187,7 @@ const ManifestModal = ({
           role="dialog"
           aria-modal="true"
           aria-label={title || 'Pod Manifest'}
-          className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${isDark ? 'bg-gray-800' : 'bg-white'}`}
+          className={`inline-block align-bottom rounded-sm text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${isDark ? 'bg-gray-800' : 'bg-white'}`}
         >
           <div className={`px-4 pt-5 pb-4 sm:p-6 sm:pb-4 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
             {/* Header */}
@@ -203,7 +203,7 @@ const ManifestModal = ({
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleCopyToClipboard}
-                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                     isDark
                       ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
                       : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
@@ -215,7 +215,7 @@ const ManifestModal = ({
                 </button>
                 <button
                   onClick={handleDownload}
-                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                     isDark
                       ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
                       : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
@@ -249,7 +249,7 @@ const ManifestModal = ({
             {infoMessage && (
               <div
                 role="status"
-                className={`mb-3 rounded-md border px-4 py-3 text-sm ${
+                className={`mb-3 rounded-sm border px-4 py-3 text-sm ${
                   isDark
                     ? 'bg-blue-900/30 border-blue-700 text-blue-200'
                     : 'bg-blue-50 border-blue-200 text-blue-800'
@@ -262,7 +262,7 @@ const ManifestModal = ({
             {/* Content - Highlighted YAML */}
             <div className="mt-4">
               <div
-                className={`w-full h-96 p-4 border rounded-md overflow-auto ${
+                className={`w-full h-96 p-4 border rounded-sm overflow-auto ${
                   isDark
                     ? 'border-gray-600 bg-gray-900'
                     : 'border-gray-300 bg-gray-50'
@@ -319,7 +319,7 @@ const ManifestModal = ({
                   type="button"
                   onClick={handleRetry}
                   disabled={isCurrentlyRetrying || !aiEnabled}
-                  className={`inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'border border-blue-700 text-blue-300 bg-blue-900/50 hover:bg-blue-800/50' : 'border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'}`}
+                  className={`inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'border border-blue-700 text-blue-300 bg-blue-900/50 hover:bg-blue-800/50' : 'border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'}`}
                   title={!aiEnabled ? 'AI provider not configured' : 'Retry AI to get better solution and manifest highlights'}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isCurrentlyRetrying ? 'animate-spin' : ''}`} />
@@ -332,7 +332,7 @@ const ManifestModal = ({
             <div>
               <button
                 type="button"
-                className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex justify-center rounded-sm border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 onClick={onClose}
               >
                 Close

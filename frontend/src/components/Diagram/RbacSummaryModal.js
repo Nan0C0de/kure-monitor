@@ -45,7 +45,7 @@ const RbacSummaryModal = ({
           role="dialog"
           aria-modal="true"
           aria-label={`${kind} ${name}`}
-          className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${
+          className={`inline-block align-bottom rounded-sm text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${
             isDark ? 'bg-gray-800' : 'bg-white'
           }`}
         >
@@ -79,7 +79,7 @@ const RbacSummaryModal = ({
 
             {isSubject && (
               <div
-                className={`rounded-md border px-4 py-3 text-sm ${
+                className={`rounded-sm border px-4 py-3 text-sm ${
                   isDark
                     ? 'bg-blue-900/30 border-blue-700 text-blue-200'
                     : 'bg-blue-50 border-blue-200 text-blue-800'
@@ -183,7 +183,7 @@ const RbacSummaryModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex justify-center rounded-sm border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Close
             </button>

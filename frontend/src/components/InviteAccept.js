@@ -122,7 +122,7 @@ const InviteAccept = () => {
     }
   };
 
-  const inputCls = `w-full px-4 py-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+  const inputCls = `w-full px-4 py-3 rounded-sm border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
     isDark
       ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500'
       : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
@@ -140,7 +140,7 @@ const InviteAccept = () => {
 
   return (
     <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
-      <div className={`w-full max-w-md p-8 rounded-lg shadow-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className={`w-full max-w-md p-8 rounded-sm shadow-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="flex flex-col items-center mb-6">
           <Server className={`w-12 h-12 mb-3 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
           <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
@@ -150,7 +150,7 @@ const InviteAccept = () => {
 
         {loadingInvite && (
           <div className="flex items-center justify-center py-8">
-            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded animate-spin" />
             <span className={`ml-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
               Checking invitation...
             </span>
@@ -160,7 +160,7 @@ const InviteAccept = () => {
         {!loadingInvite && loadError && (
           <div
             role="alert"
-            className={`rounded-md p-4 flex items-start gap-3 ${
+            className={`rounded-sm p-4 flex items-start gap-3 ${
               isDark ? 'bg-red-900/40 text-red-200' : 'bg-red-50 text-red-800'
             }`}
           >
@@ -181,7 +181,7 @@ const InviteAccept = () => {
         {!loadingInvite && !loadError && invite && (
           <>
             <div
-              className={`mb-6 rounded-md px-4 py-3 text-sm ${
+              className={`mb-6 rounded-sm px-4 py-3 text-sm ${
                 isDark ? 'bg-blue-900/30 text-blue-200' : 'bg-blue-50 text-blue-800'
               }`}
             >
@@ -263,7 +263,7 @@ const InviteAccept = () => {
               {submitError && (
                 <div
                   role="alert"
-                  className={`text-sm p-3 rounded-md ${isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-50 text-red-700'}`}
+                  className={`text-sm p-3 rounded-sm ${isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-50 text-red-700'}`}
                 >
                   {submitError}
                 </div>
@@ -272,12 +272,12 @@ const InviteAccept = () => {
               <button
                 type="submit"
                 disabled={submitting}
-                className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-md text-sm font-medium text-white transition-colors ${
+                className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-sm text-sm font-medium text-white transition-colors ${
                   submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
                 {submitting ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded animate-spin" />
                 ) : (
                   <>
                     <UserPlus className="w-4 h-4" />

@@ -217,14 +217,14 @@ const NotificationSettings = ({ isDark = false }) => {
   };
 
   const colorClasses = {
-    purple: isDark ? 'bg-purple-900/50 text-purple-300 border-purple-700' : 'bg-purple-100 text-purple-700 border-purple-200',
-    violet: isDark ? 'bg-violet-900/50 text-violet-300 border-violet-700' : 'bg-violet-100 text-violet-700 border-violet-200'
+    purple: isDark ? 'bg-blue-900/50 text-blue-300 border-blue-700' : 'bg-blue-100 text-blue-700 border-blue-200',
+    violet: isDark ? 'bg-blue-900/50 text-blue-300 border-blue-700' : 'bg-blue-100 text-blue-700 border-blue-200'
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded animate-spin"></div>
         <span className={`ml-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Loading notification settings...</span>
       </div>
     );
@@ -242,7 +242,7 @@ const NotificationSettings = ({ isDark = false }) => {
       </p>
 
       {error && (
-        <div className={`mb-4 border rounded-md p-3 ${isDark ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200'}`}>
+        <div className={`mb-4 border rounded-sm p-3 ${isDark ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200'}`}>
           <div className="flex items-center">
             <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
             <span className={`text-sm ${isDark ? 'text-red-300' : 'text-red-800'}`}>{error}</span>
@@ -251,7 +251,7 @@ const NotificationSettings = ({ isDark = false }) => {
       )}
 
       {successMessage && (
-        <div className={`mb-4 border rounded-md p-3 ${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'}`}>
+        <div className={`mb-4 border rounded-sm p-3 ${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'}`}>
           <div className="flex items-center">
             <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
             <span className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>{successMessage}</span>
@@ -267,7 +267,7 @@ const NotificationSettings = ({ isDark = false }) => {
           const hasSaved = settings[provider.id]?.id;
 
           return (
-            <div key={provider.id} className={`border rounded-lg overflow-hidden ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div key={provider.id} className={`border rounded-sm overflow-hidden ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
               <div
                 className={`flex items-center justify-between px-4 py-3 cursor-pointer ${isDark ? 'bg-gray-900 hover:bg-gray-800' : 'bg-gray-50 hover:bg-gray-100'}`}
                 onClick={() => toggleExpand(provider.id)}
@@ -283,7 +283,7 @@ const NotificationSettings = ({ isDark = false }) => {
                   </div>
                   <span className={`ml-2 font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{provider.name}</span>
                   {hasSaved && (
-                    <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${isEnabled ? (isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700') : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}>
+                    <span className={`ml-2 px-2 py-0.5 text-xs rounded ${isEnabled ? (isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700') : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}>
                       {isEnabled ? 'Enabled' : 'Disabled'}
                     </span>
                   )}
@@ -296,7 +296,7 @@ const NotificationSettings = ({ isDark = false }) => {
                       onChange={() => handleToggleEnabled(provider.id)}
                       className="sr-only peer"
                     />
-                    <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 ${isDark ? 'bg-gray-600' : 'bg-gray-200'}`}></div>
+                    <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 ${isDark ? 'bg-gray-600' : 'bg-gray-200'}`}></div>
                   </label>
                 </div>
               </div>
@@ -318,7 +318,7 @@ const NotificationSettings = ({ isDark = false }) => {
                             key={mode.id}
                             type="button"
                             onClick={() => handleConfigChange(provider.id, 'mode', mode.id)}
-                            className={`p-2.5 rounded-lg border text-left transition-all ${
+                            className={`p-2.5 rounded-sm border text-left transition-all ${
                               isSelected
                                 ? (isDark ? 'border-blue-500 bg-blue-900/20 text-blue-300' : 'border-blue-600 bg-blue-50/60 text-blue-900')
                                 : (isDark ? 'border-gray-700 hover:bg-gray-700/50 text-gray-300' : 'border-gray-200 hover:bg-gray-50 text-gray-700')
@@ -350,7 +350,7 @@ const NotificationSettings = ({ isDark = false }) => {
                               onChange={(e) => handleConfigChange(provider.id, field.key, e.target.checked)}
                               className="sr-only peer"
                             />
-                            <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 ${isDark ? 'bg-gray-600' : 'bg-gray-200'}`}></div>
+                            <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 ${isDark ? 'bg-gray-600' : 'bg-gray-200'}`}></div>
                             <span className={`ml-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Enable TLS encryption</span>
                           </label>
                         ) : field.type === 'password' ? (
@@ -360,7 +360,7 @@ const NotificationSettings = ({ isDark = false }) => {
                               value={getFieldValue(provider.id, field.key)}
                               onChange={(e) => handleConfigChange(provider.id, field.key, e.target.value)}
                               placeholder={field.placeholder}
-                              className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                              className={`w-full px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
                             />
                             <button
                               type="button"
@@ -380,7 +380,7 @@ const NotificationSettings = ({ isDark = false }) => {
                             value={getFieldValue(provider.id, field.key)}
                             onChange={(e) => handleConfigChange(provider.id, field.key, field.type === 'number' ? parseInt(e.target.value) || '' : e.target.value)}
                             placeholder={field.placeholder}
-                            className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+                            className={`w-full px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
                           />
                         )}
                       </div>
@@ -391,11 +391,11 @@ const NotificationSettings = ({ isDark = false }) => {
                     <button
                       onClick={() => handleSave(provider.id)}
                       disabled={saving[provider.id]}
-                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-sm shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                     >
                       {saving[provider.id] ? (
                         <>
-                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5"></div>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded animate-spin mr-1.5"></div>
                           Saving...
                         </>
                       ) : (
@@ -411,11 +411,11 @@ const NotificationSettings = ({ isDark = false }) => {
                         <button
                           onClick={() => handleTest(provider.id)}
                           disabled={testing[provider.id] || !isEnabled}
-                          className={`inline-flex items-center px-3 py-1.5 text-sm font-medium border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 ${isDark ? 'text-gray-300 bg-gray-700 border-gray-600 hover:bg-gray-600' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}`}
+                          className={`inline-flex items-center px-3 py-1.5 text-sm font-medium border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 ${isDark ? 'text-gray-300 bg-gray-700 border-gray-600 hover:bg-gray-600' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}`}
                         >
                           {testing[provider.id] ? (
                             <>
-                              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-1.5"></div>
+                              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded animate-spin mr-1.5"></div>
                               Sending...
                             </>
                           ) : (
@@ -428,7 +428,7 @@ const NotificationSettings = ({ isDark = false }) => {
 
                         <button
                           onClick={() => handleDelete(provider.id)}
-                          className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
+                          className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
                             isDark
                               ? 'text-red-400 bg-gray-700 border border-red-800 hover:bg-red-900/30'
                               : 'text-red-700 bg-white border border-red-200 hover:bg-red-50'

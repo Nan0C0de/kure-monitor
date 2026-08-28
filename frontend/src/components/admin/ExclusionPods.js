@@ -100,10 +100,10 @@ const ExclusionPods = ({ isDark, onError, onSuccess }) => {
               onFocus={() => setShowPodSuggestions(true)}
               onBlur={() => setTimeout(() => setShowPodSuggestions(false), 200)}
               placeholder="Enter or select pod name"
-              className={`w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+              className={`w-full px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
             />
             {showPodSuggestions && filteredPodSuggestions.length > 0 && (
-              <div className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <div className={`absolute z-10 w-full mt-1 border rounded-sm shadow-lg max-h-48 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className={`px-3 py-2 text-xs border-b ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-100'}`}>
                   Monitored pods with issues
                 </div>
@@ -123,7 +123,7 @@ const ExclusionPods = ({ isDark, onError, onSuccess }) => {
           </div>
           <button
             type="submit"
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-sm shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <Plus className="w-4 h-4 mr-1" />
             Exclude
@@ -131,7 +131,7 @@ const ExclusionPods = ({ isDark, onError, onSuccess }) => {
         </div>
       </form>
 
-      <div className={`border rounded-md ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+      <div className={`border rounded-sm ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className={`px-4 py-3 border-b ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
           <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
             Excluded Pods ({excludedPods.length})

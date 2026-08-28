@@ -118,7 +118,7 @@ const AdviceScopePicker = ({
     });
   };
 
-  const selectClasses = `block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+  const selectClasses = `block w-full px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
     isDark
       ? "bg-gray-800 border-gray-600 text-gray-200"
       : "bg-white border-gray-300 text-gray-900"
@@ -204,7 +204,7 @@ const AdviceScopePicker = ({
           type="button"
           onClick={handleReset}
           disabled={disabled}
-          className={`inline-flex items-center justify-center w-full px-3 py-2 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`inline-flex items-center justify-center w-full px-3 py-2 text-sm font-medium rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             isDark
               ? "border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200"
               : "border-gray-300 bg-white hover:bg-gray-50 text-gray-700"

@@ -113,8 +113,8 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
-          <div className={`p-2 rounded-lg mr-3 ${isDark ? 'bg-purple-900/50' : 'bg-purple-100'}`}>
-            <Mail className={`w-5 h-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
+          <div className={`p-2 rounded-sm mr-3 ${isDark ? 'bg-blue-900/50' : 'bg-blue-100'}`}>
+            <Mail className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
           </div>
           <div>
             <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Invitations</h3>
@@ -125,10 +125,10 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
         </div>
         <button
           onClick={openModal}
-          className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+          className={`flex items-center px-3 py-2 text-sm font-medium rounded-sm ${
             isDark
-              ? 'bg-purple-600 hover:bg-purple-500 text-white'
-              : 'bg-purple-600 hover:bg-purple-700 text-white'
+              ? 'bg-blue-600 hover:bg-blue-500 text-white'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
         >
           <Plus className="w-4 h-4 mr-1" />
@@ -143,7 +143,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
           No active invitations.
         </p>
       ) : (
-        <div className={`rounded-lg border overflow-hidden ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className={`rounded-sm border overflow-hidden ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
           <table className="w-full text-sm">
             <thead>
               <tr className={isDark ? 'bg-gray-800' : 'bg-gray-50'}>
@@ -199,7 +199,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
-          <div className={`w-full max-w-md rounded-lg shadow-xl ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`w-full max-w-md rounded-sm shadow-xl ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
             <div className={`flex items-center justify-between px-5 py-3 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
               <h3 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {createdInvite ? 'Share this invitation link' : 'Create invitation'}
@@ -223,7 +223,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                     <select
                       value={newRole}
                       onChange={(e) => setNewRole(e.target.value)}
-                      className={`w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                      className={`w-full px-3 py-2 text-sm rounded-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isDark
                           ? 'bg-gray-900 border-gray-600 text-white'
                           : 'bg-white border-gray-300 text-gray-900'
@@ -241,7 +241,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                         type="checkbox"
                         checked={permanent}
                         onChange={(e) => setPermanent(e.target.checked)}
-                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       Permanent invite (never expires)
                     </label>
@@ -260,7 +260,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                       value={newExpires}
                       onChange={(e) => setNewExpires(e.target.value)}
                       disabled={permanent}
-                      className={`w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`w-full px-3 py-2 text-sm rounded-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isDark
                           ? 'bg-gray-900 border-gray-600 text-white'
                           : 'bg-white border-gray-300 text-gray-900'
@@ -271,8 +271,8 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                     </p>
                   </div>
 
-                  <div className={`text-xs rounded-md px-3 py-2 flex items-start gap-2 ${
-                    isDark ? 'bg-amber-900/20 text-amber-200' : 'bg-amber-50 text-amber-800'
+                  <div className={`text-xs rounded-sm px-3 py-2 flex items-start gap-2 ${
+                    isDark ? 'bg-yellow-900/20 text-yellow-200' : 'bg-yellow-50 text-yellow-800'
                   }`}>
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <span>
@@ -284,7 +284,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                     <button
                       type="button"
                       onClick={closeModal}
-                      className={`px-4 py-2 text-sm rounded-md border ${
+                      className={`px-4 py-2 text-sm rounded-sm border ${
                         isDark
                           ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
                           : 'border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -295,12 +295,12 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                     <button
                       type="submit"
                       disabled={creating}
-                      className={`px-4 py-2 text-sm font-medium rounded-md ${
+                      className={`px-4 py-2 text-sm font-medium rounded-sm ${
                         creating
-                          ? 'bg-purple-400 text-white cursor-not-allowed'
+                          ? 'bg-blue-400 text-white cursor-not-allowed'
                           : isDark
-                            ? 'bg-purple-600 hover:bg-purple-500 text-white'
-                            : 'bg-purple-600 hover:bg-purple-700 text-white'
+                            ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
                       }`}
                     >
                       {creating ? 'Creating...' : 'Create'}
@@ -312,7 +312,7 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                   <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                     Copy this invitation link and share it with the invitee. No email has been sent.
                   </p>
-                  <div className={`flex items-center gap-2 rounded-md border px-3 py-2 ${
+                  <div className={`flex items-center gap-2 rounded-sm border px-3 py-2 ${
                     isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
                   }`}>
                     <code className={`flex-1 text-xs break-all ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -335,10 +335,10 @@ const InvitationsManager = ({ isDark, onError, onSuccess }) => {
                   <div className="flex justify-end pt-2">
                     <button
                       onClick={closeModal}
-                      className={`px-4 py-2 text-sm font-medium rounded-md ${
+                      className={`px-4 py-2 text-sm font-medium rounded-sm ${
                         isDark
-                          ? 'bg-purple-600 hover:bg-purple-500 text-white'
-                          : 'bg-purple-600 hover:bg-purple-700 text-white'
+                          ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
                       }`}
                     >
                       Done

@@ -83,7 +83,7 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
       </p>
 
       {rescanBanner && (
-        <div className={`mb-4 p-3 rounded-lg border flex items-start justify-between ${isDark ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <div className={`mb-4 p-3 rounded-sm border flex items-start justify-between ${isDark ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
           <div className="flex items-start">
             <RefreshCw className={`w-4 h-4 mt-0.5 mr-2 flex-shrink-0 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
             <div>
@@ -111,12 +111,12 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
             value={newRegistry}
             onChange={(e) => setNewRegistry(e.target.value)}
             placeholder="e.g. my-registry.example.com"
-            className={`flex-1 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+            className={`flex-1 px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
           />
           <button
             type="submit"
             disabled={registryLoading === 'add'}
-            className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${registryLoading === 'add' ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+            className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${registryLoading === 'add' ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
           >
             {registryLoading === 'add' ? (
               <>
@@ -136,7 +136,7 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
         </div>
       </form>
 
-      <div className={`border rounded-md ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+      <div className={`border rounded-sm ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className={`px-4 py-3 border-b ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
           <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
             Trusted Registries ({DEFAULT_REGISTRIES.length + trustedRegistries.length})
@@ -148,7 +148,7 @@ const ExclusionRegistries = ({ isDark, onError, onSuccess }) => {
             <li key={reg} className={`px-4 py-3 flex items-center justify-between ${isDark ? '' : ''}`}>
               <div>
                 <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{reg}</span>
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded ${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
                   Default
                 </span>
               </div>

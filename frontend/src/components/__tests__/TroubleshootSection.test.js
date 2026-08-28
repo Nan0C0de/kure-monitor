@@ -187,15 +187,15 @@ describe('TroubleshootSection', () => {
     // The empty-state text lives inside the card, so walk up to find the card element.
     // eslint-disable-next-line testing-library/no-node-access
     const card = screen.getByText(/Get a deeper diagnosis/).closest('.rounded');
-    expect(card).toHaveClass('bg-indigo-900/30');
-    expect(card).toHaveClass('border-indigo-700');
+    expect(card).toHaveClass('bg-blue-900/30');
+    expect(card).toHaveClass('border-blue-700');
   });
 
   test('renders light-themed classes when isDark is false', () => {
     render(<TroubleshootSection pod={eligiblePod} aiEnabled={true} isDark={false} />);
     // eslint-disable-next-line testing-library/no-node-access
     const card = screen.getByText(/Get a deeper diagnosis/).closest('.rounded');
-    expect(card).toHaveClass('bg-indigo-50');
-    expect(card).toHaveClass('border-indigo-200');
+    expect(card).toHaveClass('bg-blue-50');
+    expect(card).toHaveClass('border-blue-200');
   });
 });

@@ -52,8 +52,8 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
               className={`flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 isActive
                   ? isDark
-                    ? 'border-purple-500 text-purple-400'
-                    : 'border-purple-600 text-purple-600'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-blue-600 text-blue-600'
                   : isDark
                     ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -68,7 +68,7 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
 
       {/* Error/Success Messages */}
       {error && (
-        <div className={`border rounded-md p-3 mb-4 ${isDark ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200'}`}>
+        <div className={`border rounded-sm p-3 mb-4 ${isDark ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200'}`}>
           <div className="flex items-center">
             <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
             <span className={`text-sm ${isDark ? 'text-red-300' : 'text-red-800'}`}>{error}</span>
@@ -77,7 +77,7 @@ const AdminPanel = ({ isDark = false, onConfigChange }) => {
       )}
 
       {successMessage && (
-        <div className={`border rounded-md p-3 mb-4 ${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'}`}>
+        <div className={`border rounded-sm p-3 mb-4 ${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'}`}>
           <div className="flex items-center">
             <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
             <span className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>{successMessage}</span>

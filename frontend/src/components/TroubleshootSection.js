@@ -71,14 +71,14 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
   const handleRegenerate = () => runGenerate(true);
 
   const cardClasses = isDark
-    ? 'bg-indigo-900/30 border border-indigo-700'
-    : 'bg-indigo-50 border border-indigo-200';
+    ? 'bg-blue-900/30 border border-blue-700'
+    : 'bg-blue-50 border border-blue-200';
   const badgeClasses = isDark
-    ? 'bg-indigo-900/50 text-indigo-300 border-indigo-700'
-    : 'bg-indigo-100 text-indigo-800 border-indigo-300';
+    ? 'bg-blue-900/50 text-blue-300 border-blue-700'
+    : 'bg-blue-100 text-blue-800 border-blue-300';
   const troubleshootButtonClasses = isDark
-    ? 'text-indigo-300 bg-indigo-900/40 border border-indigo-700 hover:bg-indigo-900/60'
-    : 'text-indigo-700 bg-indigo-100 border border-indigo-300 hover:bg-indigo-200';
+    ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60'
+    : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200';
   const mutedTextClasses = isDark ? 'text-gray-400' : 'text-gray-500';
   const errorTextClasses = isDark ? 'text-gray-400' : 'text-gray-500';
 
@@ -91,7 +91,7 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
         <div className="flex items-center space-x-2">
           <h4 className={`font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Log-Aware Troubleshoot</h4>
           <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badgeClasses}`}
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${badgeClasses}`}
           >
             Log-aware analysis
           </span>
@@ -100,7 +100,7 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
           <button
             onClick={handleTroubleshoot}
             disabled={isLoading}
-            className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${troubleshootButtonClasses}`}
+            className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${troubleshootButtonClasses}`}
             title="Generate a log-aware AI solution"
           >
             <Wand2 className="w-3.5 h-3.5 mr-1" />
@@ -146,7 +146,7 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
               <button
                 onClick={handleRegenerate}
                 disabled={isLoading}
-                className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${troubleshootButtonClasses}`}
+                className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${troubleshootButtonClasses}`}
                 title="Regenerate log-aware solution"
               >
                 <RefreshCw className="w-3.5 h-3.5 mr-1" />

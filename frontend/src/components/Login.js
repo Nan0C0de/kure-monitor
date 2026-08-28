@@ -61,9 +61,9 @@ const Login = () => {
 
   return (
     <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
-      <div className={`w-full max-w-md p-8 rounded-lg shadow-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className={`w-full max-w-md p-8 rounded-sm shadow-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="flex flex-col items-center mb-8">
-          <img src={logo} alt="Kure Monitor Logo" className={`h-40 w-auto object-contain mb-3 ${isDark ? 'bg-white p-2 rounded-md' : ''}`} />
+          <img src={logo} alt="Kure Monitor Logo" className={`h-40 w-auto object-contain mb-3 ${isDark ? 'bg-white p-2 rounded-sm' : ''}`} />
           <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
             Kure Monitor
           </h1>
@@ -88,7 +88,7 @@ const Login = () => {
               placeholder="Enter your username"
               autoComplete="username"
               autoFocus
-              className={`w-full px-4 py-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-4 py-3 rounded-sm border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isDark
                   ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500'
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
@@ -110,7 +110,7 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               autoComplete="current-password"
-              className={`w-full px-4 py-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-4 py-3 rounded-sm border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isDark
                   ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500'
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
@@ -121,7 +121,7 @@ const Login = () => {
           {error && (
             <div
               role="alert"
-              className={`text-sm p-3 rounded-md ${isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-50 text-red-700'}`}
+              className={`text-sm p-3 rounded-sm ${isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-50 text-red-700'}`}
             >
               {error}
             </div>
@@ -130,14 +130,14 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading || !username.trim() || !password}
-            className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-md text-sm font-medium text-white transition-colors ${
+            className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-sm text-sm font-medium text-white transition-colors ${
               loading || !username.trim() || !password
                 ? 'bg-blue-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded animate-spin" />
             ) : (
               <>
                 <LogIn className="w-4 h-4" />

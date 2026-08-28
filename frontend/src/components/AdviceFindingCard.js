@@ -58,7 +58,7 @@ const AdviceFindingCard = ({
       case "medium":
         return isDark
           ? "bg-yellow-900/50 text-yellow-300 border-yellow-700"
-          : "bg-amber-100 text-amber-800 border-amber-300";
+          : "bg-yellow-100 text-yellow-800 border-yellow-300";
       case "low":
         return isDark
           ? "bg-blue-900/50 text-blue-300 border-blue-700"
@@ -145,7 +145,7 @@ const AdviceFindingCard = ({
   return (
     <div
       data-testid="advice-finding-card"
-      className={`rounded-lg border shadow-sm transition-opacity ${
+      className={`rounded-sm border shadow-sm transition-opacity ${
         dismissed ? "opacity-60" : "opacity-100"
       } ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
     >
@@ -157,7 +157,7 @@ const AdviceFindingCard = ({
           onClick={handleToggleExpand}
           aria-expanded={expanded}
           aria-controls={panelId}
-          className={`w-full text-left rounded-md focus:outline-none focus:ring-2 ${
+          className={`w-full text-left rounded-sm focus:outline-none focus:ring-2 ${
             isDark
               ? "focus:ring-blue-500"
               : "focus:ring-blue-400"
@@ -166,7 +166,7 @@ const AdviceFindingCard = ({
           {/* Chip row: severity + ns + detector + category + dismissed + confidence */}
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <span
-              className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getSeverityColor(
+              className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded text-xs font-medium border ${getSeverityColor(
                 finding.severity,
               )}`}
             >
@@ -204,8 +204,8 @@ const AdviceFindingCard = ({
               <span
                 className={`inline-block px-2 py-0.5 rounded text-xs ${
                   isDark
-                    ? "bg-indigo-900/40 text-indigo-300"
-                    : "bg-indigo-100 text-indigo-800"
+                    ? "bg-blue-900/40 text-blue-300"
+                    : "bg-blue-100 text-blue-800"
                 }`}
               >
                 {finding.category}
@@ -287,7 +287,7 @@ const AdviceFindingCard = ({
             {/* Recommended change callout */}
             {finding.recommended_change && (
               <div
-                className={`mb-3 rounded-md border-l-4 px-3 py-2 ${
+                className={`mb-3 rounded-sm border-l-4 px-3 py-2 ${
                   isDark
                     ? "bg-blue-900/20 border-blue-500 text-blue-100"
                     : "bg-blue-50 border-blue-400 text-blue-900"
@@ -323,7 +323,7 @@ const AdviceFindingCard = ({
                   }`}
                 >
                   <div
-                    className={`w-3.5 h-3.5 mr-2 border-2 border-t-transparent rounded-full animate-spin ${
+                    className={`w-3.5 h-3.5 mr-2 border-2 border-t-transparent rounded animate-spin ${
                       isDark ? "border-blue-400" : "border-blue-500"
                     }`}
                   />
@@ -331,7 +331,7 @@ const AdviceFindingCard = ({
                 </div>
               ) : cachedExplanation ? (
                 <div
-                  className={`rounded-md px-3 py-2 ${
+                  className={`rounded-sm px-3 py-2 ${
                     isDark ? "bg-gray-900/40" : "bg-gray-50"
                   }`}
                 >
@@ -391,7 +391,7 @@ const AdviceFindingCard = ({
                     type="button"
                     onClick={handleDismiss}
                     disabled={busy}
-                    className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       isDark
                         ? "border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200"
                         : "border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
@@ -406,7 +406,7 @@ const AdviceFindingCard = ({
                     type="button"
                     onClick={handleRestore}
                     disabled={busy}
-                    className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       isDark
                         ? "border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200"
                         : "border-gray-300 bg-white hover:bg-gray-50 text-gray-700"

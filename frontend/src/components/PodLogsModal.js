@@ -107,7 +107,7 @@ const PodLogsModal = ({ isOpen, onClose, pod, isDark = false }) => {
         role="dialog"
         aria-modal="true"
         aria-label="Pod Logs"
-        className={`relative w-full max-w-4xl max-h-[90vh] mx-4 rounded-lg shadow-xl overflow-hidden ${bgColor}`}
+        className={`relative w-full max-w-4xl max-h-[90vh] mx-4 rounded-sm shadow-xl overflow-hidden ${bgColor}`}
       >
         {/* Header */}
         <div className={`px-6 py-4 border-b ${borderColor} flex items-center justify-between`}>

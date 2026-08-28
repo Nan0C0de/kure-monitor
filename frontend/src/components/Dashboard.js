@@ -427,7 +427,7 @@ const Dashboard = () => {
   const getSeverityBadgeColor = (severity) => {
     switch (severity) {
       case 'critical': return isDark ? 'bg-red-900 text-red-200 border-red-700' : 'bg-red-100 text-red-800 border-red-300';
-      case 'high': return isDark ? 'bg-orange-900 text-orange-200 border-orange-700' : 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'high': return isDark ? 'bg-red-900 text-red-200 border-red-700' : 'bg-red-100 text-red-800 border-red-300';
       case 'medium': return isDark ? 'bg-yellow-900 text-yellow-200 border-yellow-700' : 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'low': return isDark ? 'bg-blue-900 text-blue-200 border-blue-700' : 'bg-blue-100 text-blue-800 border-blue-300';
       default: return isDark ? 'bg-gray-700 text-gray-200 border-gray-600' : 'bg-gray-100 text-gray-800 border-gray-300';
@@ -527,7 +527,7 @@ const Dashboard = () => {
     return (
       <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'}`}>
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded animate-spin"></div>
           <span>Loading pod failures...</span>
         </div>
       </div>
@@ -547,7 +547,7 @@ const Dashboard = () => {
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 rounded-sm transition-colors ${
                   isDark
                     ? 'hover:bg-gray-700 text-gray-300 hover:text-gray-100'
                     : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
@@ -574,7 +574,7 @@ const Dashboard = () => {
                   </div>
                   <button
                     onClick={async () => { await logout(); navigate('/login'); }}
-                    className={`p-2 rounded-lg transition-colors ${
+                    className={`p-2 rounded-sm transition-colors ${
                       isDark
                         ? 'hover:bg-gray-700 text-gray-300 hover:text-gray-100'
                         : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
@@ -589,7 +589,7 @@ const Dashboard = () => {
 
               {/* Connection Status */}
               <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                <div className={`w-2 h-2 rounded ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                 <span className={`text-sm font-bold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                   {connected ? 'Connected' : 'Disconnected'}
                 </span>
@@ -601,7 +601,7 @@ const Dashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
-          <div className={`mb-6 ${isDark ? 'bg-red-900/50 border-red-700' : 'bg-red-50 border-red-200'} border rounded-md p-4`}>
+          <div className={`mb-6 ${isDark ? 'bg-red-900/50 border-red-700' : 'bg-red-50 border-red-200'} border rounded-sm p-4`}>
             <div className="flex">
               <AlertTriangle className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-400'}`} />
               <div className="ml-3">
@@ -633,7 +633,7 @@ const Dashboard = () => {
                   <Activity className="w-5 h-5" />
                   <span>Pod Monitoring</span>
                   {pods.filter(p => p.status === 'new' || p.status === 'investigating' || !p.status).length > 0 && (
-                    <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
+                    <span className={`ml-2 py-0.5 px-2.5 rounded text-xs font-medium ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
                       {pods.filter(p => p.status === 'new' || p.status === 'investigating' || !p.status).length}
                     </span>
                   )}
@@ -651,7 +651,7 @@ const Dashboard = () => {
                   <Shield className="w-5 h-5" />
                   <span>Security Scan</span>
                   {securityFindings.length > 0 && (
-                    <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${isDark ? 'bg-orange-900 text-orange-200' : 'bg-orange-100 text-orange-800'}`}>
+                    <span className={`ml-2 py-0.5 px-2.5 rounded text-xs font-medium ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
                       {securityFindings.length}
                     </span>
                   )}
@@ -709,7 +709,7 @@ const Dashboard = () => {
             <div className="relative" ref={severityDropdownRef}>
               <button
                 onClick={() => setShowSeverityDropdown(!showSeverityDropdown)}
-                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   isDark
                     ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200'
                     : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
@@ -722,7 +722,7 @@ const Dashboard = () => {
               </button>
 
               {showSeverityDropdown && (
-                <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg border z-10 ${
+                <div className={`absolute right-0 mt-2 w-48 rounded-sm shadow-lg border z-10 ${
                   isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
                 }`}>
                   <div className="py-1">
@@ -737,7 +737,7 @@ const Dashboard = () => {
                           onChange={() => toggleSeverity(severity)}
                           className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                         />
-                        <span className={`ml-3 px-2 py-0.5 rounded-full text-xs font-medium border ${getSeverityBadgeColor(severity)}`}>
+                        <span className={`ml-3 px-2 py-0.5 rounded text-xs font-medium border ${getSeverityBadgeColor(severity)}`}>
                           {severity.charAt(0).toUpperCase() + severity.slice(1)}
                         </span>
                       </label>
@@ -761,7 +761,7 @@ const Dashboard = () => {
             <div className="relative" ref={ruleDropdownRef}>
               <button
                 onClick={() => setShowRuleDropdown(!showRuleDropdown)}
-                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   isDark
                     ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200'
                     : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
@@ -776,7 +776,7 @@ const Dashboard = () => {
               </button>
 
               {showRuleDropdown && (
-                <div className={`absolute right-0 mt-2 w-72 rounded-md shadow-lg border z-10 ${
+                <div className={`absolute right-0 mt-2 w-72 rounded-sm shadow-lg border z-10 ${
                   isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
                 }`}>
                   <div className={`px-3 py-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
@@ -836,7 +836,7 @@ const Dashboard = () => {
             <div className="relative" ref={exportDropdownRef}>
               <button
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   isDark
                     ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200'
                     : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
@@ -848,7 +848,7 @@ const Dashboard = () => {
               </button>
 
               {showExportDropdown && (
-                <div className={`absolute right-0 mt-2 w-40 rounded-md shadow-lg border z-10 ${
+                <div className={`absolute right-0 mt-2 w-40 rounded-sm shadow-lg border z-10 ${
                   isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
                 }`}>
                   <div className="py-1">
@@ -890,7 +890,7 @@ const Dashboard = () => {
                 : setSecurityNamespaceFilter(e.target.value)
               }
               placeholder="Enter namespace"
-              className={`block w-40 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+              className={`block w-40 px-3 py-2 text-sm border rounded-sm shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
                 isDark
                   ? 'bg-gray-800 border-gray-600 text-gray-200 placeholder-gray-500'
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
@@ -901,7 +901,7 @@ const Dashboard = () => {
         )}
 
         {/* Tab Content */}
-        <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg`}>
+        <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow rounded-sm`}>
           {activeTab === 'monitoring' && (
             <>
               {/* Pod sub-tabs */}
@@ -917,7 +917,7 @@ const Dashboard = () => {
                   <Activity className="w-4 h-4" />
                   <span>Active</span>
                   {pods.length > 0 && (
-                    <span className={`py-0.5 px-2 rounded-full text-xs font-medium ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
+                    <span className={`py-0.5 px-2 rounded text-xs font-medium ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
                       {pods.length}
                     </span>
                   )}
@@ -933,7 +933,7 @@ const Dashboard = () => {
                   <Clock className="w-4 h-4" />
                   <span>History</span>
                   {podHistory.length > 0 && (
-                    <span className={`py-0.5 px-2 rounded-full text-xs font-medium ${isDark ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'}`}>
+                    <span className={`py-0.5 px-2 rounded text-xs font-medium ${isDark ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'}`}>
                       {podHistory.length}
                     </span>
                   )}
@@ -949,7 +949,7 @@ const Dashboard = () => {
                   <EyeOff className="w-4 h-4" />
                   <span>Ignored</span>
                   {ignoredPods.length > 0 && (
-                    <span className={`py-0.5 px-2 rounded-full text-xs font-medium ${isDark ? 'bg-gray-600 text-gray-200' : 'bg-gray-200 text-gray-700'}`}>
+                    <span className={`py-0.5 px-2 rounded text-xs font-medium ${isDark ? 'bg-gray-600 text-gray-200' : 'bg-gray-200 text-gray-700'}`}>
                       {ignoredPods.length}
                     </span>
                   )}
@@ -1028,7 +1028,7 @@ const Dashboard = () => {
                 <button
                   onClick={handleSecurityRescan}
                   disabled={rescanRequesting || securityScanUpdating}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-sm border transition-colors ${
                     rescanRequesting || securityScanUpdating
                       ? isDark ? 'border-gray-600 bg-gray-800 text-gray-500 cursor-not-allowed' : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
                       : isDark ? 'border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-200' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
@@ -1043,7 +1043,7 @@ const Dashboard = () => {
 
               {/* Security scan updating notification */}
               {securityScanUpdating && (
-                <div className={`mb-4 p-4 rounded-lg border flex items-center ${isDark ? 'bg-blue-900/30 border-blue-700 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                <div className={`mb-4 p-4 rounded-sm border flex items-center ${isDark ? 'bg-blue-900/30 border-blue-700 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
                   <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
                   <div>
                     <p className="font-medium">Security scan is updating...</p>

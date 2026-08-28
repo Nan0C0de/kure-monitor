@@ -36,7 +36,7 @@ const severityClasses = (severity, isDark) => {
     case "medium":
       return isDark
         ? "bg-yellow-900/50 text-yellow-300 border border-yellow-700"
-        : "bg-amber-100 text-amber-800 border border-amber-300";
+        : "bg-yellow-100 text-yellow-800 border border-yellow-300";
     case "low":
       return isDark
         ? "bg-blue-900/50 text-blue-300 border border-blue-700"
@@ -131,9 +131,9 @@ const ToggleSwitch = ({
       aria-checked={!!checked}
     />
     <div
-      className={`w-9 h-5 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-purple-500 ${
-        checked ? "bg-purple-600" : isDark ? "bg-gray-600" : "bg-gray-300"
-      } after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform ${
+      className={`w-9 h-5 rounded transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-blue-500 ${
+        checked ? "bg-blue-600" : isDark ? "bg-gray-600" : "bg-gray-300"
+      } after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded after:h-4 after:w-4 after:transition-transform ${
         checked ? "after:translate-x-4" : ""
       }`}
     />
@@ -194,7 +194,7 @@ const DetectorRow = ({
               {title}
             </span>
             <span
-              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${severityClasses(
+              className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${severityClasses(
                 detector.default_severity,
                 isDark,
               )}`}
@@ -203,10 +203,10 @@ const DetectorRow = ({
             </span>
             {requiresHubble && (
               <span
-                className={`inline-block px-2 py-0.5 rounded-full text-[10px] ${
+                className={`inline-block px-2 py-0.5 rounded text-[10px] ${
                   isDark
-                    ? "bg-indigo-900/40 text-indigo-300 border border-indigo-700"
-                    : "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                    ? "bg-blue-900/40 text-blue-300 border border-blue-700"
+                    : "bg-blue-100 text-blue-800 border border-blue-200"
                 }`}
                 title={
                   hubbleBlocked
@@ -358,7 +358,7 @@ const DetectorModal = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-lg shadow-xl ${
+        className={`relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-sm shadow-xl ${
           isDark ? "bg-gray-800 text-gray-100" : "bg-white text-gray-900"
         }`}
       >
@@ -410,7 +410,7 @@ const DetectorModal = ({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search detectors by name, category, severity…"
               aria-label="Search detectors"
-              className={`w-full pl-8 pr-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+              className={`w-full pl-8 pr-3 py-2 text-sm rounded-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isDark
                   ? "bg-gray-900 border-gray-600 text-gray-100 placeholder-gray-500"
                   : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
@@ -424,7 +424,7 @@ const DetectorModal = ({
               type="button"
               onClick={onBulkEnable}
               disabled={!canWrite || bulkRunning}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-sm border transition-colors ${
                 isDark
                   ? "border-gray-600 text-gray-200 hover:bg-gray-700 disabled:opacity-50"
                   : "border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
@@ -437,7 +437,7 @@ const DetectorModal = ({
               type="button"
               onClick={onBulkDisable}
               disabled={!canWrite || bulkRunning}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-sm border transition-colors ${
                 isDark
                   ? "border-gray-600 text-gray-200 hover:bg-gray-700 disabled:opacity-50"
                   : "border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
@@ -450,7 +450,7 @@ const DetectorModal = ({
               type="button"
               onClick={onResetDefaults}
               disabled={!canWrite || bulkRunning}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-sm border transition-colors ${
                 isDark
                   ? "border-gray-600 text-gray-200 hover:bg-gray-700 disabled:opacity-50"
                   : "border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
@@ -463,8 +463,8 @@ const DetectorModal = ({
             <div className="ml-auto flex items-center gap-2 text-xs">
               <span
                 aria-hidden="true"
-                className={`inline-block w-2 h-2 rounded-full ${
-                  hubbleAvailable ? "bg-green-500" : "bg-amber-500"
+                className={`inline-block w-2 h-2 rounded ${
+                  hubbleAvailable ? "bg-green-500" : "bg-yellow-500"
                 }`}
               />
               <span className={isDark ? "text-gray-400" : "text-gray-600"}>
@@ -569,7 +569,7 @@ const DetectorModal = ({
           <button
             type="button"
             onClick={onClose}
-            className={`px-3 py-1.5 text-sm rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-sm ${
               isDark
                 ? "bg-gray-700 hover:bg-gray-600 text-gray-100"
                 : "bg-gray-100 hover:bg-gray-200 text-gray-800"
@@ -755,7 +755,7 @@ const AdviceDetectorSettings = ({ isDark = false, onError, onSuccess }) => {
 
       {/* Summary card with manage button */}
       <div
-        className={`p-4 border rounded-md flex flex-wrap items-center gap-4 ${
+        className={`p-4 border rounded-sm flex flex-wrap items-center gap-4 ${
           isDark
             ? "bg-gray-800/50 border-gray-700"
             : "bg-gray-50 border-gray-200"
@@ -781,8 +781,8 @@ const AdviceDetectorSettings = ({ isDark = false, onError, onSuccess }) => {
               <div className="mt-1 flex items-center gap-2 text-xs">
                 <span
                   aria-hidden="true"
-                  className={`inline-block w-2 h-2 rounded-full ${
-                    hubbleAvailable ? "bg-green-500" : "bg-amber-500"
+                  className={`inline-block w-2 h-2 rounded ${
+                    hubbleAvailable ? "bg-green-500" : "bg-yellow-500"
                   }`}
                 />
                 <span className={isDark ? "text-gray-400" : "text-gray-600"}>
@@ -798,10 +798,10 @@ const AdviceDetectorSettings = ({ isDark = false, onError, onSuccess }) => {
           type="button"
           onClick={() => setModalOpen(true)}
           disabled={!!loadError}
-          className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+          className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded-sm transition-colors ${
             isDark
-              ? "bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50"
-              : "bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50"
+              ? "bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+              : "bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
           }`}
         >
           <Lightbulb className="w-4 h-4" />
@@ -811,7 +811,7 @@ const AdviceDetectorSettings = ({ isDark = false, onError, onSuccess }) => {
 
       {loadError && (
         <div
-          className={`mt-4 p-3 border rounded-md flex items-center ${
+          className={`mt-4 p-3 border rounded-sm flex items-center ${
             isDark
               ? "bg-red-900/30 border-red-700 text-red-200"
               : "bg-red-50 border-red-200 text-red-800"

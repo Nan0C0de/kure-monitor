@@ -7,7 +7,6 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Runtime stage - minimal nginx image
 FROM nginx:1.29-alpine
 
 RUN apk upgrade --no-cache && \

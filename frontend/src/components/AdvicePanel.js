@@ -517,7 +517,7 @@ const AdvicePanel = ({
                   ? "No findings to export"
                   : "Export findings"
               }
-              className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 isDark
                   ? "border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200"
                   : "border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
@@ -530,7 +530,7 @@ const AdvicePanel = ({
             {exportMenuOpen && (
               <div
                 role="menu"
-                className={`absolute right-0 mt-1 z-20 min-w-[10rem] rounded-md border shadow-lg ${
+                className={`absolute right-0 mt-1 z-20 min-w-[10rem] rounded-sm border shadow-lg ${
                   isDark
                     ? "bg-gray-800 border-gray-700"
                     : "bg-white border-gray-200"
@@ -573,7 +573,7 @@ const AdvicePanel = ({
         !detectorCoverage.hubbleAvailable && (
           <div
             data-testid="advice-detector-coverage-banner"
-            className={`mb-4 p-3 rounded-lg border flex items-start text-sm ${
+            className={`mb-4 p-3 rounded-sm border flex items-start text-sm ${
               isDark
                 ? "bg-blue-900/20 border-blue-800 text-blue-200"
                 : "bg-blue-50 border-blue-200 text-blue-800"
@@ -608,7 +608,7 @@ const AdvicePanel = ({
 
       {/* Scope picker + run scan */}
       <div
-        className={`mb-4 rounded-lg border p-3 ${
+        className={`mb-4 rounded-sm border p-3 ${
           isDark
             ? "bg-gray-900/40 border-gray-700"
             : "bg-gray-50 border-gray-200"
@@ -644,7 +644,7 @@ const AdvicePanel = ({
               title={
                 !scope.namespace ? "Pick a namespace to run a scan." : undefined
               }
-              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 isDark
                   ? "border-blue-600 bg-blue-700 hover:bg-blue-600 text-white"
                   : "border-blue-600 bg-blue-600 hover:bg-blue-700 text-white"
@@ -668,7 +668,7 @@ const AdvicePanel = ({
       {/* Scan-in-progress banner */}
       {scanStatus === "started" && (
         <div
-          className={`mb-4 p-3 rounded-lg border flex items-center ${
+          className={`mb-4 p-3 rounded-sm border flex items-center ${
             isDark
               ? "bg-blue-900/30 border-blue-700 text-blue-200"
               : "bg-blue-50 border-blue-200 text-blue-800"
@@ -691,7 +691,7 @@ const AdvicePanel = ({
       {/* Scan failed banner */}
       {scanStatus === "failed" && (
         <div
-          className={`mb-4 p-3 rounded-lg border flex items-center justify-between ${
+          className={`mb-4 p-3 rounded-sm border flex items-center justify-between ${
             isDark
               ? "bg-red-900/30 border-red-700 text-red-200"
               : "bg-red-50 border-red-200 text-red-800"
@@ -721,7 +721,7 @@ const AdvicePanel = ({
       {/* Export error banner */}
       {exportError && (
         <div
-          className={`mb-4 p-3 rounded-lg border flex items-center justify-between ${
+          className={`mb-4 p-3 rounded-sm border flex items-center justify-between ${
             isDark
               ? "bg-red-900/30 border-red-700 text-red-200"
               : "bg-red-50 border-red-200 text-red-800"
@@ -746,7 +746,7 @@ const AdvicePanel = ({
       {/* Generic error banner */}
       {error && (
         <div
-          className={`mb-4 p-3 rounded-lg border flex items-center ${
+          className={`mb-4 p-3 rounded-sm border flex items-center ${
             isDark
               ? "bg-red-900/30 border-red-700 text-red-200"
               : "bg-red-50 border-red-200 text-red-800"
@@ -836,7 +836,7 @@ const AdvicePanel = ({
       ) : loading ? (
         <div className="py-12 text-center">
           <div className="inline-flex items-center space-x-2">
-            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded animate-spin" />
             <span className={isDark ? "text-gray-300" : "text-gray-700"}>
               Loading advice…
             </span>

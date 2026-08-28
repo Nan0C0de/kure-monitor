@@ -8,12 +8,12 @@ const MirrorPhaseIndicator = ({ phase }) => {
   if (!phase) return null;
   const lower = phase.toLowerCase();
   if (lower === 'running' || lower === 'succeeded') {
-    return <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Running" />;
+    return <span className="inline-block w-2.5 h-2.5 rounded bg-green-500" title="Running" />;
   }
   if (lower === 'pending') {
-    return <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse" title="Pending" />;
+    return <span className="inline-block w-2.5 h-2.5 rounded bg-yellow-500 animate-pulse" title="Pending" />;
   }
-  return <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" title="Failed" />;
+  return <span className="inline-block w-2.5 h-2.5 rounded bg-red-500" title="Failed" />;
 };
 
 const formatCountdown = (expiresAt) => {
@@ -64,26 +64,26 @@ const MirrorPodStatus = ({ mirror, onDelete, onRefresh, isDark = false }) => {
   const phase = mirror.phase || 'Pending';
 
   return (
-    <div className={`border-2 rounded-lg p-4 ${isDark ? 'border-purple-700 bg-purple-900/30' : 'border-purple-300 bg-purple-50'}`}>
+    <div className={`border-2 rounded-sm p-4 ${isDark ? 'border-blue-700 bg-blue-900/30' : 'border-blue-300 bg-blue-50'}`}>
       <div className="flex items-center mb-3">
-        <FlaskConical className={`w-4 h-4 mr-2 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
-        <h4 className={`text-sm font-semibold ${isDark ? 'text-purple-200' : 'text-purple-900'}`}>Mirror Pod Active</h4>
+        <FlaskConical className={`w-4 h-4 mr-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+        <h4 className={`text-sm font-semibold ${isDark ? 'text-blue-200' : 'text-blue-900'}`}>Mirror Pod Active</h4>
       </div>
       <div className="space-y-2 text-sm">
         <div className="flex items-center justify-between">
-          <span className={`font-medium ${isDark ? 'text-purple-300' : 'text-purple-800'}`}>Name:</span>
-          <span className={`font-mono text-xs truncate ml-2 max-w-xs ${isDark ? 'text-purple-200' : 'text-purple-900'}`}>{mirror.mirror_pod_name}</span>
+          <span className={`font-medium ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Name:</span>
+          <span className={`font-mono text-xs truncate ml-2 max-w-xs ${isDark ? 'text-blue-200' : 'text-blue-900'}`}>{mirror.mirror_pod_name}</span>
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`font-medium ${isDark ? 'text-purple-300' : 'text-purple-800'}`}>Phase:</span>
-            <span className={isDark ? 'text-purple-200' : 'text-purple-900'}>{phase}</span>
+            <span className={`font-medium ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Phase:</span>
+            <span className={isDark ? 'text-blue-200' : 'text-blue-900'}>{phase}</span>
             <MirrorPhaseIndicator phase={phase} />
           </div>
-          <div className={`flex items-center gap-1 ${isDark ? 'text-purple-300' : 'text-purple-800'}`}>
-            <Clock className={`w-3.5 h-3.5 ${isDark ? 'text-purple-500' : 'text-purple-400'}`} />
+          <div className={`flex items-center gap-1 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>
+            <Clock className={`w-3.5 h-3.5 ${isDark ? 'text-blue-500' : 'text-blue-400'}`} />
             <span className="font-medium">Expires:</span>
-            <span className={`font-mono text-xs ${isDark ? 'text-purple-200' : 'text-purple-900'}`}>{timeRemaining}</span>
+            <span className={`font-mono text-xs ${isDark ? 'text-blue-200' : 'text-blue-900'}`}>{timeRemaining}</span>
           </div>
         </div>
       </div>
@@ -91,7 +91,7 @@ const MirrorPodStatus = ({ mirror, onDelete, onRefresh, isDark = false }) => {
         <button
           onClick={handleDelete}
           disabled={isDeleting}
-          className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-300 hover:bg-red-100'}`}
+          className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-300 hover:bg-red-100'}`}
         >
           <Trash2 className="w-3.5 h-3.5 mr-1" />
           {isDeleting ? 'Deleting...' : 'Delete Mirror'}
@@ -324,7 +324,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
               <button
                 onClick={() => handleStatusAction('investigating')}
                 disabled={isUpdatingStatus}
-                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-purple-300 bg-purple-900/40 border border-purple-700 hover:bg-purple-900/60' : 'text-purple-700 bg-purple-100 border border-purple-300 hover:bg-purple-200'}`}
+                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200'}`}
               >
                 <Search className="w-3.5 h-3.5 mr-1" />
                 Acknowledge
@@ -332,7 +332,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
               <button
                 onClick={() => handleStatusAction('ignored')}
                 disabled={isUpdatingStatus}
-                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-gray-300 bg-gray-700 border border-gray-600 hover:bg-gray-600' : 'text-gray-600 bg-gray-100 border border-gray-300 hover:bg-gray-200'}`}
+                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-gray-300 bg-gray-700 border border-gray-600 hover:bg-gray-600' : 'text-gray-600 bg-gray-100 border border-gray-300 hover:bg-gray-200'}`}
               >
                 <EyeOff className="w-3.5 h-3.5 mr-1" />
                 Ignore
@@ -343,14 +343,14 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
           {/* Investigating status: Ignore only (resolve is automatic) */}
           {pod.status === 'investigating' && (
             <>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${isDark ? 'bg-yellow-900/50 text-yellow-300 border-yellow-700' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${isDark ? 'bg-yellow-900/50 text-yellow-300 border-yellow-700' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
                 <Clock className="w-3 h-3 mr-1" />
                 Investigating {pod.acknowledged_by ? `(by ${pod.acknowledged_by})` : ''} — will auto-resolve when pod recovers
               </span>
               <button
                 onClick={() => handleStatusAction('ignored')}
                 disabled={isUpdatingStatus}
-                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-gray-300 bg-gray-700 border border-gray-600 hover:bg-gray-600' : 'text-gray-600 bg-gray-100 border border-gray-300 hover:bg-gray-200'}`}
+                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-gray-300 bg-gray-700 border border-gray-600 hover:bg-gray-600' : 'text-gray-600 bg-gray-100 border border-gray-300 hover:bg-gray-200'}`}
               >
                 <EyeOff className="w-3.5 h-3.5 mr-1" />
                 Ignore
@@ -361,7 +361,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
           {/* Resolved status: show resolution info + delete */}
           {pod.status === 'resolved' && (
             <div className={`flex items-center text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium mr-2 border ${isDark ? 'bg-green-900/50 text-green-300 border-green-700' : 'bg-green-100 text-green-800 border-green-300'}`}>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded font-medium mr-2 border ${isDark ? 'bg-green-900/50 text-green-300 border-green-700' : 'bg-green-100 text-green-800 border-green-300'}`}>
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Resolved
               </span>
@@ -371,7 +371,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
                 <button
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className={`ml-auto shrink-0 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-300 hover:bg-red-100'}`}
+                  className={`ml-auto shrink-0 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-300 hover:bg-red-100'}`}
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
                   {isDeleting ? 'Deleting...' : 'Delete'}
@@ -386,7 +386,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
               <button
                 onClick={() => handleStatusAction('new')}
                 disabled={isUpdatingStatus}
-                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200'}`}
+                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200'}`}
               >
                 <RotateCcw className="w-3.5 h-3.5 mr-1" />
                 Restore
@@ -395,7 +395,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
                 <button
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-300 hover:bg-red-100'}`}
+                  className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-300 hover:bg-red-100'}`}
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
                   {isDeleting ? 'Deleting...' : 'Delete'}
@@ -452,7 +452,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
             {aiEnabled && onTestFix && (
               <button
                 onClick={onTestFix}
-                className={`inline-flex items-center px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDark ? 'border border-purple-700 text-purple-300 bg-purple-900/40 hover:bg-purple-900/60' : 'border border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100'}`}
+                className={`inline-flex items-center px-3 py-1 rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'border border-blue-700 text-blue-300 bg-blue-900/40 hover:bg-blue-900/60' : 'border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'}`}
                 title="Deploy a temporary mirror pod with the AI fix applied"
               >
                 <FlaskConical className="w-4 h-4 mr-2" />
@@ -461,7 +461,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
             )}
             <button
               onClick={onViewLogs}
-              className={`inline-flex items-center px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${isDark ? 'border border-green-700 text-green-300 bg-green-900/40 hover:bg-green-900/60' : 'border border-green-300 text-green-700 bg-green-50 hover:bg-green-100'}`}
+              className={`inline-flex items-center px-3 py-1 rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${isDark ? 'border border-green-700 text-green-300 bg-green-900/40 hover:bg-green-900/60' : 'border border-green-300 text-green-700 bg-green-50 hover:bg-green-100'}`}
               title="View Pod Logs"
             >
               <Terminal className="w-4 h-4 mr-2" />
@@ -469,7 +469,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
             </button>
             <button
               onClick={onViewManifest}
-              className={`inline-flex items-center px-3 py-1 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`inline-flex items-center px-3 py-1 border rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isDark
                   ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
                   : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
@@ -483,20 +483,20 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
         </div>
         <div className={`rounded p-4 text-sm overflow-hidden ${
           isGenerating
-            ? isDark ? 'bg-purple-900/30 border border-purple-700' : 'bg-purple-50 border border-purple-200'
+            ? isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'
             : isFallbackSolution
               ? isDark ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'
               : isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'
         }`}>
           {isGenerating ? (
             <div className="flex flex-col items-center justify-center py-3" data-testid="quick-solution-skeleton">
-              <div className="flex items-center text-purple-600 mb-3">
+              <div className="flex items-center text-blue-600 mb-3">
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 <span className="font-medium text-sm">Generating solution...</span>
               </div>
-              <div className="w-full max-w-md h-1.5 bg-purple-200 rounded-full overflow-hidden">
+              <div className="w-full max-w-md h-1.5 bg-blue-200 rounded overflow-hidden">
                 <div 
-                  className="h-full bg-purple-600 rounded-full transition-all duration-500 ease-out" 
+                  className="h-full bg-blue-600 rounded transition-all duration-500 ease-out" 
                   style={{ width: `${genProgress}%` }} 
                 />
               </div>

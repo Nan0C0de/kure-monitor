@@ -229,7 +229,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
           role="dialog"
           aria-modal="true"
           aria-label="Security Fix"
-          className={`inline-block align-bottom rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${
+          className={`inline-block align-bottom rounded-sm text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${
             isDark ? 'bg-gray-800' : 'bg-white'
           }`}
         >
@@ -248,7 +248,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleCopy}
-                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                     isDark
                       ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
                       : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
@@ -260,7 +260,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
                 </button>
                 <button
                   onClick={handleDownload}
-                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                     isDark
                       ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600'
                       : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
@@ -285,7 +285,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-sm font-medium rounded-sm transition-colors ${
                     viewMode === mode
                       ? isDark
                         ? 'bg-blue-600 text-white'
@@ -315,7 +315,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
             <div className="mt-2 relative">
               {/* Loading / Generating overlay */}
               {(loading || generating) && (
-                <div className={`absolute inset-0 z-10 flex items-center justify-center rounded-md ${
+                <div className={`absolute inset-0 z-10 flex items-center justify-center rounded-sm ${
                   isDark ? 'bg-gray-800/80' : 'bg-white/80'
                 }`}>
                   <div className="flex items-center space-x-3">
@@ -328,7 +328,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
               )}
 
               <div
-                className={`w-full h-96 p-4 border rounded-md overflow-auto ${
+                className={`w-full h-96 p-4 border rounded-sm overflow-auto ${
                   isDark
                     ? 'border-gray-600 bg-gray-900'
                     : 'border-gray-300 bg-gray-50'
@@ -358,7 +358,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
 
             {/* Explanation section */}
             {fixData?.explanation && !fixData.is_fallback && (
-              <div className={`mt-4 p-3 rounded-md ${isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
+              <div className={`mt-4 p-3 rounded-sm ${isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
                 <h4 className={`text-sm font-semibold mb-1 flex items-center ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
                   <Sparkles className="w-4 h-4 mr-1" />
                   AI Explanation
@@ -371,7 +371,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
 
             {/* Fallback remediation */}
             {(!fixData || fixData.is_fallback) && !generating && finding?.remediation && (
-              <div className={`mt-4 p-3 rounded-md ${isDark ? 'bg-gray-700 border border-gray-600' : 'bg-gray-100 border border-gray-200'}`}>
+              <div className={`mt-4 p-3 rounded-sm ${isDark ? 'bg-gray-700 border border-gray-600' : 'bg-gray-100 border border-gray-200'}`}>
                 <h4 className={`text-sm font-semibold mb-1 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
                   Remediation
                 </h4>
@@ -390,7 +390,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
                   type="button"
                   onClick={handleRetry}
                   disabled={generating || !aiEnabled}
-                  className={`inline-flex items-center px-4 py-2 border shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`inline-flex items-center px-4 py-2 border shadow-sm text-sm font-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                     isDark
                       ? 'border-blue-700 text-blue-300 bg-blue-900/50 hover:bg-blue-800/50'
                       : 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'
@@ -405,7 +405,7 @@ const SecurityFixModal = ({ isOpen, onClose, finding, isDark = false, aiEnabled 
             <div>
               <button
                 type="button"
-                className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex justify-center rounded-sm border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 onClick={onClose}
               >
                 Close

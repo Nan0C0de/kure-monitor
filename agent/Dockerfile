@@ -8,7 +8,6 @@ RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir --upgrade pip 'setuptools>=78.1.1' 'wheel>=0.46.2' 'jaraco.context>=6.1.0' && \
     /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
-# Runtime stage - slim image without pip/setuptools bloat
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get upgrade -y && \

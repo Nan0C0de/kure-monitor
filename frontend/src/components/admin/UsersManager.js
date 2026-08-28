@@ -66,8 +66,8 @@ const UsersManager = ({ isDark, onError, onSuccess }) => {
   return (
     <div>
       <div className="flex items-center mb-4">
-        <div className={`p-2 rounded-lg mr-3 ${isDark ? 'bg-purple-900/50' : 'bg-purple-100'}`}>
-          <UsersIcon className={`w-5 h-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
+        <div className={`p-2 rounded-sm mr-3 ${isDark ? 'bg-blue-900/50' : 'bg-blue-100'}`}>
+          <UsersIcon className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
         </div>
         <div>
           <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Users</h3>
@@ -82,7 +82,7 @@ const UsersManager = ({ isDark, onError, onSuccess }) => {
       ) : users.length === 0 ? (
         <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No users found.</p>
       ) : (
-        <div className={`rounded-lg border overflow-hidden ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className={`rounded-sm border overflow-hidden ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
           <table className="w-full text-sm">
             <thead>
               <tr className={isDark ? 'bg-gray-800' : 'bg-gray-50'}>
@@ -119,7 +119,7 @@ const UsersManager = ({ isDark, onError, onSuccess }) => {
                       {isSelf ? (
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                           u.role === 'admin'
-                            ? isDark ? 'bg-amber-900/50 text-amber-300' : 'bg-amber-100 text-amber-800'
+                            ? isDark ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
                             : isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800'
                         }`}>
                           {u.role}
@@ -130,7 +130,7 @@ const UsersManager = ({ isDark, onError, onSuccess }) => {
                           disabled={busy}
                           onChange={(e) => handleRoleChange(u, e.target.value)}
                           aria-label={`Role for ${u.username}`}
-                          className={`px-2 py-1 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                          className={`px-2 py-1 text-sm rounded-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                             isDark
                               ? 'bg-gray-800 border-gray-600 text-white'
                               : 'bg-white border-gray-300 text-gray-900'
