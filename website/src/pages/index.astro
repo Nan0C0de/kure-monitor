@@ -8,10 +8,58 @@ import '../tailwind.css';
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kure Monitor | Kubernetes AI Observability</title>
-    <meta name="description" content="Kubernetes AI monitoring — detect pod failures in seconds and get AI-powered fixes. Open source, air-gapped ready." />
+    <title>Kure Monitor | Open-Source Kubernetes AI Observability & Debugging</title>
+    <meta name="description" content="Stop debugging Kubernetes failures manually. Kure detects pod crashes, uses local or cloud AI for instant fixes, and audits security misconfigurations." />
+    
+    <!-- OpenGraph Meta Tags -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kuremonitor.com/" />
+    <meta property="og:title" content="Kure Monitor | Open-Source Kubernetes AI Observability & Debugging" />
+    <meta property="og:description" content="Stop debugging Kubernetes failures manually. Kure detects pod crashes, uses local or cloud AI for instant fixes, and audits security misconfigurations." />
+    <meta property="og:image" content="https://kuremonitor.com/images/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Kure Monitor - Open-Source AI Troubleshooting & Observability for Kubernetes" />
+    <meta property="og:site_name" content="Kure Monitor" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://kuremonitor.com/" />
+    <meta name="twitter:title" content="Kure Monitor | Open-Source Kubernetes AI Observability & Debugging" />
+    <meta name="twitter:description" content="Stop debugging Kubernetes failures manually. Kure detects pod crashes, uses local or cloud AI for instant fixes, and audits security misconfigurations." />
+    <meta name="twitter:image" content="https://kuremonitor.com/images/og-image.png" />
+    <meta name="twitter:image:alt" content="Kure Monitor - Open-Source AI Troubleshooting & Observability for Kubernetes" />
+
     <!-- Reusing Starlight's favicon if present or default -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Structured Data (JSON-LD) for SoftwareApplication -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Kure Monitor",
+        "headline": "Open-Source Kubernetes AI Troubleshooting & Observability",
+        "operatingSystem": "Kubernetes, Linux",
+        "applicationCategory": "DeveloperApplication",
+        "softwareVersion": "2.4.5",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "url": "https://kuremonitor.com",
+        "downloadUrl": "https://artifacthub.io/packages/helm/kure-monitor/kure",
+        "codeRepository": "https://github.com/igor-koricanac/kure-monitor",
+        "description": "Kure Monitor is an open-source, air-gapped ready Kubernetes AI observability platform that detects pod crashes, image-pull errors, and scheduling issues in real time with private local LLMs or cloud AI.",
+        "author": {
+          "@type": "Organization",
+          "name": "Kure Monitor",
+          "url": "https://kuremonitor.com"
+        }
+      }
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
     
@@ -23,6 +71,7 @@ import '../tailwind.css';
         </div>
         <nav class="hidden md:flex items-center gap-6">
           <a href="#features" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Features</a>
+          <a href="/guides/air-gapped-k8s-local-llm-ollama/" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Guides</a>
           <a href="/getting-started/introduction/" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Docs</a>
           <a href="/demo/" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Live Demo</a>
         </nav>
@@ -78,7 +127,16 @@ import '../tailwind.css';
           </div>
           <div class="mx-auto text-xs font-medium text-slate-400">kure-dashboard.local</div>
         </div>
-        <img src="/images/demo.gif" alt="Kure Monitor Dashboard" class="w-full object-cover block" />
+        <img 
+          src="/images/demo.gif" 
+          alt="Kure Monitor Kubernetes AI Observability Dashboard" 
+          width="1280"
+          height="720"
+          fetchpriority="high"
+          loading="eager"
+          decoding="async"
+          class="w-full object-cover block" 
+        />
       </div>
     </main>
 
@@ -104,7 +162,15 @@ import '../tailwind.css';
           <!-- Feature 1 -->
           <div class="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
             <div class="h-48 overflow-hidden bg-slate-100 flex items-center justify-center p-4">
-              <img src="/images/ai-advice.gif" alt="AI Diagnosis" class="w-full h-full object-cover rounded shadow-sm border border-slate-200" />
+              <img 
+                src="/images/ai-advice.gif" 
+                alt="AI Kubernetes Failure Diagnosis" 
+                width="600"
+                height="340"
+                loading="lazy"
+                decoding="async"
+                class="w-full h-full object-cover rounded shadow-sm border border-slate-200" 
+              />
             </div>
             <div class="p-6">
               <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mb-4">
@@ -118,7 +184,15 @@ import '../tailwind.css';
           <!-- Feature 2 -->
           <div class="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
             <div class="h-48 overflow-hidden bg-slate-100 flex items-center justify-center p-4">
-              <img src="/images/security_scan_list.png" alt="Security Scanner" class="w-full h-full object-cover object-top rounded shadow-sm border border-slate-200" />
+              <img 
+                src="/images/security_scan_list.png" 
+                alt="Kubernetes Security Misconfiguration Scanner" 
+                width="600"
+                height="340"
+                loading="lazy"
+                decoding="async"
+                class="w-full h-full object-cover object-top rounded shadow-sm border border-slate-200" 
+              />
             </div>
             <div class="p-6">
               <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mb-4">
@@ -132,7 +206,15 @@ import '../tailwind.css';
           <!-- Feature 3 -->
           <div class="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
             <div class="h-48 overflow-hidden bg-slate-100 flex items-center justify-center p-4">
-              <img src="/images/pod_list.png" alt="Pod Monitoring" class="w-full h-full object-cover object-left-top rounded shadow-sm border border-slate-200" />
+              <img 
+                src="/images/pod_list.png" 
+                alt="Real-Time Kubernetes Pod Monitoring" 
+                width="600"
+                height="340"
+                loading="lazy"
+                decoding="async"
+                class="w-full h-full object-cover object-left-top rounded shadow-sm border border-slate-200" 
+              />
             </div>
             <div class="p-6">
               <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mb-4">

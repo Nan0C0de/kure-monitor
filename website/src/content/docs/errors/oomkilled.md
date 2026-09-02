@@ -1,6 +1,6 @@
 ---
-title: How to Debug OOMKilled
-description: Learn why Kubernetes kills containers with the OOMKilled error, how to debug memory limits, and how Kure Monitor's AI Advice engine proactively prevents it.
+title: How to Fix Kubernetes OOMKilled (Exit Code 137) Errors
+description: Complete guide to troubleshooting Kubernetes OOMKilled containers and Exit Code 137. Learn how to inspect cgroup memory limits, profile leaks, and configure memory requests.
 ---
 
 `OOMKilled` (Out Of Memory Killed) is a Kubernetes error indicating that a container was terminated by the Linux kernel because it consumed more memory than its configured Kubernetes `limit`.

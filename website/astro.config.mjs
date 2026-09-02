@@ -10,7 +10,7 @@ export default defineConfig({
 
   integrations: [starlight({
 			title: 'Kure Monitor',
-			description: 'Kubernetes AI monitoring — detect pod failures in seconds and get AI-powered fixes. Open source, air-gapped ready.',
+			description: 'Stop debugging Kubernetes failures manually. Kure detects pod crashes, uses local or cloud AI for instant fixes, and audits security misconfigurations.',
 			social: [],
 			editLink: {
           baseUrl:
@@ -36,12 +36,68 @@ export default defineConfig({
               }
           },
           {
+              tag: 'meta',
+              attrs: {
+                  property: 'og:image',
+                  content: 'https://kuremonitor.com/images/og-image.png'
+              }
+          },
+          {
+              tag: 'meta',
+              attrs: {
+                  property: 'og:image:width',
+                  content: '1200'
+              }
+          },
+          {
+              tag: 'meta',
+              attrs: {
+                  property: 'og:image:height',
+                  content: '630'
+              }
+          },
+          {
+              tag: 'meta',
+              attrs: {
+                  name: 'twitter:card',
+                  content: 'summary_large_image'
+              }
+          },
+          {
+              tag: 'meta',
+              attrs: {
+                  name: 'twitter:image',
+                  content: 'https://kuremonitor.com/images/og-image.png'
+              }
+          },
+          {
               tag: 'script',
               attrs: {
                   src: 'https://static.cloudflareinsights.com/beacon.min.js',
                   'data-cf-beacon': '{"token": "07ebc19e670d45c7abcfe4c5a8148325"}',
                   defer: true,
               },
+          },
+          {
+              tag: 'script',
+              attrs: {
+                  type: 'application/ld+json',
+              },
+              content: JSON.stringify({
+                  '@context': 'https://schema.org',
+                  '@type': 'TechArticle',
+                  'headline': 'Kure Monitor Kubernetes AI Troubleshooting & Security Documentation',
+                  'description': 'Open-source Kubernetes AI observability, automated root cause analysis, and security scanner documentation.',
+                  'applicationCategory': 'DeveloperApplication',
+                  'operatingSystem': 'Kubernetes, Linux',
+                  'license': 'https://www.apache.org/licenses/LICENSE-2.0',
+                  'inLanguage': 'en-US',
+                  'publisher': {
+                      '@type': 'Organization',
+                      'name': 'Kure Monitor',
+                      'url': 'https://kuremonitor.com'
+                  }
+              }),
           },
 			],
 			lastUpdated: true,
@@ -65,6 +121,14 @@ export default defineConfig({
           {
               label: 'Showcase',
               slug: 'showcase',
+          },
+          {
+              label: 'Guides & Case Studies',
+              items: [
+                  { label: 'Kubernetes AI Debugging Solution', slug: 'guides/kubernetes-ai-debugging' },
+                  { label: 'Air-Gapped Local LLMs (Ollama)', slug: 'guides/air-gapped-k8s-local-llm-ollama' },
+                  { label: 'Cascading Failures Playbook', slug: 'guides/cascading-pod-failures-playbook' },
+              ],
           },
           {
               label: 'Integrations',
@@ -100,12 +164,15 @@ export default defineConfig({
                   { label: 'CrashLoopBackOff', slug: 'errors/crashloopbackoff' },
                   { label: 'OOMKilled', slug: 'errors/oomkilled' },
                   { label: 'ImagePullBackOff', slug: 'errors/imagepullbackoff' },
+                  { label: 'FailedScheduling', slug: 'errors/failedscheduling' },
               ],
           },
           {
               label: 'Comparisons',
               items: [
                   { label: 'Prometheus vs Kure', slug: 'comparisons/prometheus-vs-kure' },
+                  { label: 'K8sGPT vs Kure', slug: 'comparisons/k8sgpt-vs-kure' },
+                  { label: 'Open Source Alternatives', slug: 'comparisons/alternatives' },
               ],
           },
           {
@@ -118,8 +185,10 @@ export default defineConfig({
           },
           {
               label: 'Release Notes',
-              autogenerate: { directory: 'release-notes' },
               collapsed: true,
+              items: [
+                  { autogenerate: { directory: 'release-notes' } },
+              ],
           },
 			],
   }), react()],

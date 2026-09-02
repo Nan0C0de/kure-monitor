@@ -1,6 +1,6 @@
 ---
-title: How to Debug CrashLoopBackOff
-description: Learn what causes the Kubernetes CrashLoopBackOff error, how to debug it manually using kubectl, and how Kure Monitor uses AI to instantly find the root cause.
+title: How to Debug & Fix Kubernetes CrashLoopBackOff Errors
+description: Step-by-step troubleshooting guide for Kubernetes CrashLoopBackOff. Learn how to check container logs, describe events, inspect exit codes, and fix root causes fast.
 ---
 
 `CrashLoopBackOff` is one of the most common and frustrating Kubernetes errors. It means that a container is starting, crashing immediately, and Kubernetes is repeatedly trying (and failing) to restart it.

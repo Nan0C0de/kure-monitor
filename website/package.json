@@ -10,13 +10,13 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/react": "^6.0.2",
-    "@astrojs/starlight": "^0.38.4",
+    "@astrojs/react": "^6.0.5",
+    "@astrojs/starlight": "^0.41.11",
     "@dagrejs/dagre": "^3.1.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "astro": "^6.1.9",
+    "astro": "^7.2.10",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.31.0",

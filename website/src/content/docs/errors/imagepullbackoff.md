@@ -1,6 +1,6 @@
 ---
-title: How to Debug ImagePullBackOff
-description: Learn how to troubleshoot Kubernetes ImagePullBackOff and ErrImagePull errors, fix registry authentication, and use Kure Monitor to automate the diagnosis.
+title: "ImagePullBackOff & ErrImagePull: Causes, Fixes & Troubleshooting"
+description: Fix Kubernetes ImagePullBackOff and ErrImagePull errors. Step-by-step guide to debugging registry authentication, imagePullSecrets, image tags, and network timeouts.
 ---
 
 `ImagePullBackOff` and `ErrImagePull` are Kubernetes errors indicating that the kubelet on a worker node cannot pull the Docker container image required to start your pod.
