@@ -181,6 +181,7 @@ export default defineConfig({
                   { label: 'Architecture', slug: 'reference/architecture' },
                   { label: 'API Reference', slug: 'reference/api' },
                   { label: 'Troubleshooting', slug: 'reference/troubleshooting' },
+                  { label: 'Contact Us', link: '/contact/' },
               ],
           },
           {
