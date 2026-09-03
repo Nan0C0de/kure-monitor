@@ -26,6 +26,12 @@ LLM_REQUEST_DURATION_SECONDS = Summary(
     ["provider"],
 )
 
+LLM_FAILOVER_TOTAL = Counter(
+    "kure_llm_failover_total",
+    "Total LLM failovers from a failed provider to a fallback provider",
+    ["from_provider", "to_provider"],
+)
+
 # Security Finding Metrics
 SECURITY_FINDINGS_TOTAL = Counter(
     "kure_security_findings_total",

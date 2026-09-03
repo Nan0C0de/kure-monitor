@@ -1,3 +1,4 @@
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 import logging
 
@@ -17,10 +18,10 @@ def create_mirror_router(deps: RouterDeps, mirror_service: MirrorService) -> API
     router = APIRouter()
 
     @router.post("/mirror/preview/{pod_id}", response_model=MirrorPreviewResponse, dependencies=[Depends(require_write)])
-    async def preview_mirror_fix(pod_id: int):
+    async def preview_mirror_fix(pod_id: int, llm_id: Optional[int] = None):
         """Generate an AI-fixed manifest for a failing pod without deploying it."""
         try:
-            fix_result = await mirror_service.generate_preview(pod_failure_id=pod_id)
+            fix_result = await mirror_service.generate_preview(pod_failure_id=pod_id, llm_id=llm_id)
             return MirrorPreviewResponse(
                 fixed_manifest=fix_result["fixed_manifest"],
                 explanation=fix_result["explanation"],

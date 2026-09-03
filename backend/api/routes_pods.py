@@ -1,3 +1,4 @@
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 import logging
 import traceback
@@ -382,15 +383,15 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
         response_model=PodFailureResponse,
         dependencies=[Depends(require_write)],
     )
-    async def retry_ai_solution(pod_id: int):
-        """Retry generating AI solution for a pod failure"""
+    async def retry_ai_solution(pod_id: int, llm_id: Optional[int] = None):
+        """Retry generating AI solution for a pod failure, optionally using a specific registered LLM"""
         try:
             pod_failure = await db.get_pod_failure_by_id(pod_id)
             if not pod_failure:
                 raise HTTPException(status_code=404, detail="Pod failure not found")
 
             logger.info(
-                f"Retrying AI solution for pod: {pod_failure.namespace}/{pod_failure.pod_name}"
+                f"Retrying AI solution for pod: {pod_failure.namespace}/{pod_failure.pod_name} (llm_id={llm_id})"
             )
 
             pod_context = {
@@ -415,6 +416,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                 events=events,
                 container_statuses=container_statuses,
                 pod_context=pod_context,
+                llm_id=llm_id,
             )
 
             await db.update_pod_solution(pod_id, solution)
@@ -437,11 +439,13 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
     @router.post(
         "/pods/failed/{pod_id}/troubleshoot", dependencies=[Depends(require_write)]
     )
-    async def troubleshoot_pod(pod_id: int, regenerate: bool = False):
+    async def troubleshoot_pod(
+        pod_id: int, regenerate: bool = False, llm_id: Optional[int] = None
+    ):
         """Generate a log-aware AI troubleshoot solution using captured logs.
 
         Caches the result on the pod_failures row; returns the cached value
-        on subsequent calls unless ?regenerate=true.
+        on subsequent calls unless ?regenerate=true or a specific llm_id is given.
         """
         pod = await db.get_pod_failure_by_id(pod_id)
         if not pod:
@@ -456,7 +460,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
         if not logs:
             raise HTTPException(status_code=404, detail="No captured logs for this pod")
 
-        if not regenerate and pod.log_aware_solution:
+        if not regenerate and llm_id is None and pod.log_aware_solution:
             return {
                 "solution": pod.log_aware_solution,
                 "generated_at": pod.log_aware_solution_generated_at,
@@ -477,6 +481,7 @@ def create_pod_router(deps: RouterDeps) -> APIRouter:
                 },
                 manifest=pod.manifest or "",
                 container_logs=logs,
+                llm_id=llm_id,
             )
         except HTTPException:
             raise

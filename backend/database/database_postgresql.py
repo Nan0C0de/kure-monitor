@@ -412,7 +412,7 @@ class PostgreSQLDatabase(
                     ON notification_settings(enabled)
                 """)
 
-                # Create llm_config table
+                # Create llm_config table (legacy single-provider)
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS llm_config (
                         id SERIAL PRIMARY KEY,
@@ -425,7 +425,53 @@ class PostgreSQLDatabase(
                     )
                 """)
 
-                # Migration: add base_url column if it doesn't exist
+                # Create llm_configs table (multi-provider support)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS llm_configs (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(100) NOT NULL,
+                        provider VARCHAR(50) NOT NULL,
+                        api_key_encrypted VARCHAR(1000) NOT NULL,
+                        model VARCHAR(100),
+                        base_url VARCHAR(500),
+                        is_default BOOLEAN NOT NULL DEFAULT FALSE,
+                        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                        priority INT NOT NULL DEFAULT 0,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_llm_configs_default
+                    ON llm_configs(is_default)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_llm_configs_active
+                    ON llm_configs(is_active)
+                """)
+
+                # Migration: if legacy llm_config has a row and llm_configs is empty, migrate it
+                legacy_count = await conn.fetchval("SELECT COUNT(*) FROM llm_config")
+                new_count = await conn.fetchval("SELECT COUNT(*) FROM llm_configs")
+                if legacy_count > 0 and new_count == 0:
+                    await conn.execute("""
+                        INSERT INTO llm_configs (name, provider, api_key_encrypted, model, base_url, is_default, is_active, created_at, updated_at)
+                        SELECT
+                            INITCAP(provider) || ' (Default)',
+                            provider,
+                            api_key_encrypted,
+                            model,
+                            base_url,
+                            TRUE,
+                            TRUE,
+                            created_at,
+                            updated_at
+                        FROM llm_config
+                        LIMIT 1
+                    """)
+                    logger.info("Migrated legacy llm_config row to llm_configs table")
+
+                # Migration: add base_url column to legacy table if it doesn't exist
                 base_url_col_exists = await conn.fetchval("""
                     SELECT EXISTS (
                         SELECT 1 FROM information_schema.columns

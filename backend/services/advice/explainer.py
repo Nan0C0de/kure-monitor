@@ -83,55 +83,68 @@ _PROMPT_FIELDS = (
 class LLMExplainer:
     """Adds an LLM-generated narrative to a :class:`Finding`."""
 
-    def __init__(self, llm_provider: Optional[LLMProvider]):
+    def __init__(self, llm_provider: Optional[any]):
         self.llm_provider = llm_provider
 
     async def explain(self, finding: Finding) -> Finding:
         """Return a Finding with :attr:`Finding.explanation` populated.
 
+        Supports a single LLMProvider or a list of (id, provider) tuples for failover.
         On any failure path -- no provider, LLM error, empty response --
         the original finding is returned unchanged. Never raises.
         """
-        if self.llm_provider is None:
+        if not self.llm_provider:
             return finding
 
-        provider_name = self.llm_provider.provider_name
+        # Normalize into list of providers for failover support
+        if isinstance(self.llm_provider, list):
+            providers = [p[1] if isinstance(p, tuple) else p for p in self.llm_provider]
+        else:
+            providers = [self.llm_provider]
+
         user_prompt = self._build_user_prompt(finding)
-        start_time = time.monotonic()
 
-        try:
-            llm_response = await self.llm_provider.generate_raw(
-                _SYSTEM_PROMPT, user_prompt
-            )
+        for provider in providers:
+            if not provider:
+                continue
+            provider_name = provider.provider_name
+            start_time = time.monotonic()
 
-            duration = time.monotonic() - start_time
-            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
-                duration
-            )
+            try:
+                llm_response = await provider.generate_raw(
+                    _SYSTEM_PROMPT, user_prompt
+                )
 
-            content = (llm_response.content or "").strip()
-            if not content:
-                return finding
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
 
-            if len(content) > _MAX_EXPLANATION_CHARS:
-                content = content[: _MAX_EXPLANATION_CHARS - len(_ELLIPSIS)] + _ELLIPSIS
+                content = (llm_response.content or "").strip()
+                if not content:
+                    continue
 
-            return finding.with_explanation(content)
+                if len(content) > _MAX_EXPLANATION_CHARS:
+                    content = content[: _MAX_EXPLANATION_CHARS - len(_ELLIPSIS)] + _ELLIPSIS
 
-        except Exception as e:
-            duration = time.monotonic() - start_time
-            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
-                duration
-            )
-            logger.error(
-                "LLM explanation generation failed for finding %s/%s: %s",
-                finding.detector_id,
-                finding.resource_name,
-                e,
-            )
-            return finding
+                return finding.with_explanation(content)
+
+            except Exception as e:
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
+                logger.warning(
+                    "LLM explanation generation failed with provider %s for finding %s/%s: %s",
+                    provider_name,
+                    finding.detector_id,
+                    finding.resource_name,
+                    e,
+                )
+
+        return finding
 
     @staticmethod
     def _build_user_prompt(finding: Finding) -> str:

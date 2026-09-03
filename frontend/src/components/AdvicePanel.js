@@ -51,6 +51,32 @@ const AdvicePanel = ({
   const [hasCompletedScan, setHasCompletedScan] = useState(false);
   const activeScanIdRef = useRef(null);
 
+  // Multi-LLM selection state for Advice explanations
+  const [availableLLMs, setAvailableLLMs] = useState([]);
+  const [selectedLLMId, setSelectedLLMId] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadLLMs = async () => {
+      try {
+        const list = await api.getAvailableLLMs();
+        if (isMounted && Array.isArray(list) && list.length > 0) {
+          setAvailableLLMs(list);
+          const defaultLLM = list.find((m) => m.is_default);
+          if (defaultLLM) {
+            setSelectedLLMId(String(defaultLLM.id));
+          } else {
+            setSelectedLLMId(String(list[0].id));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load available LLMs:", err);
+      }
+    };
+    loadLLMs();
+    return () => { isMounted = false; };
+  }, []);
+
   // Keep a ref of the current tab so the WS event effect (which intentionally
   // only depends on wsEvent.seq) can read the current value without going
   // stale between tab switches.
@@ -634,34 +660,57 @@ const AdvicePanel = ({
               </span>
             )}
           </span>
-          {canWrite && (
-            <button
-              type="button"
-              onClick={handleRunScan}
-              disabled={
-                scanRequesting || scanStatus === "started" || !scope.namespace
-              }
-              title={
-                !scope.namespace ? "Pick a namespace to run a scan." : undefined
-              }
-              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                isDark
-                  ? "border-blue-600 bg-blue-700 hover:bg-blue-600 text-white"
-                  : "border-blue-600 bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
-            >
-              {scanRequesting || scanStatus === "started" ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4 mr-2" />
-              )}
-              {scanRequesting
-                ? "Requesting…"
-                : scanStatus === "started"
-                  ? "Scanning…"
-                  : "Run scan"}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {availableLLMs.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Model:</span>
+                <select
+                  value={selectedLLMId}
+                  onChange={(e) => setSelectedLLMId(e.target.value)}
+                  className={`text-xs px-2 py-1.5 rounded border focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    isDark
+                      ? 'bg-gray-800 border-gray-700 text-gray-200'
+                      : 'bg-white border-gray-300 text-gray-700'
+                  }`}
+                  title="Select LLM model for AI explanations"
+                >
+                  {availableLLMs.map((item) => (
+                    <option key={item.id} value={String(item.id)}>
+                      {item.name} {item.is_default ? '(Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {canWrite && (
+              <button
+                type="button"
+                onClick={handleRunScan}
+                disabled={
+                  scanRequesting || scanStatus === "started" || !scope.namespace
+                }
+                title={
+                  !scope.namespace ? "Pick a namespace to run a scan." : undefined
+                }
+                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isDark
+                    ? "border-blue-600 bg-blue-700 hover:bg-blue-600 text-white"
+                    : "border-blue-600 bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+              >
+                {scanRequesting || scanStatus === "started" ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {scanRequesting
+                  ? "Requesting…"
+                  : scanStatus === "started"
+                    ? "Scanning…"
+                    : "Run scan"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -881,6 +930,7 @@ const AdvicePanel = ({
               onDismiss={handleDismiss}
               onRestore={handleRestore}
               onExplained={handleExplained}
+              selectedLLMId={selectedLLMId}
             />
           ))}
           {hasMore && (

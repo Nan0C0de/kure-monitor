@@ -71,9 +71,8 @@ def create_app() -> FastAPI:
     advice_engine = AdviceEngine(
         db=db,
         topology_service=topology_service,
-        # Lazy getter: re-read on every scan so provider config changes are
-        # picked up without restarting the backend.
-        llm_provider_getter=lambda: solution_engine.llm_provider,
+        # Lazy getter: returns ordered providers for target_llm_id or default with failover support
+        llm_provider_getter=lambda target_llm_id=None: solution_engine.get_ordered_providers(target_llm_id=target_llm_id),
         hubble_client=hubble_client,
         detector_settings=detector_settings,
     )

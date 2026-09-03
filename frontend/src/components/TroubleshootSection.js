@@ -32,7 +32,16 @@ const SkeletonBars = ({ isDark }) => {
   );
 };
 
-const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwareSolutionUpdated, canWrite = true }) => {
+const TroubleshootSection = ({
+  pod,
+  isDark = false,
+  aiEnabled = false,
+  onLogAwareSolutionUpdated,
+  canWrite = true,
+  selectedLLMId = null,
+  availableLLMs = [],
+  onLLMChange = null,
+}) => {
   const [solution, setSolution] = useState(pod.log_aware_solution || null);
   const [generatedAt, setGeneratedAt] = useState(pod.log_aware_solution_generated_at || null);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,9 +60,10 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
       setSolution(null);
     }
     try {
+      const llmToUse = selectedLLMId ? parseInt(selectedLLMId, 10) : null;
       const response = regenerate
-        ? await api.regenerateLogAwareSolution(pod.id)
-        : await api.generateLogAwareSolution(pod.id);
+        ? await api.regenerateLogAwareSolution(pod.id, llmToUse)
+        : await api.generateLogAwareSolution(pod.id, llmToUse);
       setSolution(response.solution);
       setGeneratedAt(response.generated_at);
       if (onLogAwareSolutionUpdated) {
@@ -95,6 +105,25 @@ const TroubleshootSection = ({ pod, isDark = false, aiEnabled = false, onLogAwar
           >
             Log-aware analysis
           </span>
+          {availableLLMs.length > 1 && onLLMChange && (
+            <select
+              value={selectedLLMId || ''}
+              onChange={(e) => onLLMChange(e.target.value)}
+              disabled={isLoading}
+              className={`text-xs px-2 py-0.5 rounded border focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                isDark
+                  ? 'bg-gray-800 border-gray-700 text-gray-200'
+                  : 'bg-white border-gray-300 text-gray-700'
+              }`}
+              title="Select LLM model for log-aware troubleshoot"
+            >
+              {availableLLMs.map((item) => (
+                <option key={item.id} value={String(item.id)}>
+                  {item.name} {item.is_default ? '(Default)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         {showEmptyState && canWrite && (
           <button

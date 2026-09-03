@@ -106,7 +106,33 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [genProgress, setGenProgress] = useState(0);
+  const [availableLLMs, setAvailableLLMs] = useState([]);
+  const [selectedLLMId, setSelectedLLMId] = useState('');
   const hasAutoTriggered = useRef(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadLLMs = async () => {
+      try {
+        const list = await api.getAvailableLLMs();
+        if (isMounted && Array.isArray(list) && list.length > 0) {
+          setAvailableLLMs(list);
+          const defaultLLM = list.find((m) => m.is_default);
+          if (defaultLLM) {
+            setSelectedLLMId(String(defaultLLM.id));
+          } else {
+            setSelectedLLMId(String(list[0].id));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load available LLMs:', err);
+      }
+    };
+    if (aiEnabled) {
+      loadLLMs();
+    }
+    return () => { isMounted = false; };
+  }, [aiEnabled]);
 
   const isGenerating = pod.solution === '__GENERATING__' || isRetrying;
 
@@ -134,10 +160,11 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
     pod.solution.includes('Basic troubleshooting')
   );
 
-  const handleRetrySolution = async () => {
+  const handleRetrySolution = async (targetLLMId = null) => {
     setIsRetrying(true);
     try {
-      const updatedPod = await api.retrySolution(pod.id);
+      const llmToUse = targetLLMId !== null ? targetLLMId : (selectedLLMId ? parseInt(selectedLLMId, 10) : null);
+      const updatedPod = await api.retrySolution(pod.id, llmToUse);
       if (onSolutionUpdated) {
         onSolutionUpdated(updatedPod);
       }
@@ -436,9 +463,28 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <h4 className={`font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>AI-Generated Solution</h4>
+            {availableLLMs.length > 1 && (
+              <select
+                value={selectedLLMId}
+                onChange={(e) => setSelectedLLMId(e.target.value)}
+                disabled={isRetrying}
+                className={`text-xs px-2 py-1 rounded border focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  isDark
+                    ? 'bg-gray-800 border-gray-700 text-gray-200'
+                    : 'bg-white border-gray-300 text-gray-700'
+                }`}
+                title="Select LLM model"
+              >
+                {availableLLMs.map((item) => (
+                  <option key={item.id} value={String(item.id)}>
+                    {item.name} {item.is_default ? '(Default)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
             {hasQuickSolution && canWrite && (
               <button
-                onClick={handleRetrySolution}
+                onClick={() => handleRetrySolution()}
                 disabled={isRetrying || !aiEnabled}
                 className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200'}`}
                 title={!aiEnabled ? 'AI provider not configured' : 'Retry AI Solution'}
@@ -532,6 +578,9 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
         aiEnabled={aiEnabled}
         onLogAwareSolutionUpdated={onLogAwareSolutionUpdated}
         canWrite={canWrite}
+        selectedLLMId={selectedLLMId}
+        availableLLMs={availableLLMs}
+        onLLMChange={(id) => setSelectedLLMId(id)}
       />
     );
 

@@ -224,6 +224,50 @@ class LLMConfigStatus(BaseModel):
     source: Optional[str] = None  # "database"
 
 
+class LLMConfigItemCreate(BaseModel):
+    name: str
+    provider: str
+    api_key: str
+    model: Optional[str] = None
+    base_url: Optional[str] = None
+    is_default: Optional[bool] = False
+
+
+class LLMConfigItemUpdate(BaseModel):
+    name: Optional[str] = None
+    provider: Optional[str] = None
+    api_key: Optional[str] = None  # None or empty means keep existing encrypted key
+    model: Optional[str] = None
+    base_url: Optional[str] = None
+    is_default: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class LLMConfigItemResponse(BaseModel):
+    id: int
+    name: str
+    provider: str
+    model: Optional[str] = None
+    base_url: Optional[str] = None
+    is_default: bool
+    is_active: bool
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class LLMConfigsListResponse(BaseModel):
+    configs: List[LLMConfigItemResponse]
+    default_config_id: Optional[int] = None
+
+
+class LLMAvailableItem(BaseModel):
+    id: int
+    name: str
+    provider: str
+    model: Optional[str] = None
+    is_default: bool
+
+
 class LLMCustomInstructionsUpdate(BaseModel):
     instructions: str
 

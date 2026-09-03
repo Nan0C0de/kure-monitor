@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Trash2,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "../services/api";
 import SolutionMarkdown from "./SolutionMarkdown";
@@ -31,6 +32,7 @@ const AdviceFindingCard = ({
   onDismiss,
   onRestore,
   onExplained,
+  selectedLLMId = null,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -66,7 +68,7 @@ const AdviceFindingCard = ({
       case "info":
       default:
         return isDark
-          ? "bg-gray-700 text-gray-300 border-gray-600"
+          ? "bg-gray-800 text-gray-300 border-gray-700"
           : "bg-gray-100 text-gray-700 border-gray-300";
     }
   };
@@ -107,10 +109,11 @@ const AdviceFindingCard = ({
   };
 
   const fetchExplanation = async () => {
-    if (explanationFetched || explanationLoading) return;
+    if (explanationLoading) return;
     setExplanationLoading(true);
     try {
-      const updated = await api.explainAdviceFinding(finding.id);
+      const llmToUse = selectedLLMId ? parseInt(selectedLLMId, 10) : null;
+      const updated = await api.explainAdviceFinding(finding.id, llmToUse);
       const newExplanation = updated?.explanation || null;
       setCachedExplanation(newExplanation);
       setExplanationFetched(true);
@@ -308,12 +311,32 @@ const AdviceFindingCard = ({
 
             {/* Explanation (markdown, lazily fetched) */}
             <div className="mb-3">
-              <div
-                className={`text-xs font-semibold uppercase tracking-wide mb-1 ${
-                  isDark ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                Explanation
+              <div className="flex items-center justify-between mb-1">
+                <div
+                  className={`text-xs font-semibold uppercase tracking-wide ${
+                    isDark ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Explanation
+                </div>
+                {canWrite && !explanationLoading && cachedExplanation && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fetchExplanation();
+                    }}
+                    className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded border ${
+                      isDark
+                        ? "border-blue-700 text-blue-300 hover:bg-blue-900/40"
+                        : "border-blue-300 text-blue-700 hover:bg-blue-50"
+                    }`}
+                    title="Regenerate explanation using current model"
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Regenerate
+                  </button>
+                )}
               </div>
               {explanationLoading ? (
                 <div

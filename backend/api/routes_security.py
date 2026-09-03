@@ -1,3 +1,4 @@
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 import difflib
 import logging
@@ -211,8 +212,8 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
     @router.post(
         "/security/findings/{finding_id}/fix", dependencies=[Depends(require_write)]
     )
-    async def generate_security_fix(finding_id: int):
-        """Generate an AI-powered security fix for a finding"""
+    async def generate_security_fix(finding_id: int, llm_id: Optional[int] = None):
+        """Generate an AI-powered security fix for a finding, optionally specifying target LLM"""
         try:
             finding = await db.get_security_finding_by_id(finding_id)
             if not finding:
@@ -240,6 +241,7 @@ def create_security_router(deps: RouterDeps) -> APIRouter:
                 resource_name=finding.resource_name,
                 namespace=finding.namespace,
                 severity=finding.severity,
+                llm_id=llm_id,
             )
 
             diff = []

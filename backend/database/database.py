@@ -235,6 +235,27 @@ class Database:
     async def delete_llm_config(self):
         return await self._db.delete_llm_config()
 
+    async def get_all_llm_configs(self, active_only: bool = False):
+        return await self._db.get_all_llm_configs(active_only=active_only)
+
+    async def get_llm_config_by_id(self, config_id: int):
+        return await self._db.get_llm_config_by_id(config_id)
+
+    async def get_default_llm_config(self):
+        return await self._db.get_default_llm_config()
+
+    async def save_llm_config_item(self, name: str, provider: str, api_key: str, model: str = None, base_url: str = None, is_default: bool = False):
+        return await self._db.save_llm_config_item(name, provider, api_key, model, base_url, is_default)
+
+    async def update_llm_config_item(self, config_id: int, **kwargs):
+        return await self._db.update_llm_config_item(config_id, **kwargs)
+
+    async def set_default_llm_config(self, config_id: int):
+        return await self._db.set_default_llm_config(config_id)
+
+    async def delete_llm_config_item(self, config_id: int):
+        return await self._db.delete_llm_config_item(config_id)
+
     # App settings methods
     async def get_app_setting(self, key):
         return await self._db.get_app_setting(key)

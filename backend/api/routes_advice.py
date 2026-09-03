@@ -353,16 +353,18 @@ def build_router(deps: RouterDeps) -> APIRouter:
         "/findings/{finding_id}/explain",
         dependencies=[Depends(require_authenticated)],
     )
-    async def explain_finding(finding_id: int):
+    async def explain_finding(
+        finding_id: int,
+        llm_id: Optional[int] = Query(None, description="Optional target LLM config ID"),
+    ):
         """Generate (or fetch cached) LLM explanation for one finding.
 
-        Idempotent: if ``explanation`` is already populated, the existing
-        row is returned without invoking the LLM. Otherwise the explainer
-        runs and the result is persisted.
+        Idempotent if ``explanation`` is already populated and no ``llm_id`` is passed.
+        If ``llm_id`` is provided, regenerates the explanation with the specified LLM.
         """
         if advice_engine is None:
             raise HTTPException(status_code=503, detail="Advice engine not configured")
-        row = await advice_engine.explain_finding(finding_id)
+        row = await advice_engine.explain_finding(finding_id, llm_id=llm_id)
         if row is None:
             raise HTTPException(status_code=404, detail="Advice finding not found")
         return _row_to_advice_finding(row)

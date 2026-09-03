@@ -298,7 +298,7 @@ class MirrorService:
         """Set the default mirror TTL in app settings."""
         await self._db.set_app_setting("mirror_ttl_seconds", str(seconds))
 
-    async def generate_preview(self, pod_failure_id: int) -> dict:
+    async def generate_preview(self, pod_failure_id: int, llm_id: Optional[int] = None) -> dict:
         """Generate an AI-fixed manifest preview without deploying.
 
         Returns:
@@ -349,6 +349,7 @@ class MirrorService:
             failure_message=pod_failure.failure_message or "",
             events=events_list,
             solution=pod_failure.solution,
+            llm_id=llm_id,
         )
 
         return fix_result

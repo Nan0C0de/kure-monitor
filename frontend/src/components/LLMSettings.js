@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search, Edit, FileText } from 'lucide-react';
+import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search, Edit, FileText, Star, Plus } from 'lucide-react';
 import { api } from '../services/api';
 
 const LLMSettings = ({ isDark = false, onConfigChange }) => {
@@ -15,6 +15,15 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [pendingEndpoint, setPendingEndpoint] = useState(null);
   const [pendingApiKey, setPendingApiKey] = useState('');
   const [testingPhase, setTestingPhase] = useState('');
+
+  // Multi-LLM configs state
+  const [configsList, setConfigsList] = useState([]);
+  const [defaultConfigId, setDefaultConfigId] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingConfigId, setEditingConfigId] = useState(null);
+  const [testingConfigId, setTestingConfigId] = useState(null);
+  const [configName, setConfigName] = useState('');
+  const [isDefaultCheckbox, setIsDefaultCheckbox] = useState(false);
 
   // Form state
   const [provider, setProvider] = useState('anthropic');
@@ -103,12 +112,23 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
 
   useEffect(() => {
     loadStatus();
+    loadConfigs();
     loadInstructions();
     // Set default model for initial provider (anthropic)
     if (!model) {
       setModel('claude-sonnet-5');
     }
   }, []);
+
+  const loadConfigs = async () => {
+    try {
+      const data = await api.getLLMConfigs();
+      setConfigsList(data.configs || []);
+      setDefaultConfigId(data.default_config_id);
+    } catch (err) {
+      console.error('Failed to load LLM configs list:', err);
+    }
+  };
 
   const loadInstructions = async () => {
     try {
@@ -190,6 +210,53 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setError('Failed to load LLM configuration');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSetDefault = async (configId) => {
+    try {
+      setError(null);
+      await api.setDefaultLLMConfig(configId);
+      setSuccess('Default LLM updated successfully!');
+      await loadConfigs();
+      await loadStatus();
+      if (onConfigChange) onConfigChange();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to set default LLM');
+    }
+  };
+
+  const handleDeleteConfigItem = async (configId) => {
+    if (!window.confirm('Are you sure you want to remove this LLM?')) return;
+    try {
+      setError(null);
+      await api.deleteLLMConfigItem(configId);
+      setSuccess('LLM removed successfully!');
+      await loadConfigs();
+      await loadStatus();
+      if (onConfigChange) onConfigChange();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to delete LLM');
+    }
+  };
+
+  const handleTestRegistered = async (configId) => {
+    try {
+      setTestingConfigId(configId);
+      setError(null);
+      const res = await api.testRegisteredLLMConfig(configId);
+      if (res.success) {
+        setSuccess('LLM test connection successful!');
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(res.message || 'LLM test failed');
+      }
+    } catch (err) {
+      setError(err.message || 'Test failed');
+    } finally {
+      setTestingConfigId(null);
     }
   };
 
@@ -284,9 +351,11 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
 
   const buildPayload = () => {
     const payload = {
+      name: configName.trim() || `${provider.charAt(0).toUpperCase() + provider.slice(1)} (${model || 'default'})`,
       provider,
       api_key: (currentProvider?.needsApiKey || (currentProvider?.optionalApiKey && apiKey)) ? (apiKey || 'unused') : 'unused',
       model: model || null,
+      is_default: isDefaultCheckbox,
     };
     if (currentProvider?.needsBaseUrl && baseUrl) {
       payload.base_url = baseUrl;
@@ -309,14 +378,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setError(null);
       const result = await api.testLLMConfig(buildPayload());
       if (result.success) {
-        await api.saveLLMConfig(buildPayload());
-        setSuccess('Connection successful! Configuration automatically saved.');
-        setApiKey(''); // Clear API key from form after save
-        setIsEditing(false);
-        await loadStatus();
-        if (onConfigChange) {
-          onConfigChange();
-        }
+        setSuccess('Connection test successful!');
         setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(result.message || 'Test failed');
@@ -341,10 +403,30 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     try {
       setSaving(true);
       setError(null);
-      await api.saveLLMConfig(buildPayload());
-      setSuccess('LLM configuration saved successfully!');
+      const payload = buildPayload();
+      
+      if (editingConfigId) {
+        await api.updateLLMConfig(editingConfigId, {
+          name: payload.name,
+          provider: payload.provider,
+          api_key: apiKey ? apiKey : null,
+          model: payload.model,
+          base_url: payload.base_url,
+          is_default: payload.is_default,
+        });
+        setSuccess('LLM configuration updated successfully!');
+      } else {
+        await api.createLLMConfig(payload);
+        setSuccess('LLM registered successfully!');
+      }
+
       setApiKey(''); // Clear API key from form after save
+      setConfigName('');
+      setIsDefaultCheckbox(false);
       setIsEditing(false);
+      setEditingConfigId(null);
+      setShowAddForm(false);
+      await loadConfigs();
       await loadStatus();
       // Notify parent that config has changed so aiEnabled state updates
       if (onConfigChange) {
@@ -356,6 +438,17 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const startEditConfig = (cfg) => {
+    setEditingConfigId(cfg.id);
+    setConfigName(cfg.name || '');
+    setProvider(cfg.provider);
+    setModel(cfg.model || '');
+    setBaseUrl(cfg.base_url || '');
+    setApiKey('');
+    setIsDefaultCheckbox(cfg.is_default);
+    setShowAddForm(true);
   };
 
   const handleDelete = async () => {
@@ -425,61 +518,153 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
         </div>
       )}
 
-      {/* Current Status */}
+      {/* Registered LLMs Registry Card */}
       <div className={`border rounded-sm p-4 ${isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Current Status</h3>
-            <div className="mt-1 flex items-center">
-              {status?.configured ? (
-                <>
-                  <span className="w-2 h-2 bg-green-500 rounded mr-2"></span>
-                  <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Configured: {status.provider} {status.model && `(${status.model})`}
-                  </span>
-                  <span className={`ml-2 text-xs px-2 py-0.5 rounded ${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'}`}>
-                    via {status.source}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 bg-yellow-500 rounded mr-2"></span>
-                  <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Not configured - using rule-based solutions
-                  </span>
-                </>
-              )}
-            </div>
+            <h3 className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              Registered LLM Providers
+            </h3>
+            <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Multiple LLMs will automatically fail over if the primary/default provider becomes unavailable.
+            </p>
           </div>
-          {status?.configured && status?.source === 'database' && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setIsEditing(true)}
-                disabled={saving || isEditing}
-                className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100'}`}
-              >
-                <Edit className="w-4 h-4 mr-1" />
-                Edit
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={saving}
-                className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-sm disabled:opacity-50 ${isDark ? 'text-red-300 bg-red-900/40 border border-red-700 hover:bg-red-900/60' : 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'}`}
-              >
-                <Trash2 className="w-4 h-4 mr-1" />
-                Delete
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => {
+              setEditingConfigId(null);
+              setConfigName('');
+              setProvider('anthropic');
+              const prov = providers.find(p => p.value === 'anthropic');
+              setModel(prov?.defaultModel || '');
+              setBaseUrl(prov?.defaultBaseUrl || '');
+              setApiKey('');
+              setIsDefaultCheckbox(configsList.length === 0);
+              setShowAddForm(true);
+            }}
+            className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            Register LLM
+          </button>
         </div>
+
+        {configsList.length === 0 ? (
+          <div className={`text-center py-6 border border-dashed rounded-sm ${isDark ? 'border-gray-700 text-gray-400' : 'border-gray-300 text-gray-500'}`}>
+            <Bot className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No LLM providers registered yet.</p>
+            <p className="text-xs mt-1">Register at least one LLM to enable AI-powered troubleshooting.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {configsList.map((cfg) => {
+              const isDefault = cfg.id === defaultConfigId || cfg.is_default;
+              const isTestingThis = testingConfigId === cfg.id;
+
+              return (
+                <div
+                  key={cfg.id}
+                  className={`flex items-center justify-between p-3 rounded border transition-all ${
+                    isDefault
+                      ? isDark
+                        ? 'border-blue-700 bg-blue-950/20'
+                        : 'border-blue-300 bg-blue-50/60'
+                      : isDark
+                        ? 'border-gray-700 bg-gray-800/40'
+                        : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                          {cfg.name || cfg.provider}
+                        </span>
+                        {isDefault && (
+                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded bg-blue-600 text-white">
+                            <Star className="w-3 h-3 mr-1 fill-white" />
+                            Default
+                          </span>
+                        )}
+                        <span className={`text-xs px-2 py-0.5 rounded capitalize ${
+                          isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {cfg.provider}
+                        </span>
+                      </div>
+                      <div className={`text-xs mt-1 flex items-center gap-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {cfg.model && <span>Model: <span className="font-mono">{cfg.model}</span></span>}
+                        {cfg.base_url && <span>URL: <span className="font-mono">{cfg.base_url}</span></span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleTestRegistered(cfg.id)}
+                      disabled={isTestingThis}
+                      className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded border ${
+                        isDark
+                          ? 'border-gray-700 text-gray-300 hover:bg-gray-700'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title="Test connection"
+                    >
+                      {isTestingThis ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-3 h-3 mr-1 text-green-500" />
+                      )}
+                      Test
+                    </button>
+
+                    {!isDefault && (
+                      <button
+                        onClick={() => handleSetDefault(cfg.id)}
+                        className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded border ${
+                          isDark
+                            ? 'border-blue-800 text-blue-300 hover:bg-blue-900/40'
+                            : 'border-blue-200 text-blue-700 hover:bg-blue-50'
+                        }`}
+                        title="Set as primary default"
+                      >
+                        <Star className="w-3 h-3 mr-1" />
+                        Set Default
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => startEditConfig(cfg)}
+                      className={`p-1.5 rounded text-xs ${
+                        isDark ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                      title="Edit configuration"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteConfigItem(cfg.id)}
+                      className={`p-1.5 rounded text-xs ${
+                        isDark ? 'text-red-400 hover:text-red-300 hover:bg-red-900/30' : 'text-red-600 hover:text-red-700 hover:bg-red-50'
+                      }`}
+                      title="Delete LLM"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Configuration Form */}
-      {(!status?.configured || isEditing) && (
-        <div className={`border rounded-sm p-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+      {/* Configuration / Registration Form */}
+      {showAddForm && (
+        <div className={`border rounded-sm p-4 ${isDark ? 'border-gray-700 bg-gray-800/30' : 'border-gray-200 bg-white'}`}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-            {status?.configured ? 'Update Configuration' : 'Configure API Endpoint'}
+          <h3 className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+            {editingConfigId ? 'Edit LLM Provider' : 'Register New LLM Provider'}
           </h3>
           <button
             onClick={handleDiscover}
@@ -511,10 +696,24 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
         )}
 
         <div className="space-y-4">
+          {/* Display Name Input */}
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Provider Name / Label
+            </label>
+            <input
+              type="text"
+              value={configName}
+              onChange={(e) => setConfigName(e.target.value)}
+              placeholder="e.g., Primary Claude, Local Ollama, Production OpenAI"
+              className={`w-full px-3 py-2 text-sm border rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900'}`}
+            />
+          </div>
+
           {/* Provider Select */}
           <div>
             <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              API Endpoint
+              API Endpoint / Provider
             </label>
             <select
               value={provider}
@@ -634,6 +833,20 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
             )}
           </div>
 
+          {/* Set as Default Checkbox */}
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="is_default_checkbox"
+              checked={isDefaultCheckbox}
+              onChange={(e) => setIsDefaultCheckbox(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="is_default_checkbox" className={`text-sm select-none ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Designate as default LLM (used first for real-time triage and pod analysis)
+            </label>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex gap-2 pt-2">
             <button
@@ -658,20 +871,21 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
-              Save Configuration
+              {editingConfigId ? 'Update Provider' : 'Save & Register'}
             </button>
-            {isEditing && (
-              <button
-                onClick={() => {
-                  setIsEditing(false);
-                  loadStatus(); // Reset to saved state
-                }}
-                disabled={saving || testing}
-                className={`inline-flex items-center px-4 py-2 text-sm font-medium border rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
-              >
-                Cancel
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setShowAddForm(false);
+                setEditingConfigId(null);
+                setConfigName('');
+                setApiKey('');
+                setError(null);
+              }}
+              disabled={saving || testing}
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium border rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 ${isDark ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </div>

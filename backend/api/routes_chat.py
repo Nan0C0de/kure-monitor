@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
     pod_name: Optional[str] = None
     namespace: Optional[str] = None
     user_id: Optional[str] = "admin"
+    llm_id: Optional[int] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -25,7 +26,8 @@ def create_chat_ingest_router(deps: RouterDeps) -> APIRouter:
 
     @router.post("/chat", response_model=ChatResponse)
     async def chat_endpoint(request: ChatRequest):
-        if not solution_engine.llm_provider:
+        ordered_providers = solution_engine.get_ordered_providers(target_llm_id=request.llm_id)
+        if not ordered_providers:
             raise HTTPException(status_code=503, detail="LLM provider not configured")
 
         # Save user prompt
@@ -33,6 +35,8 @@ def create_chat_ingest_router(deps: RouterDeps) -> APIRouter:
             await db.save_chat_message(request.pod_name, request.namespace, request.user_id, "user", request.prompt)
 
         system_prompt = "You are a helpful Kubernetes AI assistant. Answer the user's questions based on the provided context if applicable."
+        if solution_engine.custom_instructions:
+            system_prompt += f"\n\n--- Custom Instructions (provided by cluster admin) ---\n{solution_engine.custom_instructions}\n--- End Custom Instructions ---"
         context_blocks = []
         context_used = False
 
@@ -77,22 +81,24 @@ def create_chat_ingest_router(deps: RouterDeps) -> APIRouter:
         else:
             user_prompt = request.prompt
             
-        try:
-            llm_response = await solution_engine.llm_provider.generate_raw(
-                system_prompt, user_prompt
-            )
+        for idx, (p_id, provider) in enumerate(ordered_providers):
+            try:
+                llm_response = await provider.generate_raw(
+                    system_prompt, user_prompt
+                )
 
-            # Save LLM response
-            if request.pod_name and request.namespace:
-                await db.save_chat_message(request.pod_name, request.namespace, request.user_id, "assistant", llm_response.content)
+                # Save LLM response
+                if request.pod_name and request.namespace:
+                    await db.save_chat_message(request.pod_name, request.namespace, request.user_id, "assistant", llm_response.content)
 
-            return ChatResponse(
-                response=llm_response.content,
-                context_used=context_used
-            )
-        except Exception as e:
-            logger.error(f"Chat generation failed: {e}")
-            raise HTTPException(status_code=500, detail="Failed to generate chat response")
+                return ChatResponse(
+                    response=llm_response.content,
+                    context_used=context_used
+                )
+            except Exception as e:
+                logger.warning(f"Chat generation failed with provider {provider.provider_name} (id={p_id}): {e}")
+
+        raise HTTPException(status_code=500, detail="Failed to generate chat response: All LLM providers failed")
 
     @router.get("/chat/history")
     async def get_chat_history(pod_name: str, namespace: str, user_id: str = "admin"):

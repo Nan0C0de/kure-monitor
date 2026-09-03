@@ -5,7 +5,11 @@ from typing import Dict, List, Optional
 from core.config import LLM_LOGS_TAIL_LINES, LLM_MANIFEST_MAX_BYTES
 from models.models import PodEvent, ContainerStatus
 from .llm_factory import LLMFactory
-from .prometheus_metrics import LLM_REQUESTS_TOTAL, LLM_REQUEST_DURATION_SECONDS
+from .prometheus_metrics import (
+    LLM_REQUESTS_TOTAL,
+    LLM_REQUEST_DURATION_SECONDS,
+    LLM_FAILOVER_TOTAL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +18,11 @@ class SolutionEngine:
     def __init__(self, db=None):
         # Store database reference for loading config
         self._db = db
-        # Initialize LLM provider (will be set up properly after db init)
+        # Multi-provider pool: dict mapping config_id -> LLMProvider
+        self.providers: Dict[int, any] = {}
+        # Default provider ID (points to entry in self.providers)
+        self.default_provider_id: Optional[int] = None
+        # Legacy/primary reference for direct access (points to default provider)
         self.llm_provider = None
         # Custom instructions configured by cluster admin
         self.custom_instructions: Optional[str] = None
@@ -119,27 +127,12 @@ class SolutionEngine:
         }
 
     async def initialize(self):
-        """Initialize the LLM provider and custom instructions from database"""
+        """Initialize all registered LLM providers and custom instructions from database"""
         if self._db:
             try:
-                db_config = await self._db.get_llm_config()
-                if db_config:
-                    logger.info(
-                        f"Loading LLM config from database: provider={db_config['provider']}"
-                    )
-                    new_provider = LLMFactory.create_provider(
-                        provider_name=db_config["provider"],
-                        api_key=db_config["api_key"],
-                        model=db_config["model"],
-                        base_url=db_config.get("base_url"),
-                    )
-                    await self._swap_llm_provider(new_provider)
-                else:
-                    logger.info(
-                        "No LLM configuration found. Configure via Admin panel or Helm values to enable AI solutions."
-                    )
+                await self.reload_providers()
             except Exception as e:
-                logger.warning(f"Failed to load LLM config: {e}")
+                logger.warning(f"Failed to load LLM providers: {e}")
 
             try:
                 self.custom_instructions = await self._db.get_app_setting(
@@ -150,6 +143,85 @@ class SolutionEngine:
             except Exception as e:
                 logger.warning(f"Failed to load custom LLM instructions: {e}")
 
+    async def reload_providers(self) -> None:
+        """Reload all active LLM providers from database into self.providers pool"""
+        if not self._db:
+            return
+
+        new_providers: Dict[int, any] = {}
+        default_id: Optional[int] = None
+
+        try:
+            configs = await self._db.get_all_llm_configs(active_only=True)
+            for c in configs:
+                try:
+                    p = LLMFactory.create_provider(
+                        provider_name=c["provider"],
+                        api_key=c["api_key"],
+                        model=c["model"],
+                        base_url=c.get("base_url"),
+                    )
+                    new_providers[c["id"]] = p
+                    if c["is_default"] and default_id is None:
+                        default_id = c["id"]
+                except Exception as ex:
+                    logger.warning(
+                        f"Failed to initialize LLM provider '{c.get('name')}' ({c.get('provider')}): {ex}"
+                    )
+
+            # If no explicit default, use the first successfully created provider
+            if default_id is None and new_providers:
+                default_id = next(iter(new_providers.keys()))
+
+            # Close old providers no longer in new pool
+            for old_id, old_prov in list(self.providers.items()):
+                if old_id not in new_providers:
+                    try:
+                        await old_prov.close()
+                    except Exception:
+                        pass
+
+            self.providers = new_providers
+            self.default_provider_id = default_id
+            self.llm_provider = self.providers.get(default_id) if default_id else None
+
+            logger.info(
+                f"Loaded {len(self.providers)} active LLM provider(s). Default provider ID: {self.default_provider_id}"
+            )
+        except Exception as e:
+            logger.error(f"Error in reload_providers: {e}")
+
+    def get_provider(self, llm_id: Optional[int] = None):
+        """Get requested provider by ID, or default provider if omitted/invalid"""
+        if llm_id and llm_id in self.providers:
+            return self.providers[llm_id]
+        if self.default_provider_id and self.default_provider_id in self.providers:
+            return self.providers[self.default_provider_id]
+        return self.llm_provider
+
+    def get_ordered_providers(self, target_llm_id: Optional[int] = None) -> List[tuple[int, any]]:
+        """Return ordered list of (id, provider) starting with target or default, followed by remaining providers for failover"""
+        ordered = []
+        visited = set()
+
+        # 1. First priority: explicitly requested target
+        if target_llm_id and target_llm_id in self.providers:
+            ordered.append((target_llm_id, self.providers[target_llm_id]))
+            visited.add(target_llm_id)
+
+        # 2. Second priority: designated default (if not already added)
+        if self.default_provider_id and self.default_provider_id in self.providers and self.default_provider_id not in visited:
+            ordered.append((self.default_provider_id, self.providers[self.default_provider_id]))
+            visited.add(self.default_provider_id)
+
+        # 3. Remaining active providers in priority order
+        for pid, prov in self.providers.items():
+            if pid not in visited:
+                ordered.append((pid, prov))
+                visited.add(pid)
+
+        return ordered
+
     def update_custom_instructions(self, instructions: Optional[str]) -> None:
         """Update the active custom instructions in memory"""
         self.custom_instructions = instructions.strip() if instructions and instructions.strip() else None
@@ -158,19 +230,11 @@ class SolutionEngine:
     async def reinitialize_llm(
         self, provider: str, api_key: str, model: str = None, base_url: str = None
     ):
-        """Reinitialize the LLM provider with new configuration"""
-        try:
-            new_provider = LLMFactory.create_provider(
-                provider_name=provider, api_key=api_key, model=model, base_url=base_url
-            )
-            await self._swap_llm_provider(new_provider)
-            logger.info(f"LLM provider reinitialized: {provider}")
-        except Exception as e:
-            logger.error(f"Failed to reinitialize LLM provider: {e}")
-            raise
+        """Reinitialize providers from DB (supports legacy callers)"""
+        await self.reload_providers()
 
     async def _swap_llm_provider(self, new_provider) -> None:
-        """Replace the current LLM provider, closing the old provider's session."""
+        """Legacy helper to replace default LLM provider"""
         old = self.llm_provider
         self.llm_provider = new_provider
         if old is not None and old is not new_provider:
@@ -182,12 +246,14 @@ class SolutionEngine:
                 )
 
     async def close(self) -> None:
-        """Close the currently configured LLM provider's resources, if any."""
-        if self.llm_provider is not None:
+        """Close all configured LLM providers in the pool."""
+        for p in self.providers.values():
             try:
-                await self.llm_provider.close()
+                await p.close()
             except Exception:
-                logger.warning("Failed to close LLM provider cleanly", exc_info=True)
+                pass
+        self.providers.clear()
+        self.llm_provider = None
 
     async def get_solution(
         self,
@@ -197,80 +263,92 @@ class SolutionEngine:
         container_statuses: List[ContainerStatus] = None,
         pod_context: Dict = None,
         use_llm: bool = True,
+        llm_id: Optional[int] = None,
     ) -> str:
-        """Generate solution based on failure reason and additional context"""
+        """Generate solution based on failure reason and additional context, with automatic multi-LLM failover."""
 
-        # Try LLM first if available
-        if use_llm and self.llm_provider:
-            provider_name = self.llm_provider.provider_name
-            start_time = time.monotonic()
-            try:
-                logger.info(
-                    f"Generating AI solution for {reason} using {provider_name}"
-                )
+        ordered_providers = self.get_ordered_providers(target_llm_id=llm_id) if use_llm else []
 
-                # Convert events to dict format for LLM
-                events_dict = []
-                if events:
-                    events_dict = [
-                        {
-                            "type": event.type,
-                            "reason": event.reason,
-                            "message": event.message,
-                        }
-                        for event in events
-                    ]
+        if ordered_providers:
+            # Convert events to dict format for LLM once
+            events_dict = []
+            if events:
+                events_dict = [
+                    {
+                        "type": event.type,
+                        "reason": event.reason,
+                        "message": event.message,
+                    }
+                    for event in events
+                ]
 
-                # Convert container statuses to dict format
-                container_statuses_dict = []
-                if container_statuses:
-                    container_statuses_dict = [
-                        {
-                            "name": status.name,
-                            "restart_count": status.restart_count,
-                            "last_state": getattr(status, "last_state", None),
-                        }
-                        for status in container_statuses
-                    ]
+            # Convert container statuses to dict format once
+            container_statuses_dict = []
+            if container_statuses:
+                container_statuses_dict = [
+                    {
+                        "name": status.name,
+                        "restart_count": status.restart_count,
+                        "last_state": getattr(status, "last_state", None),
+                    }
+                    for status in container_statuses
+                ]
 
-                llm_response = await self.llm_provider.generate_solution(
-                    failure_reason=reason,
-                    failure_message=message,
-                    events=events_dict,
-                    container_statuses=container_statuses_dict,
-                    pod_context=pod_context,
-                    custom_instructions=self.custom_instructions,
-                )
+            initial_provider_name = ordered_providers[0][1].provider_name
 
-                # Record success metrics
-                duration = time.monotonic() - start_time
-                LLM_REQUESTS_TOTAL.labels(
-                    provider=provider_name, status="success"
-                ).inc()
-                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
-                    duration
-                )
+            for idx, (p_id, provider) in enumerate(ordered_providers):
+                provider_name = provider.provider_name
+                start_time = time.monotonic()
+                try:
+                    logger.info(
+                        f"Generating AI solution for {reason} using provider '{provider_name}' (id={p_id})"
+                    )
 
-                return llm_response.content
+                    llm_response = await provider.generate_solution(
+                        failure_reason=reason,
+                        failure_message=message,
+                        events=events_dict,
+                        container_statuses=container_statuses_dict,
+                        pod_context=pod_context,
+                        custom_instructions=self.custom_instructions,
+                    )
 
-            except Exception as e:
-                # Record error metrics
-                duration = time.monotonic() - start_time
-                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
-                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
-                    duration
-                )
+                    duration = time.monotonic() - start_time
+                    LLM_REQUESTS_TOTAL.labels(
+                        provider=provider_name, status="success"
+                    ).inc()
+                    LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                        duration
+                    )
 
-                logger.error(
-                    f"LLM solution generation failed: {e}, falling back to hardcoded solutions"
-                )
+                    if idx > 0:
+                        LLM_FAILOVER_TOTAL.labels(
+                            from_provider=initial_provider_name,
+                            to_provider=provider_name,
+                        ).inc()
+                        logger.info(
+                            f"Failover successful: generated solution using fallback provider '{provider_name}'"
+                        )
+
+                    return llm_response.content
+
+                except Exception as e:
+                    duration = time.monotonic() - start_time
+                    LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
+                    LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                        duration
+                    )
+                    logger.warning(
+                        f"LLM provider '{provider_name}' (id={p_id}) failed: {e}. "
+                        f"{'Attempting failover to next provider...' if idx + 1 < len(ordered_providers) else 'No more providers to try.'}"
+                    )
 
         # Fallback to hardcoded solutions
         fallback_solution = self._get_fallback_solution(
             reason, message, events, container_statuses
         )
-        
-        if not self.llm_provider:
+
+        if not self.providers:
             return f"AI solution temporarily unavailable. Here's basic troubleshooting:\n\n{fallback_solution}"
         else:
             return fallback_solution
@@ -284,24 +362,18 @@ class SolutionEngine:
         pod_context: Dict = None,
         manifest: str = "",
         container_logs: List[dict] = None,
+        llm_id: Optional[int] = None,
     ) -> str:
-        """Generate an LLM-only troubleshoot solution that includes previous
-        container logs and the pod manifest as primary diagnostic signals.
-
-        There is no rule-based fallback: when no LLM is configured, a clear
-        error message is returned so the caller can surface it to the user.
-        """
-        if not self.llm_provider:
+        """Generate an LLM-only troubleshoot solution with automatic multi-LLM failover."""
+        ordered_providers = self.get_ordered_providers(target_llm_id=llm_id)
+        if not ordered_providers:
             return (
-                "Log-aware troubleshoot is unavailable because no LLM provider is "
+                "Log-aware troubleshoot is unavailable because no active LLM provider is "
                 "configured. Configure an LLM provider in the Admin panel to enable "
                 "AI-powered, log-aware troubleshooting."
             )
 
-        provider_name = self.llm_provider.provider_name
-        start_time = time.monotonic()
-
-        # Normalize events / container_statuses into list-of-dict form
+        # Normalize events / container_statuses into list-of-dict form once
         events_dict: List[Dict] = []
         if events:
             for event in events:
@@ -359,24 +431,43 @@ class SolutionEngine:
             container_logs=container_logs or [],
         )
 
-        try:
-            llm_response = await self.llm_provider.generate_raw(
-                system_prompt, user_prompt
-            )
-            duration = time.monotonic() - start_time
-            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
-                duration
-            )
-            return llm_response.content
-        except Exception as e:
-            duration = time.monotonic() - start_time
-            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
-                duration
-            )
-            logger.error(f"Log-aware solution generation failed: {e}")
-            return "Failed to generate log-aware troubleshoot solution: Cannot connect to LLM."
+        initial_provider_name = ordered_providers[0][1].provider_name
+
+        for idx, (p_id, provider) in enumerate(ordered_providers):
+            provider_name = provider.provider_name
+            start_time = time.monotonic()
+            try:
+                llm_response = await provider.generate_raw(
+                    system_prompt, user_prompt
+                )
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
+
+                if idx > 0:
+                    LLM_FAILOVER_TOTAL.labels(
+                        from_provider=initial_provider_name,
+                        to_provider=provider_name,
+                    ).inc()
+                    logger.info(
+                        f"Failover successful in log-aware triage: used '{provider_name}'"
+                    )
+
+                return llm_response.content
+            except Exception as e:
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
+                logger.warning(
+                    f"Log-aware solution failed with provider '{provider_name}' (id={p_id}): {e}. "
+                    f"{'Attempting failover to next provider...' if idx + 1 < len(ordered_providers) else 'All providers failed.'}"
+                )
+
+        return "Failed to generate log-aware troubleshoot solution: All configured LLM providers failed."
 
     def _build_log_aware_prompt(
         self,
@@ -569,13 +660,11 @@ class SolutionEngine:
         failure_message: str,
         events: list,
         solution: str,
+        llm_id: Optional[int] = None,
     ) -> dict:
-        """Generate an AI-fixed pod manifest based on failure analysis.
-
-        Returns:
-            dict with keys: fixed_manifest, explanation, is_fallback
-        """
-        if not self.llm_provider or not manifest:
+        """Generate an AI-fixed pod manifest based on failure analysis, with failover."""
+        ordered_providers = self.get_ordered_providers(target_llm_id=llm_id)
+        if not ordered_providers or not manifest:
             return {
                 "fixed_manifest": "",
                 "explanation": "No LLM configured. Cannot generate a fixed manifest automatically.",
@@ -621,52 +710,67 @@ Current Pod Manifest:
 
 Please provide the fixed manifest and explanation."""
 
-        try:
-            provider_name = self.llm_provider.provider_name
+        initial_provider_name = ordered_providers[0][1].provider_name
+
+        for idx, (p_id, provider) in enumerate(ordered_providers):
+            provider_name = provider.provider_name
             start_time = time.monotonic()
+            try:
+                llm_response = await provider.generate_raw(
+                    system_prompt, user_prompt
+                )
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
 
-            llm_response = await self.llm_provider.generate_raw(
-                system_prompt, user_prompt
-            )
+                if idx > 0:
+                    LLM_FAILOVER_TOTAL.labels(
+                        from_provider=initial_provider_name,
+                        to_provider=provider_name,
+                    ).inc()
 
-            duration = time.monotonic() - start_time
-            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
-                duration
-            )
+                # Parse the response
+                content = llm_response.content
+                fixed_manifest = ""
+                explanation = ""
 
-            # Parse the response (same format as generate_security_fix)
-            content = llm_response.content
-            fixed_manifest = ""
-            explanation = ""
+                yaml_match = re.search(r"```ya?ml\s*\n(.*?)```", content, re.DOTALL)
+                if yaml_match:
+                    fixed_manifest = yaml_match.group(1).strip()
 
-            # Extract YAML block
-            yaml_match = re.search(r"```ya?ml\s*\n(.*?)```", content, re.DOTALL)
-            if yaml_match:
-                fixed_manifest = yaml_match.group(1).strip()
+                explanation_match = re.search(
+                    r"---EXPLANATION---\s*\n(.*?)$", content, re.DOTALL
+                )
+                if explanation_match:
+                    explanation = explanation_match.group(1).strip()
+                elif not yaml_match:
+                    explanation = content
 
-            # Extract explanation
-            explanation_match = re.search(
-                r"---EXPLANATION---\s*\n(.*?)$", content, re.DOTALL
-            )
-            if explanation_match:
-                explanation = explanation_match.group(1).strip()
-            elif not yaml_match:
-                explanation = content
+                return {
+                    "fixed_manifest": fixed_manifest,
+                    "explanation": explanation,
+                    "is_fallback": False,
+                    "provider": provider_name,
+                    "provider_id": p_id,
+                }
+            except Exception as e:
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
+                logger.warning(
+                    f"Pod fix generation failed with provider '{provider_name}' (id={p_id}): {e}. "
+                    f"{'Attempting failover to next provider...' if idx + 1 < len(ordered_providers) else 'All providers failed.'}"
+                )
 
-            return {
-                "fixed_manifest": fixed_manifest,
-                "explanation": explanation,
-                "is_fallback": False,
-            }
-
-        except Exception as e:
-            logger.error(f"Pod fix generation failed: {e}")
-            return {
-                "fixed_manifest": "",
-                "explanation": f"Failed to generate fix: {str(e)}",
-                "is_fallback": True,
-            }
+        return {
+            "fixed_manifest": "",
+            "explanation": "Failed to generate fix: All configured LLM providers failed.",
+            "is_fallback": True,
+        }
 
     def _format_events_for_prompt(self, events: list) -> str:
         """Format events list for LLM prompt"""
@@ -694,13 +798,15 @@ Please provide the fixed manifest and explanation."""
         resource_name: str,
         namespace: str,
         severity: str,
+        llm_id: Optional[int] = None,
     ) -> dict:
-        """Generate an AI-powered security fix for a Kubernetes resource manifest.
+        """Generate an AI-powered security fix for a Kubernetes resource manifest, with failover.
 
         Returns:
             dict with keys: fixed_manifest, explanation, is_fallback
         """
-        if not self.llm_provider or not manifest:
+        ordered_providers = self.get_ordered_providers(target_llm_id=llm_id)
+        if not ordered_providers or not manifest:
             return {
                 "fixed_manifest": "",
                 "explanation": remediation,
@@ -743,50 +849,69 @@ Current Manifest:
 
 Please provide the fixed manifest and explanation."""
 
-        try:
-            provider_name = self.llm_provider.provider_name
+        initial_provider_name = ordered_providers[0][1].provider_name
+
+        for idx, (p_id, provider) in enumerate(ordered_providers):
+            provider_name = provider.provider_name
             start_time = time.monotonic()
+            try:
+                llm_response = await provider.generate_raw(
+                    system_prompt, user_prompt
+                )
 
-            llm_response = await self.llm_provider.generate_raw(
-                system_prompt, user_prompt
-            )
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
 
-            duration = time.monotonic() - start_time
-            LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
-            LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
-                duration
-            )
+                if idx > 0:
+                    LLM_FAILOVER_TOTAL.labels(
+                        from_provider=initial_provider_name,
+                        to_provider=provider_name,
+                    ).inc()
 
-            # Parse the response
-            content = llm_response.content
-            fixed_manifest = ""
-            explanation = remediation
+                # Parse the response
+                content = llm_response.content
+                fixed_manifest = ""
+                explanation = remediation
 
-            # Extract YAML block
-            yaml_match = re.search(r"```ya?ml\s*\n(.*?)```", content, re.DOTALL)
-            if yaml_match:
-                fixed_manifest = yaml_match.group(1).strip()
+                # Extract YAML block
+                yaml_match = re.search(r"```ya?ml\s*\n(.*?)```", content, re.DOTALL)
+                if yaml_match:
+                    fixed_manifest = yaml_match.group(1).strip()
 
-            # Extract explanation
-            explanation_match = re.search(
-                r"---EXPLANATION---\s*\n(.*?)$", content, re.DOTALL
-            )
-            if explanation_match:
-                explanation = explanation_match.group(1).strip()
-            elif not yaml_match:
-                # If no structured output, use the whole response as explanation
-                explanation = content
+                # Extract explanation
+                explanation_match = re.search(
+                    r"---EXPLANATION---\s*\n(.*?)$", content, re.DOTALL
+                )
+                if explanation_match:
+                    explanation = explanation_match.group(1).strip()
+                elif not yaml_match:
+                    # If no structured output, use the whole response as explanation
+                    explanation = content
 
-            return {
-                "fixed_manifest": fixed_manifest,
-                "explanation": explanation,
-                "is_fallback": False,
-            }
+                return {
+                    "fixed_manifest": fixed_manifest,
+                    "explanation": explanation,
+                    "is_fallback": False,
+                    "provider": provider_name,
+                    "provider_id": p_id,
+                }
 
-        except Exception as e:
-            logger.error(f"Security fix generation failed: {e}")
-            return {
-                "fixed_manifest": "",
-                "explanation": remediation,
-                "is_fallback": True,
-            }
+            except Exception as e:
+                duration = time.monotonic() - start_time
+                LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="error").inc()
+                LLM_REQUEST_DURATION_SECONDS.labels(provider=provider_name).observe(
+                    duration
+                )
+                logger.warning(
+                    f"Security fix generation failed with provider '{provider_name}' (id={p_id}): {e}. "
+                    f"{'Attempting failover to next provider...' if idx + 1 < len(ordered_providers) else 'All providers failed.'}"
+                )
+
+        return {
+            "fixed_manifest": "",
+            "explanation": remediation,
+            "is_fallback": True,
+        }

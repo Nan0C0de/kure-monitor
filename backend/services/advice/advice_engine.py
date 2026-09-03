@@ -222,14 +222,16 @@ class AdviceEngine:
 
     # ----------------------------------------------------------------- explain
 
-    async def explain_finding(self, finding_id: int) -> Optional[Dict[str, Any]]:
+    async def explain_finding(
+        self, finding_id: int, llm_id: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
         """Generate (or return cached) explanation for a single finding.
 
         Read-modify-write flow:
 
         1. Load row by ``finding_id``. Returns ``None`` if missing.
-        2. If ``explanation`` is already populated and non-empty, return the
-           existing row dict (no LLM call -- idempotent).
+        2. If ``explanation`` is already populated, non-empty, and no specific ``llm_id`` was requested,
+           return the existing row dict (no LLM call -- idempotent).
         3. Otherwise reconstruct a :class:`Finding` from the row, run the
            :class:`LLMExplainer`, and persist the new explanation via
            :meth:`db.update_advice_finding_explanation`.
@@ -244,7 +246,7 @@ class AdviceEngine:
             return None
 
         existing = row.get("explanation")
-        if existing and existing.strip():
+        if existing and existing.strip() and llm_id is None:
             return row
 
         try:
@@ -267,7 +269,8 @@ class AdviceEngine:
             explanation=None,
         )
 
-        explainer = LLMExplainer(self._llm_provider_getter())
+        providers = self._llm_provider_getter(target_llm_id=llm_id) if callable(self._llm_provider_getter) else None
+        explainer = LLMExplainer(providers)
         try:
             explained = await explainer.explain(finding)
         except Exception:

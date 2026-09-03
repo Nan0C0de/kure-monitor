@@ -309,24 +309,33 @@ export const api = {
     return response.json();
   },
 
-  retrySolution: async (podId) => {
-    const response = await authFetch(`${API_BASE}/api/pods/failed/${podId}/retry-solution`, {
+  retrySolution: async (podId, llmId = null) => {
+    const url = llmId
+      ? `${API_BASE}/api/pods/failed/${podId}/retry-solution?llm_id=${encodeURIComponent(llmId)}`
+      : `${API_BASE}/api/pods/failed/${podId}/retry-solution`;
+    const response = await authFetch(url, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
-  generateLogAwareSolution: async (podId) => {
-    const response = await authFetch(`${API_BASE}/api/pods/failed/${podId}/troubleshoot`, {
+  generateLogAwareSolution: async (podId, llmId = null) => {
+    const url = llmId
+      ? `${API_BASE}/api/pods/failed/${podId}/troubleshoot?llm_id=${encodeURIComponent(llmId)}`
+      : `${API_BASE}/api/pods/failed/${podId}/troubleshoot`;
+    const response = await authFetch(url, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   },
 
-  regenerateLogAwareSolution: async (podId) => {
-    const response = await authFetch(`${API_BASE}/api/pods/failed/${podId}/troubleshoot?regenerate=true`, {
+  regenerateLogAwareSolution: async (podId, llmId = null) => {
+    const url = llmId
+      ? `${API_BASE}/api/pods/failed/${podId}/troubleshoot?regenerate=true&llm_id=${encodeURIComponent(llmId)}`
+      : `${API_BASE}/api/pods/failed/${podId}/troubleshoot?regenerate=true`;
+    const response = await authFetch(url, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -354,8 +363,11 @@ export const api = {
     return response.json();
   },
 
-  generateSecurityFix: async (findingId) => {
-    const response = await authFetch(`${API_BASE}/api/security/findings/${findingId}/fix`, {
+  generateSecurityFix: async (findingId, llmId = null) => {
+    const url = llmId
+      ? `${API_BASE}/api/security/findings/${findingId}/fix?llm_id=${encodeURIComponent(llmId)}`
+      : `${API_BASE}/api/security/findings/${findingId}/fix`;
+    const response = await authFetch(url, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -630,6 +642,77 @@ export const api = {
     return response.json();
   },
 
+  // Multi-LLM Management API
+  getLLMConfigs: async () => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/configs`, {
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  createLLMConfig: async (config) => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/configs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(config)
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      throw new Error(msg);
+    }
+    return response.json();
+  },
+
+  updateLLMConfig: async (configId, update) => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/configs/${configId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(update)
+    });
+    if (!response.ok) {
+      const msg = await extractError(response, `HTTP error! status: ${response.status}`);
+      throw new Error(msg);
+    }
+    return response.json();
+  },
+
+  deleteLLMConfigItem: async (configId) => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/configs/${configId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  setDefaultLLMConfig: async (configId) => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/configs/${configId}/default`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  testRegisteredLLMConfig: async (configId) => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/configs/${configId}/test`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  getAvailableLLMs: async () => {
+    const response = await authFetch(`${API_BASE}/api/llm/available`, {
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   getCustomInstructions: async () => {
     const response = await authFetch(`${API_BASE}/api/admin/llm/instructions`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -660,8 +743,11 @@ export const api = {
   },
 
   // Mirror Pod API
-  previewMirrorPod: async (podId) => {
-    const response = await authFetch(`${API_BASE}/api/mirror/preview/${podId}`, {
+  previewMirrorPod: async (podId, llmId = null) => {
+    const url = llmId
+      ? `${API_BASE}/api/mirror/preview/${podId}?llm_id=${encodeURIComponent(llmId)}`
+      : `${API_BASE}/api/mirror/preview/${podId}`;
+    const response = await authFetch(url, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -833,12 +919,12 @@ export const api = {
 
   // Lazily generate (or fetch a cached) LLM explanation for a finding.
   // Idempotent on the backend — calling again on a finding whose explanation
-  // is already populated is cheap.
-  explainAdviceFinding: async (findingId) => {
-    const response = await authFetch(
-      `${API_BASE}/api/advice/findings/${findingId}/explain`,
-      { method: 'POST' },
-    );
+  // is already populated is cheap. If llmId is provided, regenerates with that LLM.
+  explainAdviceFinding: async (findingId, llmId = null) => {
+    const url = llmId
+      ? `${API_BASE}/api/advice/findings/${findingId}/explain?llm_id=${encodeURIComponent(llmId)}`
+      : `${API_BASE}/api/advice/findings/${findingId}/explain`;
+    const response = await authFetch(url, { method: 'POST' });
     if (!response.ok) {
       const msg = await extractError(response, `HTTP error! status: ${response.status}`);
       const err = new Error(msg);
