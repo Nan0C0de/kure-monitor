@@ -16,8 +16,16 @@ class SolutionEngine:
         self._db = db
         # Initialize LLM provider (will be set up properly after db init)
         self.llm_provider = None
+        # Custom instructions configured by cluster admin
+        self.custom_instructions: Optional[str] = None
         # Initialize hardcoded solutions dictionary
         self._init_solutions()
+
+    def _format_instructions(self) -> str:
+        """Format custom instructions for injection into system or user prompts"""
+        if self.custom_instructions and self.custom_instructions.strip():
+            return f"\n\n--- Custom Instructions (provided by cluster admin) ---\n{self.custom_instructions.strip()}\n--- End Custom Instructions ---"
+        return ""
 
     def _init_solutions(self):
         """Initialize hardcoded solutions for common Kubernetes pod issues (fallback)"""
@@ -111,7 +119,7 @@ class SolutionEngine:
         }
 
     async def initialize(self):
-        """Initialize the LLM provider from environment variables or database"""
+        """Initialize the LLM provider and custom instructions from database"""
         if self._db:
             try:
                 db_config = await self._db.get_llm_config()
@@ -132,6 +140,20 @@ class SolutionEngine:
                     )
             except Exception as e:
                 logger.warning(f"Failed to load LLM config: {e}")
+
+            try:
+                self.custom_instructions = await self._db.get_app_setting(
+                    "llm_custom_instructions"
+                )
+                if self.custom_instructions:
+                    logger.info("Loaded custom LLM instructions from database")
+            except Exception as e:
+                logger.warning(f"Failed to load custom LLM instructions: {e}")
+
+    def update_custom_instructions(self, instructions: Optional[str]) -> None:
+        """Update the active custom instructions in memory"""
+        self.custom_instructions = instructions.strip() if instructions and instructions.strip() else None
+        logger.info("Updated in-memory custom LLM instructions")
 
     async def reinitialize_llm(
         self, provider: str, api_key: str, model: str = None, base_url: str = None
@@ -217,6 +239,7 @@ class SolutionEngine:
                     events=events_dict,
                     container_statuses=container_statuses_dict,
                     pod_context=pod_context,
+                    custom_instructions=self.custom_instructions,
                 )
 
                 # Record success metrics
@@ -324,7 +347,7 @@ class SolutionEngine:
             "primary diagnostic signal. Identify the root cause of the failure from "
             "the logs and propose a specific, actionable fix. Reference concrete "
             "lines from the logs in your explanation."
-        )
+        ) + self._format_instructions()
 
         user_prompt = self._build_log_aware_prompt(
             reason=reason,
@@ -559,7 +582,8 @@ class SolutionEngine:
                 "is_fallback": True,
             }
 
-        system_prompt = """You are a Kubernetes expert. You will be given a Kubernetes Pod YAML manifest, a failure reason, events, and a suggested solution.
+        system_prompt = (
+            """You are a Kubernetes expert. You will be given a Kubernetes Pod YAML manifest, a failure reason, events, and a suggested solution.
 Your task is to produce a FIXED version of the manifest that resolves the failure.
 
 Rules:
@@ -577,6 +601,8 @@ Output format (follow EXACTLY):
 ```
 ---EXPLANATION---
 <brief explanation of what was changed and why, 2-4 sentences>"""
+            + self._format_instructions()
+        )
 
         user_prompt = f"""Pod Failure Details:
 - Failure Reason: {failure_reason}
@@ -681,7 +707,8 @@ Please provide the fixed manifest and explanation."""
                 "is_fallback": True,
             }
 
-        system_prompt = """You are a Kubernetes security expert. You will be given a Kubernetes resource YAML manifest and a security finding.
+        system_prompt = (
+            """You are a Kubernetes security expert. You will be given a Kubernetes resource YAML manifest and a security finding.
 Your task is to produce a FIXED version of the manifest that resolves the security issue.
 
 Rules:
@@ -699,6 +726,8 @@ Output format (follow EXACTLY):
 ```
 ---EXPLANATION---
 <brief explanation of what was changed and why, 2-4 sentences>"""
+            + self._format_instructions()
+        )
 
         user_prompt = f"""Security Finding:
 - Title: {title}

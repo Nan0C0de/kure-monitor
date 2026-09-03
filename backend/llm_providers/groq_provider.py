@@ -23,13 +23,23 @@ class GroqProvider(LLMProvider):
         failure_message: Optional[str] = None,
         events: List[Dict] = None,
         container_statuses: List[Dict] = None,
-        pod_context: Dict = None
+        pod_context: Dict = None,
+        custom_instructions: Optional[str] = None,
     ) -> LLMResponse:
         """Generate solution using Groq API"""
         prompt = self._build_prompt(
-            failure_reason, failure_message, events, container_statuses, pod_context
+            failure_reason,
+            failure_message,
+            events,
+            container_statuses,
+            pod_context,
+            custom_instructions=custom_instructions,
         )
-        
+
+        system_content = "You are a Kubernetes expert providing concise, actionable solutions for pod failures."
+        if custom_instructions and custom_instructions.strip():
+            system_content += f"\n\nCustom Instructions:\n{custom_instructions.strip()}"
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -40,7 +50,7 @@ class GroqProvider(LLMProvider):
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a Kubernetes expert providing concise, actionable solutions for pod failures."
+                    "content": system_content
                 },
                 {
                     "role": "user",

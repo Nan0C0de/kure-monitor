@@ -101,3 +101,23 @@ class TestSolutionEngine:
         
         assert "kubectl describe pod" in enhanced
         assert "docker pull" in enhanced
+
+    def test_custom_instructions_formatting_empty(self, solution_engine):
+        """Test formatting when no custom instructions are set"""
+        assert solution_engine._format_instructions() == ""
+
+    def test_custom_instructions_formatting_populated(self, solution_engine):
+        """Test formatting when custom instructions are present"""
+        solution_engine.update_custom_instructions("Always check istio-proxy logs first.")
+        formatted = solution_engine._format_instructions()
+        assert "--- Custom Instructions (provided by cluster admin) ---" in formatted
+        assert "Always check istio-proxy logs first." in formatted
+        assert "--- End Custom Instructions ---" in formatted
+
+    def test_custom_instructions_clear(self, solution_engine):
+        """Test clearing custom instructions"""
+        solution_engine.update_custom_instructions("Some rule")
+        assert solution_engine.custom_instructions == "Some rule"
+        solution_engine.update_custom_instructions("")
+        assert solution_engine.custom_instructions is None
+        assert solution_engine._format_instructions() == ""

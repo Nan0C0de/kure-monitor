@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search, Edit } from 'lucide-react';
+import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search, Edit, FileText } from 'lucide-react';
 import { api } from '../services/api';
 
 const LLMSettings = ({ isDark = false, onConfigChange }) => {
@@ -23,6 +23,12 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [baseUrl, setBaseUrl] = useState('');
   const [isCustomModelInput, setIsCustomModelInput] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Custom Instructions state
+  const [customInstructions, setCustomInstructions] = useState('');
+  const [savingInstructions, setSavingInstructions] = useState(false);
+  const [instructionsSuccess, setInstructionsSuccess] = useState(null);
+  const [instructionsError, setInstructionsError] = useState(null);
 
   const providers = [
     {
@@ -97,11 +103,55 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
 
   useEffect(() => {
     loadStatus();
+    loadInstructions();
     // Set default model for initial provider (anthropic)
     if (!model) {
       setModel('claude-sonnet-5');
     }
   }, []);
+
+  const loadInstructions = async () => {
+    try {
+      const res = await api.getCustomInstructions();
+      if (res && res.instructions !== undefined) {
+        setCustomInstructions(res.instructions);
+      }
+    } catch (err) {
+      console.error('Failed to load custom instructions:', err);
+    }
+  };
+
+  const handleSaveInstructions = async () => {
+    try {
+      setSavingInstructions(true);
+      setInstructionsError(null);
+      await api.saveCustomInstructions(customInstructions);
+      setInstructionsSuccess('Custom instructions saved successfully!');
+      setTimeout(() => setInstructionsSuccess(null), 3000);
+    } catch (err) {
+      setInstructionsError(err.message || 'Failed to save custom instructions');
+    } finally {
+      setSavingInstructions(false);
+    }
+  };
+
+  const handleDeleteInstructions = async () => {
+    if (!window.confirm('Are you sure you want to clear custom instructions?')) {
+      return;
+    }
+    try {
+      setSavingInstructions(true);
+      setInstructionsError(null);
+      await api.deleteCustomInstructions();
+      setCustomInstructions('');
+      setInstructionsSuccess('Custom instructions cleared successfully!');
+      setTimeout(() => setInstructionsSuccess(null), 3000);
+    } catch (err) {
+      setInstructionsError(err.message || 'Failed to clear custom instructions');
+    } finally {
+      setSavingInstructions(false);
+    }
+  };
 
   const loadStatus = async () => {
     try {
@@ -626,6 +676,93 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
         </div>
       </div>
       )}
+
+      {/* Custom LLM Instructions Section */}
+      <div className={`border rounded-sm p-4 ${isDark ? 'border-gray-700 bg-gray-800/30' : 'border-gray-200 bg-white'}`}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center">
+            <FileText className="w-4 h-4 text-blue-500 mr-2" />
+            <h3 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              Custom AI Instructions
+            </h3>
+          </div>
+          <span className={`text-xs ${customInstructions.length > 9000 ? 'text-amber-500 font-semibold' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            {customInstructions.length} / 10,000 characters
+          </span>
+        </div>
+
+        <p className={`text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+          Provide domain knowledge, architecture details (e.g. Istio sidecars, Vault injectors), or output style guidelines. These instructions are injected into all troubleshooting and fix-generation prompts.
+        </p>
+
+        {instructionsError && (
+          <div className={`border rounded-sm p-2.5 mb-3 ${isDark ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200'}`}>
+            <div className="flex items-center">
+              <AlertCircle className="w-4 h-4 text-red-500 mr-2 flex-shrink-0" />
+              <span className={`text-xs ${isDark ? 'text-red-300' : 'text-red-800'}`}>{instructionsError}</span>
+            </div>
+          </div>
+        )}
+
+        {instructionsSuccess && (
+          <div className={`border rounded-sm p-2.5 mb-3 ${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'}`}>
+            <div className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+              <span className={`text-xs ${isDark ? 'text-green-300' : 'text-green-800'}`}>{instructionsSuccess}</span>
+            </div>
+          </div>
+        )}
+
+        <textarea
+          rows={6}
+          value={customInstructions}
+          onChange={(e) => setCustomInstructions(e.target.value)}
+          maxLength={10000}
+          placeholder="Example:
+- Our cluster uses Istio sidecars. If you see connection issues or CrashLoopBackOff, check istio-proxy container logs before assuming application errors.
+- Always provide Helm values.yaml snippets for fixes when modifying deployments.
+- For payment-service, required environment variables are injected by Vault Agent."
+          className={`w-full px-3 py-2 text-xs font-mono border rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y leading-relaxed ${
+            isDark
+              ? 'bg-gray-900 border-gray-700 text-gray-200 placeholder-gray-500'
+              : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+          }`}
+        />
+
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveInstructions}
+              disabled={savingInstructions}
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-sm shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              {savingInstructions ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Save Instructions
+            </button>
+            {customInstructions && (
+              <button
+                onClick={handleDeleteInstructions}
+                disabled={savingInstructions}
+                className={`inline-flex items-center px-3 py-1.5 text-xs font-medium border rounded-sm focus:outline-none disabled:opacity-50 ${
+                  isDark
+                    ? 'text-red-300 bg-red-900/30 border-red-800 hover:bg-red-900/50'
+                    : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                Clear
+              </button>
+            )}
+          </div>
+          <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+            Saved globally in cluster configuration
+          </span>
+        </div>
+      </div>
 
       {/* API Key Modal for Discovered Endpoint */}
       {pendingEndpoint && (

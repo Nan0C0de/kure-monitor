@@ -5,6 +5,8 @@ from models.models import (
     LLMConfigCreate,
     LLMConfigResponse,
     LLMConfigStatus,
+    LLMCustomInstructionsUpdate,
+    LLMCustomInstructionsResponse,
 )
 from .auth import require_write
 from .deps import RouterDeps
@@ -139,4 +141,55 @@ def create_llm_router(deps: RouterDeps) -> APIRouter:
             logger.error(f"Error testing LLM config: {e}")
             return {"success": False, "message": str(e)}
 
+    # --- Custom Instructions ---
+
+    @router.get("/admin/llm/instructions", response_model=LLMCustomInstructionsResponse)
+    async def get_custom_instructions():
+        """Get the current custom instructions for LLM prompts"""
+        try:
+            instructions = await db.get_app_setting("llm_custom_instructions") or ""
+            return LLMCustomInstructionsResponse(
+                instructions=instructions,
+            )
+        except Exception as e:
+            logger.error(f"Error getting custom instructions: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+    @router.put("/admin/llm/instructions", response_model=LLMCustomInstructionsResponse)
+    async def save_custom_instructions(body: LLMCustomInstructionsUpdate):
+        """Save or update custom instructions for LLM prompts (max 10,000 characters)"""
+        try:
+            cleaned = body.instructions.strip()
+            # Enforce 10,000 characters maximum
+            if len(cleaned) > 10000:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Instructions exceed maximum allowed length of 10,000 characters",
+                )
+
+            await db.set_app_setting("llm_custom_instructions", cleaned)
+            solution_engine.update_custom_instructions(cleaned)
+            logger.info("Custom instructions saved and updated in solution engine")
+
+            return LLMCustomInstructionsResponse(
+                instructions=cleaned,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error saving custom instructions: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+    @router.delete("/admin/llm/instructions")
+    async def delete_custom_instructions():
+        """Clear custom instructions for LLM prompts"""
+        try:
+            await db.set_app_setting("llm_custom_instructions", "")
+            solution_engine.update_custom_instructions("")
+            return {"message": "Custom instructions deleted"}
+        except Exception as e:
+            logger.error(f"Error deleting custom instructions: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+
     return router
+

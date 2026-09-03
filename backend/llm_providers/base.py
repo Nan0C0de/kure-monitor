@@ -65,6 +65,7 @@ class LLMProvider(ABC):
         events: List[Dict] = None,
         container_statuses: List[Dict] = None,
         pod_context: Dict = None,
+        custom_instructions: Optional[str] = None,
     ) -> LLMResponse:
         """Generate a solution for the Kubernetes issue"""
         pass
@@ -81,9 +82,15 @@ class LLMProvider(ABC):
         events: List[Dict] = None,
         container_statuses: List[Dict] = None,
         pod_context: Dict = None,
+        custom_instructions: Optional[str] = None,
     ) -> str:
         """Build the prompt for the LLM"""
-        prompt = f"""You are a Kubernetes expert helping to diagnose and fix pod failures.
+        prompt = "You are a Kubernetes expert helping to diagnose and fix pod failures."
+
+        if custom_instructions and custom_instructions.strip():
+            prompt += f"\n\n--- Custom Instructions (provided by cluster admin) ---\n{custom_instructions.strip()}\n--- End Custom Instructions ---"
+
+        prompt += f"""
 
 Pod Failure Details:
 - Failure Reason: {failure_reason}"""

@@ -630,6 +630,35 @@ export const api = {
     return response.json();
   },
 
+  getCustomInstructions: async () => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/instructions`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
+  saveCustomInstructions: async (instructions) => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/instructions`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ instructions })
+    });
+    if (!response.ok) {
+      const errorMsg = await extractError(response, `HTTP error! status: ${response.status}`);
+      throw new Error(errorMsg);
+    }
+    return response.json();
+  },
+
+  deleteCustomInstructions: async () => {
+    const response = await authFetch(`${API_BASE}/api/admin/llm/instructions`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+
   // Mirror Pod API
   previewMirrorPod: async (podId) => {
     const response = await authFetch(`${API_BASE}/api/mirror/preview/${podId}`, {

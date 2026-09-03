@@ -224,6 +224,15 @@ class LLMConfigStatus(BaseModel):
     source: Optional[str] = None  # "database"
 
 
+class LLMCustomInstructionsUpdate(BaseModel):
+    instructions: str
+
+
+class LLMCustomInstructionsResponse(BaseModel):
+    instructions: str
+    updated_at: Optional[str] = None
+
+
 # Mirror Pod models
 class MirrorDeployRequest(BaseModel):
     ttl_seconds: Optional[int] = None  # Uses admin default if omitted
