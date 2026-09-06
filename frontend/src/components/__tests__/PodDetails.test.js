@@ -24,6 +24,7 @@ jest.mock('lucide-react', () => ({
   FlaskConical: () => <span data-testid="flask-icon">FlaskConical</span>,
   Wand2: ({ className }) => <span data-testid="wand-icon" className={className}>Wand2</span>,
   Sparkles: ({ className }) => <span data-testid="sparkles-icon" className={className}>Sparkles</span>,
+  Loader2: ({ className }) => <span data-testid="loader2-icon" className={className}>Loader2</span>,
 }));
 
 // Mock API

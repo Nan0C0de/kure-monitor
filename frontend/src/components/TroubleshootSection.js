@@ -61,9 +61,16 @@ const TroubleshootSection = ({
     }
     try {
       const llmToUse = selectedLLMId ? parseInt(selectedLLMId, 10) : null;
-      const response = regenerate
-        ? await api.regenerateLogAwareSolution(pod.id, llmToUse)
-        : await api.generateLogAwareSolution(pod.id, llmToUse);
+      let response;
+      if (regenerate) {
+        response = llmToUse !== null
+          ? await api.regenerateLogAwareSolution(pod.id, llmToUse)
+          : await api.regenerateLogAwareSolution(pod.id);
+      } else {
+        response = llmToUse !== null
+          ? await api.generateLogAwareSolution(pod.id, llmToUse)
+          : await api.generateLogAwareSolution(pod.id);
+      }
       setSolution(response.solution);
       setGeneratedAt(response.generated_at);
       if (onLogAwareSolutionUpdated) {

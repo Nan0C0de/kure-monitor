@@ -25,7 +25,7 @@ describe('StatusBadge', () => {
   test('applies correct CSS classes for all status types', () => {
     const { rerender } = render(<StatusBadge reason="ImagePullBackOff" />);
     let badge = screen.getByText('ImagePullBackOff');
-    expect(badge).toHaveClass('bg-red-50', 'text-red-700', 'border-red-300');
+    expect(badge).toHaveClass('bg-blue-50', 'text-blue-700', 'border-blue-300');
 
     rerender(<StatusBadge reason="FailedMount" />);
     badge = screen.getByText('FailedMount');

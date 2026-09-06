@@ -164,7 +164,9 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
     setIsRetrying(true);
     try {
       const llmToUse = targetLLMId !== null ? targetLLMId : (selectedLLMId ? parseInt(selectedLLMId, 10) : null);
-      const updatedPod = await api.retrySolution(pod.id, llmToUse);
+      const updatedPod = llmToUse !== null
+        ? await api.retrySolution(pod.id, llmToUse)
+        : await api.retrySolution(pod.id);
       if (onSolutionUpdated) {
         onSolutionUpdated(updatedPod);
       }
@@ -557,7 +559,7 @@ const PodDetails = ({ pod, onViewManifest, onViewLogs, onTestFix, onSolutionUpda
                 Generate a quick AI-based solution for this failure.
               </p>
               <button
-                onClick={handleRetrySolution}
+                onClick={() => handleRetrySolution()}
                 disabled={isRetrying || !aiEnabled}
                 className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'text-blue-300 bg-blue-900/40 border border-blue-700 hover:bg-blue-900/60' : 'text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200'}`}
                 title={!aiEnabled ? 'AI provider not configured' : 'Generate a quick AI solution'}

@@ -1,0 +1,248 @@
+name: Build and Push Images on Push
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'agent/**'
+      - 'security-scanner/**'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to build (or all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend
+          - frontend
+          - agent
+          - security-scanner
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: igor-koricanac/kure-monitor
+
+permissions: {}
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      agent: ${{ steps.filter.outputs.agent }}
+      security-scanner: ${{ steps.filter.outputs.security-scanner }}
+      sha_short: ${{ steps.vars.outputs.sha_short }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set outputs
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Path Filters
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            agent:
+              - 'agent/**'
+            security-scanner:
+              - 'security-scanner/**'
+
+  # ==================== BACKEND ====================
+  build-backend:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.backend == 'true' ||
+      github.event.inputs.service == 'all' ||
+      github.event.inputs.service == 'backend'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend
+          tags: |
+            type=raw,value=${{ needs.detect-changes.outputs.sha_short }}
+            type=raw,value=latest
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          no-cache: true
+
+      - name: Summary
+        run: |
+          echo "### 🐳 Backend Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:${{ needs.detect-changes.outputs.sha_short }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:latest\`" >> $GITHUB_STEP_SUMMARY
+
+  # ==================== FRONTEND ====================
+  build-frontend:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.frontend == 'true' ||
+      github.event.inputs.service == 'all' ||
+      github.event.inputs.service == 'frontend'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend
+          tags: |
+            type=raw,value=${{ needs.detect-changes.outputs.sha_short }}
+            type=raw,value=latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          no-cache: true
+          provenance: false
+
+      - name: Summary
+        run: |
+          echo "### 🌐 Frontend Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ needs.detect-changes.outputs.sha_short }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:latest\`" >> $GITHUB_STEP_SUMMARY
+
+  # ==================== AGENT ====================
+  build-agent:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.agent == 'true' ||
+      github.event.inputs.service == 'all' ||
+      github.event.inputs.service == 'agent'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent
+          tags: |
+            type=raw,value=${{ needs.detect-changes.outputs.sha_short }}
+            type=raw,value=latest
+
+      - name: Build and push agent image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./agent
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          no-cache: true
+
+      - name: Summary
+        run: |
+          echo "### 🤖 Agent Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:${{ needs.detect-changes.outputs.sha_short }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/agent:latest\`" >> $GITHUB_STEP_SUMMARY
+
+  # ==================== SECURITY SCANNER ====================
+  build-security-scanner:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.security-scanner == 'true' ||
+      github.event.inputs.service == 'all' ||
+      github.event.inputs.service == 'security-scanner'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner
+          tags: |
+            type=raw,value=${{ needs.detect-changes.outputs.sha_short }}
+            type=raw,value=latest
+
+      - name: Build and push security scanner image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./security-scanner
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          no-cache: true
+
+      - name: Summary
+        run: |
+          echo "### 🛡️ Security Scanner Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:${{ needs.detect-changes.outputs.sha_short }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/security-scanner:latest\`" >> $GITHUB_STEP_SUMMARY

@@ -279,3 +279,9 @@ local_setup
 
 # Mock Data
 db_pods.json
+
+# K8s Directory
+k8s/
+
+# FluxRepo
+flux/base

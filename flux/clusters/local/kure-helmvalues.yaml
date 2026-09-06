@@ -1,0 +1,35 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kure-monitor
+  namespace: kure-system
+spec:
+  valuesFrom:
+    - kind: Secret
+      name: kure-postgres-auth
+      valuesKey: password
+      targetPath: postgresql.password
+  values:
+    backend:
+      image:
+        repository: ghcr.io/igor-koricanac/kure-monitor/backend
+        tag: "2.4.5"
+        pullPolicy: IfNotPresent
+    frontend:
+      image:
+        repository: ghcr.io/igor-koricanac/kure-monitor/frontend
+        tag: "2.4.5"
+        pullPolicy: IfNotPresent
+    agent:
+      image:
+        repository: ghcr.io/igor-koricanac/kure-monitor/agent
+        tag: "2.4.5"
+        pullPolicy: IfNotPresent
+    securityScanner:
+      image:
+        repository: ghcr.io/igor-koricanac/kure-monitor/security-scanner
+        tag: "2.4.5"
+        pullPolicy: IfNotPresent
+    postgresql:
+      persistence:
+        size: 2Gi

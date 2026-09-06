@@ -113,7 +113,9 @@ const AdviceFindingCard = ({
     setExplanationLoading(true);
     try {
       const llmToUse = selectedLLMId ? parseInt(selectedLLMId, 10) : null;
-      const updated = await api.explainAdviceFinding(finding.id, llmToUse);
+      const updated = llmToUse
+        ? await api.explainAdviceFinding(finding.id, llmToUse)
+        : await api.explainAdviceFinding(finding.id);
       const newExplanation = updated?.explanation || null;
       setCachedExplanation(newExplanation);
       setExplanationFetched(true);

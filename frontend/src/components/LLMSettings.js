@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search, Edit, FileText, Star, Plus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Bot, Save, Trash2, CheckCircle, AlertCircle, Loader2, Eye, EyeOff, Search, Edit, FileText, Star, Plus, Download, Upload } from 'lucide-react';
 import { api } from '../services/api';
 
 const LLMSettings = ({ isDark = false, onConfigChange }) => {
@@ -38,6 +38,7 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
   const [savingInstructions, setSavingInstructions] = useState(false);
   const [instructionsSuccess, setInstructionsSuccess] = useState(null);
   const [instructionsError, setInstructionsError] = useState(null);
+  const fileInputRef = useRef(null);
 
   const providers = [
     {
@@ -171,6 +172,76 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     } finally {
       setSavingInstructions(false);
     }
+  };
+
+  const handleExportInstructions = () => {
+    try {
+      setInstructionsError(null);
+      const content = customInstructions || '';
+      if (!content.trim()) {
+        setInstructionsError('There are no instructions to export.');
+        setTimeout(() => setInstructionsError(null), 3000);
+        return;
+      }
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'kure-instructions.md';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setInstructionsSuccess('Instructions exported as kure-instructions.md');
+      setTimeout(() => setInstructionsSuccess(null), 3000);
+    } catch (err) {
+      setInstructionsError(err.message || 'Failed to export instructions');
+    }
+  };
+
+  const handleImportClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate that the file has .md extension
+    if (!file.name.toLowerCase().endsWith('.md')) {
+      setInstructionsError('Please select a valid markdown (.md) file.');
+      setTimeout(() => setInstructionsError(null), 4000);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result;
+        if (typeof text === 'string') {
+          if (text.length > 10000) {
+            setInstructionsError('Imported file exceeds the 10,000 character limit. It was truncated.');
+            setCustomInstructions(text.slice(0, 10000));
+          } else {
+            setCustomInstructions(text);
+            setInstructionsSuccess(`Imported "${file.name}" successfully! Click "Save Instructions" to persist.`);
+          }
+          setTimeout(() => {
+            setInstructionsSuccess(null);
+            setInstructionsError(null);
+          }, 4000);
+        }
+      } catch (err) {
+        setInstructionsError('Failed to read markdown file: ' + err.message);
+      }
+    };
+    reader.onerror = () => {
+      setInstructionsError('Failed to read the selected file.');
+    };
+    reader.readAsText(file);
   };
 
   const loadStatus = async () => {
@@ -943,8 +1014,8 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
           }`}
         />
 
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleSaveInstructions}
               disabled={savingInstructions}
@@ -957,6 +1028,46 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
               )}
               Save Instructions
             </button>
+
+            {/* Hidden file input restricted to .md files */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".md,text/markdown"
+              style={{ display: 'none' }}
+            />
+
+            <button
+              type="button"
+              onClick={handleImportClick}
+              disabled={savingInstructions}
+              title="Import instructions from a .md file"
+              className={`inline-flex items-center px-3 py-1.5 text-xs font-medium border rounded-sm focus:outline-none disabled:opacity-50 ${
+                isDark
+                  ? 'border-gray-700 text-gray-300 bg-gray-800 hover:bg-gray-700'
+                  : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5 mr-1.5 text-blue-500" />
+              Import (.md)
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportInstructions}
+              disabled={savingInstructions || !customInstructions.trim()}
+              title="Export instructions as kure-instructions.md"
+              className={`inline-flex items-center px-3 py-1.5 text-xs font-medium border rounded-sm focus:outline-none disabled:opacity-50 ${
+                isDark
+                  ? 'border-gray-700 text-gray-300 bg-gray-800 hover:bg-gray-700'
+                  : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+              }`}
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />
+              Export (.md)
+            </button>
+
             {customInstructions && (
               <button
                 onClick={handleDeleteInstructions}
