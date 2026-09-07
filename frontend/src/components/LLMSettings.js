@@ -92,6 +92,26 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       ]
     },
     {
+      value: 'copilot',
+      label: 'GitHub Copilot / Models',
+      trust: 'external',
+      trustLabel: 'External - data sent to GitHub Models',
+      needsApiKey: true,
+      optionalApiKey: false,
+      needsBaseUrl: true,
+      defaultBaseUrl: 'https://models.github.ai/inference',
+      defaultModel: 'openai/gpt-5.5-mini',
+      apiKeyHelper: 'GitHub Personal Access Token (PAT) with access to GitHub Models',
+      baseUrlHelper: 'Base URL (default: https://models.github.ai/inference)',
+      models: [
+        { value: 'openai/gpt-5.5-mini', label: 'GPT-5.5 Mini (Default)' },
+        { value: 'openai/gpt-5', label: 'GPT-5' },
+        { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4' },
+        { value: 'meta/llama-3.3-70b-instruct', label: 'Llama 3.3 70B Instruct' },
+        { value: 'deepseek/deepseek-r1', label: 'DeepSeek R1' }
+      ]
+    },
+    {
       value: 'custom_local',
       label: 'Custom Endpoint',
       trust: 'local',
@@ -447,10 +467,19 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
     try {
       setTesting(true);
       setError(null);
-      const result = await api.testLLMConfig(buildPayload());
+      const payload = buildPayload();
+      const result = await api.testLLMConfig(payload);
       if (result.success) {
-        setSuccess('Connection test successful!');
-        setTimeout(() => setSuccess(null), 3000);
+        setSuccess('Connection test successful! Registering LLM...');
+        // Auto-register LLM on successful connection test
+        try {
+          await persistConfig(payload);
+          setSuccess('Connection test successful and LLM registered!');
+        } catch (saveErr) {
+          console.warn('Auto-registration after test failed:', saveErr);
+          setSuccess('Connection test successful! (Click Save & Register to retry saving)');
+        }
+        setTimeout(() => setSuccess(null), 3500);
       } else {
         setError(result.message || 'Test failed');
       }
@@ -458,6 +487,42 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setError(err.message || 'Test failed');
     } finally {
       setTesting(false);
+    }
+  };
+
+  const persistConfig = async (payload) => {
+    if (editingConfigId) {
+      await api.updateLLMConfig(editingConfigId, {
+        name: payload.name,
+        provider: payload.provider,
+        api_key: apiKey ? apiKey : null,
+        model: payload.model,
+        base_url: payload.base_url,
+        is_default: payload.is_default,
+      });
+    } else {
+      try {
+        await api.createLLMConfig(payload);
+      } catch (err) {
+        // Fallback to legacy single-config endpoint if backend doesn't support multi-LLM route yet
+        if (err.message && (err.message.includes('404') || err.message.includes('Not Found'))) {
+          await api.saveLLMConfig(payload);
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    setApiKey(''); // Clear API key from form after save
+    setConfigName('');
+    setIsDefaultCheckbox(false);
+    setIsEditing(false);
+    setEditingConfigId(null);
+    setShowAddForm(false);
+    await loadConfigs();
+    await loadStatus();
+    if (onConfigChange) {
+      onConfigChange();
     }
   };
 
@@ -475,34 +540,8 @@ const LLMSettings = ({ isDark = false, onConfigChange }) => {
       setSaving(true);
       setError(null);
       const payload = buildPayload();
-      
-      if (editingConfigId) {
-        await api.updateLLMConfig(editingConfigId, {
-          name: payload.name,
-          provider: payload.provider,
-          api_key: apiKey ? apiKey : null,
-          model: payload.model,
-          base_url: payload.base_url,
-          is_default: payload.is_default,
-        });
-        setSuccess('LLM configuration updated successfully!');
-      } else {
-        await api.createLLMConfig(payload);
-        setSuccess('LLM registered successfully!');
-      }
-
-      setApiKey(''); // Clear API key from form after save
-      setConfigName('');
-      setIsDefaultCheckbox(false);
-      setIsEditing(false);
-      setEditingConfigId(null);
-      setShowAddForm(false);
-      await loadConfigs();
-      await loadStatus();
-      // Notify parent that config has changed so aiEnabled state updates
-      if (onConfigChange) {
-        onConfigChange();
-      }
+      await persistConfig(payload);
+      setSuccess(editingConfigId ? 'LLM configuration updated successfully!' : 'LLM registered successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.message || 'Failed to save configuration');
